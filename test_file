@@ -1,0 +1,93 @@
+from typing import Any
+
+
+class Event:
+    next_id = 1
+    def __init__(self, id, name, start_time, end_time, location, kid_name):
+        self.name = name 
+        self.start_time = start_time
+        self.end_time = end_time
+        self.location = location
+        self.kid_name = kid_name
+        self.id = Event.next_id 
+        Event.next_id += 1
+
+
+def add_event(id, name, start_time, end_time, location, kid_name):
+    event = Event(id, name, start_time, end_time, location, kid_name)
+    conflict = has_conflict(event)
+
+    if conflict:
+        return None
+
+
+    event_list.append(event)
+
+    return event
+
+
+def list_events():
+    print("Here are all your events:")
+    for event in event_list:
+        print(f"{event.name} starts at {event.start_time}")
+
+
+def has_conflict(new_event):
+
+    for event in event_list:
+        if (new_event.start_time < event.end_time) and (new_event.end_time > event.start_time):
+            return True
+
+        return False 
+
+def delete_event(event_id):
+    for i, item in enumerate(event_list):
+        if item.id == event_id:
+            event_list.pop(i)
+            return True 
+            
+    return False 
+
+
+
+if __name__ == "__main__":
+    event_list = []   # fresh list for each test run
+
+    print("=== Testing Fusion Event System ===\n")
+
+    # Test 1: Add first event
+    e1 = add_event(1, "Soccer Practice", "2026-04-20 16:00", "2026-04-20 17:00", "Park", "Liam")
+    if e1:
+        print(f"✅ Added: {e1.name} for {e1.kid_name}")
+    else:
+        print("❌ Failed to add Soccer Practice")
+
+    # Test 2: Try to add overlapping event
+    e2 = add_event(2, "Piano Lesson", "2026-04-20 16:30", "2026-04-20 17:30", "Music School", "Emma")
+    if e2:
+        print(f"✅ Added: {e2.name} for {e2.kid_name}")
+    else:
+        print("❌ Cannot add Piano Lesson - Time conflict detected!")
+
+    # Test 3: Add non-overlapping event
+    e3 = add_event(3, "Swimming", "2026-04-20 18:00", "2026-04-20 19:00", "Pool", "Liam")
+    if e3:
+        print(f"✅ Added: {e3.name} for {e3.kid_name}")
+    else:
+        print("❌ Failed to add Swimming")
+
+    print("\nFinal event list:")
+    list_events()
+
+        # Test delete_event
+    print("\n=== Testing Delete ===")
+    print("Before delete:", len(event_list), "events")
+
+    deleted = delete_event(e1.id)   # delete the first event we added
+    if deleted:
+        print("✅ Successfully deleted event")
+    else:
+        print("❌ Delete failed")
+
+    print("After delete:", len(event_list), "events")
+    list_events()
