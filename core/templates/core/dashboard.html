@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Fusion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="max-w-4xl mx-auto p-8">
+        <h1 class="text-4xl font-bold text-gray-900 mb-2">Welcome back, {{ request.user.first_name|default:request.user.username }} 👋</h1>
+        <p class="text-gray-600 mb-10">Here's what's happening with your family today</p>
+
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-3 gap-6 mb-10">
+            <div class="bg-white p-6 rounded-2xl shadow">
+                <p class="text-sm text-gray-500">Upcoming Events</p>
+                <p class="text-4xl font-semibold text-blue-600 mt-2">3</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow">
+                <p class="text-sm text-gray-500">Kids</p>
+                <p class="text-4xl font-semibold text-emerald-600 mt-2">2</p>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow">
+                <p class="text-sm text-gray-500">This Week</p>
+                <p class="text-4xl font-semibold text-purple-600 mt-2">8</p>
+            </div>
+        </div>
+
+        <div class="flex gap-4">
+            <a href="{% url 'add_event' %}" 
+               class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-xl font-semibold flex-1 text-center">
+                + Add New Event
+            </a>
+            
+            <a href="{% url 'event_list' %}" 
+               class="bg-white hover:bg-gray-50 border border-gray-300 px-6 py-4 rounded-xl font-semibold flex-1 text-center">
+                View All Events
+            </a>
+        </div>
+    </div>
+</body>
+</html>
