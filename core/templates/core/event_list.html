@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Events</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-6 bg-gray-100">
+
+    <h1 class="text-3xl font-bold mb-6">My Family Events</h1>
+
+    <a href="/core/add_event/" 
+       class="bg-blue-600 text-white px-4 py-2 rounded-lg mb-6 inline-block">
+        + Add New Event
+    </a>
+
+    <div class="space-y-4">
+        {% for event in events %}
+            <div class="bg-white p-4 rounded-xl shadow">
+                <h2 class="font-semibold">{{ event.name }}</h2>
+                <p class="text-gray-600">{{ event.kid_attending }} • {{ event.start_time }} - {{ event.end_time }}</p>
+                <p class="text-gray-500">{{ event.location }}</p>
+                
+                <a href="/core/edit_event/{{ event.id }}/" 
+                   class="text-blue-600 hover:underline mt-2 inline-block">
+                    Edit
+                </a>
+                <a href="/core/delete_event/{{ event.id }}/" 
+   class="text-red-600 hover:underline mt-2 inline-block ml-4">
+    Delete
+</a>
+            </div>
+        {% empty %}
+            <p>No events yet.</p>
+        {% endfor %}
+    </div>
+
+</body>
+</html>

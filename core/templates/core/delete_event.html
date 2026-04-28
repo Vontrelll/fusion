@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Event</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-gray-100">
+
+    <div class="bg-white w-full max-w-md mx-auto rounded-2xl shadow-lg overflow-hidden">
+        <!-- Header -->
+        <div class="bg-red-600 text-white p-4 text-center">
+            <h1 class="text-2xl font-semibold">Delete Event</h1>
+        </div>
+
+        <div class="p-6">
+            <p class="text-gray-700 text-lg mb-6">
+                Are you sure you want to delete <strong>"{{ event.name }}"</strong>?
+            </p>
+            
+            <p class="text-sm text-gray-500 mb-6">
+                This action cannot be undone.
+            </p>
+
+            <form method="POST" class="space-y-4">
+                {% csrf_token %}
+
+                <div class="flex gap-3">
+                    <!-- Cancel Button -->
+                    <a href="/core/" 
+                       class="flex-1 text-center py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50">
+                        Cancel
+                    </a>
+
+                    <!-- Confirm Delete Button -->
+                    <button type="submit"
+                            class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition duration-200">
+                        Yes, Delete Event
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>
