@@ -1,39 +1,160 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>My Events</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="p-6 bg-gray-100">
+{% extends 'core/base.html' %}
+{% block title %}My Events - Fusion{% endblock %}
 
-    <h1 class="text-3xl font-bold mb-6">My Family Events</h1>
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6 flex gap-6">
 
-    <a href="/core/add_event/" 
-       class="bg-blue-600 text-white px-4 py-2 rounded-lg mb-6 inline-block">
-        + Add New Event
-    </a>
+  <!-- LEFT SIDEBAR -->
+  <div class="w-64 hidden lg:block">
+    <div class="sticky top-6 bg-white rounded-2xl shadow p-5">
+      <h3 class="font-semibold mb-4 flex items-center gap-2">
+        <span class="text-2xl">📅</span> Events
+      </h3>
+      
+      <div class="space-y-1">
+        <a href="{% url 'event_list' %}" 
+           class="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 text-blue-600 font-semibold">
+          <span>All Events</span>
+        </a>
+        <a href="#" 
+           class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
+          <span>Upcoming</span>
+        </a>
+        <a href="#" 
+           class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
+          <span>This Week</span>
+        </a>
+        <a href="#" 
+           class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
+          <span>Past Events</span>
+        </a>
+      </div>
 
-    <div class="space-y-4">
-        {% for event in events %}
-            <div class="bg-white p-4 rounded-xl shadow">
-                <h2 class="font-semibold">{{ event.name }}</h2>
-                <p class="text-gray-600">{{ event.kid_attending }} • {{ event.start_time }} - {{ event.end_time }}</p>
-                <p class="text-gray-500">{{ event.location }}</p>
-                
-                <a href="/core/edit_event/{{ event.id }}/" 
-                   class="text-blue-600 hover:underline mt-2 inline-block">
-                    Edit
-                </a>
-                <a href="/core/delete_event/{{ event.id }}/" 
-   class="text-red-600 hover:underline mt-2 inline-block ml-4">
-    Delete
-</a>
-            </div>
-        {% empty %}
-            <p>No events yet.</p>
-        {% endfor %}
+      <div class="border-t border-gray-200 my-6"></div>
+      
+      <a href="{% url 'add_event' %}" 
+         class="block w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-3 rounded-xl font-semibold">
+        + Create New Event
+      </a>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="flex-1 max-w-2xl">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-8">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">My Family Events</h1>
+        <p class="text-gray-600 mt-1">All your kids’ activities in one place</p>
+      </div>
+      <a href="{% url 'add_event' %}" 
+         class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 shadow">
+        <span class="text-2xl leading-none">+</span> New Event
+      </a>
     </div>
 
-</body>
-</html>
+    <!-- Events Feed -->
+    {% if events %}
+    <div class="space-y-4">
+      {% for event in events %}
+      <div class="bg-white rounded-3xl shadow p-6 flex gap-6 hover:shadow-md transition-all">
+        
+        <!-- Date Circle -->
+        <div class="flex-shrink-0 w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl flex flex-col items-center justify-center text-center">
+          <span class="text-xs font-medium tracking-widest">
+            {{ event.start_time|date:"M" }}
+          </span>
+          <span class="text-4xl font-bold leading-none mt-1">
+            {{ event.start_time|date:"d" }}
+          </span>
+        </div>
+
+        <!-- Event Details -->
+        <div class="flex-1 min-w-0">
+          <h2 class="font-semibold text-2xl text-gray-900">{{ event.name }}</h2>
+          
+          <div class="flex items-center gap-2 text-gray-600 mt-3">
+            <span class="text-xl">👦</span>
+            <span>{{ event.kid_attending }}</span>
+          </div>
+
+          <div class="mt-4 flex items-center gap-6 text-sm">
+            <div class="flex items-center gap-2">
+              <span class="text-gray-400">🕒</span>
+              <span>
+                {{ event.start_time|time:"g:i A" }} — {{ event.end_time|time:"g:i A" }}
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-gray-400">📍</span>
+              <span>{{ event.location }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-col justify-between items-end gap-3">
+          <span class="text-xs bg-green-100 text-green-700 px-4 py-1.5 rounded-full font-medium">
+            Confirmed
+          </span>
+          
+          <div class="flex gap-4 text-sm">
+            <a href="{% url 'edit_event' event.id %}" 
+               class="text-blue-600 hover:text-blue-700 font-medium">Edit</a>
+            <a href="{% url 'delete_event' event.id %}" 
+               class="text-red-600 hover:text-red-700 font-medium">Delete</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-white rounded-3xl p-16 text-center shadow">
+      <div class="text-6xl mb-6">📅</div>
+      <p class="text-2xl font-medium text-gray-700">No events yet</p>
+      <p class="text-gray-500 mt-3 max-w-xs mx-auto">
+        When you add events for your kids, they will appear here.
+      </p>
+      <a href="{% url 'add_event' %}" 
+         class="inline-block mt-8 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-semibold">
+        + Add Your First Event
+      </a>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- RIGHT SIDEBAR -->
+  <div class="w-80 hidden xl:block">
+    <div class="sticky top-6 space-y-6">
+      
+      <!-- Quick Stats -->
+      <div class="bg-white rounded-2xl shadow p-6">
+        <h3 class="font-semibold mb-4">This Month</h3>
+        <div class="space-y-4 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-600">Total Events</span>
+            <span class="font-semibold">{{ events|length }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600">This Week</span>
+            <span class="font-semibold text-purple-600">{{ weeks_events_count|default:0 }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mini Calendar Hint -->
+      <div class="bg-white rounded-2xl shadow p-6">
+        <h3 class="font-semibold mb-4">Upcoming</h3>
+        <p class="text-sm text-gray-500 italic">
+          Full calendar view coming soon...
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends 'core/base.html' %}
+{% block title %}My Teams - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 py-8">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">My Teams</h1>
+            <p class="text-gray-600 mt-1">Manage the teams you coach or organize</p>
+        </div>
+        <a href="{% url 'create_team' %}" 
+           class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2">
+            + Create New Team
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for team in teams %}
+        <div class="bg-white rounded-3xl shadow p-6 hover:shadow-md transition">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="text-xl font-semibold">{{ team.name }}</h3>
+                    <p class="text-gray-500">{{ team.get_sport_type_display }}</p>
+                </div>
+                <span class="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
+                    Admin
+                </span>
+            </div>
+            
+            <div class="mt-6 flex gap-3">
+                <a href="#" 
+                   class="flex-1 text-center py-3 bg-gray-100 hover:bg-gray-200 rounded-2xl text-sm font-medium">
+                    View Roster
+                </a>
+                <a href="#" 
+                   class="flex-1 text-center py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-medium">
+                    Manage Team
+                </a>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full bg-white rounded-3xl p-16 text-center">
+            <p class="text-2xl text-gray-400 mb-4">No teams yet</p>
+            <a href="{% url 'create_team' %}" 
+               class="inline-block bg-blue-600 text-white px-8 py-4 rounded-2xl font-semibold">
+                Create Your First Team
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

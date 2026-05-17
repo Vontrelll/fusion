@@ -1,43 +1,173 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Fusion</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 min-h-screen">
-    <div class="max-w-4xl mx-auto p-8">
-        <h1 class="text-4xl font-bold text-gray-900 mb-2">Welcome back, {{ request.user.first_name|default:request.user.username }} 👋</h1>
-        <p class="text-gray-600 mb-10">Here's what's happening with your family today</p>
-
-        <!-- Quick Stats -->
-        <div class="grid grid-cols-3 gap-6 mb-10">
-            <div class="bg-white p-6 rounded-2xl shadow">
-                <p class="text-sm text-gray-500">Upcoming Events</p>
-                <p class="text-4xl font-semibold text-blue-600 mt-2">3</p>
+{% extends 'core/base.html' %}
+{% block title %}Dashboard - Fusion{% endblock %}
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6 flex gap-6">
+    <!-- LEFT SIDEBAR -->
+    <div class="w-64 hidden lg:block">
+        <div class="sticky top-6 bg-white rounded-2xl shadow p-5">
+            <h3 class="font-semibold mb-4 flex items-center gap-2">
+                <span class="text-2xl">🏠</span> Home
+            </h3>
+            <div class="space-y-1">
+                <a href="{% url 'dashboard' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 text-blue-600 font-semibold">
+                    Dashboard
+                </a>
+                <a href="{% url 'kid_list' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
+                    👦 My Kids
+                </a>
+                <a href="{% url 'event_list' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
+                    📅 Events
+                </a>
+                <a href="{% url 'family_list' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
+                    👨‍👩‍👧‍👦 Families
+                </a>
+                <a href="{% url 'notifications' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
+                    🛎️ Invitations
+                </a>
+                <a href="{% url 'google_login' %}" 
+                class="block w-full bg-green-600 hover:bg-green-700 text-white text-center py-4 rounded-2xl font-semibold mt-6">
+                 🔗 Connect Google Calendar
+                </a>
+                
             </div>
-            <div class="bg-white p-6 rounded-2xl shadow">
-                <p class="text-sm text-gray-500">Kids</p>
-                <p class="text-4xl font-semibold text-emerald-600 mt-2">2</p>
-            </div>
-            <div class="bg-white p-6 rounded-2xl shadow">
-                <p class="text-sm text-gray-500">This Week</p>
-                <p class="text-4xl font-semibold text-purple-600 mt-2">8</p>
-            </div>
-        </div>
-
-        <div class="flex gap-4">
-            <a href="{% url 'add_event' %}" 
-               class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-xl font-semibold flex-1 text-center">
-                + Add New Event
+            <div class="border-t border-gray-200 my-6"></div>
+            <!-- Quick Links -->
+            <p class="px-4 text-xs font-semibold text-gray-500 mb-3">QUICK LINKS</p>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
+                🚗 Carpool Requests
             </a>
-            
-            <a href="{% url 'event_list' %}" 
-               class="bg-white hover:bg-gray-50 border border-gray-300 px-6 py-4 rounded-xl font-semibold flex-1 text-center">
-                View All Events
+            <div class="border-t border-gray-200 my-6"></div>
+            <a href="{% url 'add_event' %}" class="block w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-3 rounded-xl font-semibold">
+                + New Event
             </a>
         </div>
     </div>
-</body>
-</html>
+
+    <!-- MAIN FEED (Center Column) -->
+    <div class="flex-1 max-w-2xl">
+        <!-- Welcome Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">
+                Welcome back, {{ request.user.first_name|default:request.user.username }} 👋
+            </h1>
+            <p class="text-gray-600 mt-1">Here's what's happening with your family today</p>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="grid grid-cols-3 gap-4 mb-8">
+            <div class="bg-white rounded-2xl shadow p-5 text-center border border-gray-100">
+                <p class="text-sm text-gray-500">Today's Events</p>
+                <p class="text-4xl font-bold text-blue-600 mt-1">{{ num_of_events|default:0 }}</p>
+            </div>
+            <div class="bg-white rounded-2xl shadow p-5 text-center border border-gray-100">
+                <p class="text-sm text-gray-500">My Kids</p>
+                <p class="text-4xl font-bold text-emerald-600 mt-1">{{ num_of_kids|default:0 }}</p>
+            </div>
+            <div class="bg-white rounded-2xl shadow p-5 text-center border border-gray-100">
+                <p class="text-sm text-gray-500">This Week</p>
+                <p class="text-4xl font-bold text-purple-600 mt-1">{{ weeks_events_count|default:0 }}</p>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="flex gap-4 mb-10">
+            <a href="{% url 'add_event' %}" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-center py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow">
+                <span class="text-2xl leading-none">+</span> New Event
+            </a>
+            <a href="{% url 'add_kid' %}" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-center py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shadow">
+                <span class="text-2xl leading-none">+</span> New Kid
+            </a>
+        </div>
+
+        <!-- My Kids Section -->
+        <div class="mb-10">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-2xl font-semibold">My Kids</h2>
+                <a href="{% url 'kid_list' %}" class="text-blue-600 hover:underline text-sm">See all</a>
+            </div>
+            {% if kids %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {% for kid in kids %}
+                <div class="bg-white rounded-2xl shadow p-6 hover:shadow-md transition">
+                    <h3 class="font-semibold text-xl">{{ kid.first_name }} {{ kid.last_name }}</h3>
+                    <p class="text-gray-600 mt-1">
+                        {{ kid.get_gender_display }} • Born {{ kid.date_of_birth }}
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="bg-white rounded-2xl p-10 text-center text-gray-500 border border-dashed border-gray-300">
+                No kids added yet.<br>
+                <a href="{% url 'add_kid' %}" class="text-blue-600 hover:underline">Add your first kid →</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Today's Events Feed -->
+        <div>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-2xl font-semibold">Today's Events</h2>
+                <a href="{% url 'event_list' %}" class="text-blue-600 hover:underline text-sm">View full calendar</a>
+            </div>
+            {% if user_events %}
+            <div class="space-y-4">
+                {% for event in user_events %}
+                <div class="bg-white rounded-2xl shadow p-6 flex gap-5">
+                    <div class="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center flex-shrink-0 text-3xl">
+                        📅
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-lg">{{ event.name }}</h3>
+                        <p class="text-gray-600">
+                            {{ event.kid_attending }} •
+                            {{ event.start_time|time:"g:i A" }} - {{ event.end_time|time:"g:i A" }}
+                        </p>
+                        <p class="text-sm text-gray-500 mt-1">{{ event.location }}</p>
+                    </div>
+                    <div>
+                        <span class="inline-block bg-blue-100 text-blue-700 text-xs px-4 py-2 rounded-full font-medium">
+                            Today
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="bg-white rounded-2xl p-12 text-center text-gray-500">
+                No events scheduled for today.<br>
+                <a href="{% url 'add_event' %}" class="text-blue-600 hover:underline">Add an event →</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- RIGHT SIDEBAR -->
+    <div class="w-80 hidden xl:block">
+        <div class="sticky top-6 bg-white rounded-2xl shadow p-6">
+            <h3 class="font-semibold mb-4">Family Snapshot</h3>
+            <div class="space-y-4 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Active Kids</span>
+                    <span class="font-semibold">{{ num_of_kids|default:0 }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Events this week</span>
+                    <span class="font-semibold">{{ weeks_events_count|default:0 }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Next event</span>
+                    <span class="font-medium text-blue-600">
+                        {% if user_events %}{{ user_events.0.start_time|time:"g:i A" }}{% else %}—{% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="border-t border-gray-200 my-6"></div>
+            <p class="text-xs text-gray-500 leading-relaxed">
+                Fusion is your family command center.<br>
+                All your kids, schedules, and rides in one place.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

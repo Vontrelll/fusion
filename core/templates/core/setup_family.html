@@ -1,0 +1,41 @@
+{% extends 'core/base.html' %}
+{% block title %}Setup Your Family - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-12 px-6">
+    <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">Welcome to Fusion!</h1>
+        <p class="text-xl text-gray-600">Let's get your family set up</p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-8">
+        
+        <!-- Option 1: Create New Family -->
+        <a href="{% url 'create_first_family' %}" 
+           class="group bg-white border-2 border-blue-600 hover:border-blue-700 rounded-3xl p-10 text-center transition-all hover:shadow-xl">
+            <div class="text-6xl mb-6">👨‍👩‍👧‍👦</div>
+            <h2 class="text-2xl font-semibold mb-3">Create New Family</h2>
+            <p class="text-gray-600 mb-8">I'm the first parent.<br>I'll create the family and invite others.</p>
+            <span class="inline-block bg-blue-600 text-white px-8 py-4 rounded-2xl font-semibold group-hover:bg-blue-700 transition">
+                Create Family
+            </span>
+        </a>
+
+        <!-- Option 2: Join Existing Family -->
+        <a href="{% url 'join_family' %}" 
+           class="group bg-white border-2 border-gray-300 hover:border-gray-400 rounded-3xl p-10 text-center transition-all hover:shadow-xl">
+            <div class="text-6xl mb-6">🔗</div>
+            <h2 class="text-2xl font-semibold mb-3">Join Existing Family</h2>
+            <p class="text-gray-600 mb-8">My spouse/partner already created a family.<br>I'll join them.</p>
+            <span class="inline-block bg-gray-700 text-white px-8 py-4 rounded-2xl font-semibold group-hover:bg-gray-800 transition">
+                Join Family
+            </span>
+        </a>
+
+    </div>
+
+    <p class="text-center text-gray-500 mt-12 text-sm">
+        You can always change this later in settings.
+    </p>
+</div>
+{% endblock %}
