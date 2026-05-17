@@ -1,0 +1,23 @@
+{% extends 'core/base.html' %}
+{% block title %}Find Teams - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-6 py-8">
+    <h1 class="text-3xl font-bold mb-8">Find Teams</h1>
+
+    <form method="GET">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search..." 
+               class="border p-4 w-full rounded">
+        <button type="submit" class="bg-blue-600 text-white px-6 py-4">Search</button>
+    </form>
+
+    <h2 class="mt-10">Results:</h2>
+    <ul>
+        {% for team in teams %}
+        <li>{{ team.name }} - {{ team.get_sport_type_display }}</li>
+        {% empty %}
+        <li>No teams found</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}

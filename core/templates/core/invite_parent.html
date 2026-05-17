@@ -1,0 +1,22 @@
+{% extends 'core/base.html' %}
+{% block title %}Invite Parent - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8">
+    <h1 class="text-3xl font-bold text-center mb-2">Add Parent to Family</h1>
+    <p class="text-gray-600 text-center mb-8">Enter the username of the parent you want to add</p>
+    
+    <form method="POST" class="space-y-6">
+        {% csrf_token %}
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+            <input type="text" name="username" required
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 rounded-lg transition">
+            Add Parent
+        </button>
+    </form>
+</div>
+{% endblock %}

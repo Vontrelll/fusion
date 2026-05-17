@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Delete Kid - Fusion</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+        <h1 class="text-3xl font-bold text-red-600 mb-6">Delete Kid</h1>
+        
+        <p class="text-gray-700 mb-8">
+            Are you sure you want to delete <strong>{{ kid.first_name }} {{ kid.last_name }}</strong>?<br>
+            This action cannot be undone.
+        </p>
+
+        <form method="POST" class="flex gap-4 justify-center">
+            {% csrf_token %}
+            <button type="submit"
+                    class="bg-red-600 hover:bg-red-700 text-white font-semibold px-8 py-3 rounded-xl transition">
+                Yes, Delete
+            </button>
+            
+            <a href="{% url 'kid_list' %}" 
+               class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-8 py-3 rounded-xl transition">
+                Cancel
+            </a>
+        </form>
+    </div>
+</body>
+</html>
