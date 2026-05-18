@@ -42,6 +42,7 @@ class Family(models.Model):
     family_name = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
     parents = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name= 'families')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     class Meta:
         verbose_name_plural = 'families'
@@ -55,18 +56,22 @@ class Family(models.Model):
 
 class Invite(models.Model):
     family = models.ForeignKey('Family', on_delete=models.CASCADE, related_name='invites')
-    inviter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='received_invites')
-    requester = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sent_invites')
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sent_invites') #THE PERSON WHO SENT THE INVITE
+    receiver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='received_invites')   #THE PERSON BEING INVITED
     status = models.CharField(max_length=20, choices=[
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
         ('declined', 'Declined')
     ], default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
+    invite_type = models.CharField(max_length=20, choices=[
+    ('join_request', 'Join Request'),     # User asking to join
+    ('sent_invite', 'Sent Invite')        # Owner inviting someone
+], default='join_request')
+    
 
     class Meta:
-        unique_together = ('family', 'requester')  # Prevent duplicate invites
-
+        unique_together = ('family', 'receiver')  # Prevent duplicate invites
 
 
 
@@ -99,6 +104,24 @@ class Team(models.Model):
 
     class Meta:
         ordering = ['name']
+
+
+class TeamInvite(models.Model):
+    team = models.ForeignKey('Team', on_delete=models.CASCADE, related_name='team_invite')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='team_requests')
+    status = models.CharField(max_length=20, choices=[
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('declined', 'Declined'),
+    ], default='pending')
+    message = models.TextField(blank=True, null=True)   # Optional message from parent
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('team', 'user')   # One request per user per team
+
+    def __str__(self):
+        return f"{self.user.username} -> {self.team.name} ({self.status})"
 
 
 class TeamMembership(models.Model):

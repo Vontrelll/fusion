@@ -1,7 +1,7 @@
 from http.client import HTTPResponse
 import re
 from django.shortcuts import render, redirect
-from .models import Kid, Event, Family, Invite, Team, TeamMembership 
+from .models import Kid, Event, Family, Invite, Team, TeamInvite, TeamMembership 
 from django.contrib.auth.models import User
 from django.http import HttpResponse 
 from django.utils import timezone
@@ -445,7 +445,6 @@ def create_first_family(request):
 
 #SETUP FAMILY
 def setup_family(request):
-
     return render(request, "core/setup_family.html")
 
 #JOIN FAMILY LOFGIC FOR SIGNUP FLOW
@@ -453,12 +452,14 @@ def setup_family(request):
 def join_family(request):
     if request.method == "POST":
         username = request.POST.get("username")
-        family_id = request.POST.get("family_id")
+        family_id = request.POST.get("family_id") #FAMILY ID IS WHEN A USER HAS MORE THAN
+                                                  #ONE FAMILY THAT CAN BE JOINED. A DROP DOWN WILL 
+                                                  #APPEAR AND FAMILY ID WILL BE LOGGED
         try:
             target_user = User.objects.get(username=username)
             if family_id:
                 family = Family.objects.get(id=family_id)
-                invite = Invite.objects.create(requester=request.user, inviter=target_user, family=family, status="pending")
+                invite = Invite.objects.create(sender=request.user, receiver=target_user, family=family, status="pending", invite_type="join_request")
                 return redirect('dashboard')
                 
             count = target_user.families.count()
@@ -472,7 +473,7 @@ def join_family(request):
                     messages.error(request, f"You are already a member of the {family.family_name} family")
                     
                 else:
-                    invite= Invite.objects.create(requester=request.user, inviter=target_user, family=family, status="pending")
+                    invite= Invite.objects.create(sender=request.user, requester=target_user, family=family, status="pending", invite_type="join_request")
                     messages.success(request, "Your family request was sent successfully")
                     return redirect('dashboard')
 
@@ -495,6 +496,7 @@ def join_family(request):
 #Invite Parent to Family
 @login_required
 def invite_parent(request, family_id):
+    
     if request.method == "POST":
         username = request.POST.get("username")
 
@@ -508,10 +510,15 @@ def invite_parent(request, family_id):
             elif target_user in family.parents.all():
                 messages.error(request, f"{target_user.username} is already a member of the family")
 
+            elif Invite.objects.filter(family=family, receiver= target_user, status="pending"):
+                messages.error(request, "An invite has already been sent")
+                return redirect('invite_parent', family_id=family_id)
+
             else:
-                family.parents.add(target_user)
-                messages.success(request, f"{target_user.username} has been added to the family!")
-                return redirect('family_list')
+                invite= Invite.objects.create(sender=request.user, receiver=target_user, family=family, status="pending", invite_type="sent_invite")
+                messages.success(request, "Your family request was sent successfully")
+                return redirect('dashboard')
+        
 
         except User.DoesNotExist:
             messages.error(request, "User does not exist")
@@ -522,8 +529,15 @@ def invite_parent(request, family_id):
 def remove_parent(request, family_id, parent_id,):
     parent = User.objects.get(id=parent_id)
     family = Family.objects.get(id=family_id)
+    if family.created_by != request.user:
+        messages.error(request, f"You are not authorized to remove a {parent}")
+        return redirect('family_list')
+    if parent == family.created_by:
+        messages.error(request, "You can not delete the creator of the family.")
+        return redirect('family_list')
     if request.method == "POST":
-        family.parents.remove(parent)
+        family.parents.remove(parent) 
+        Invite.objects.filter(family=family, receiver=parent).delete()
         return redirect('family_list')
 
     return render(request, "core/remove_parent.html", context={"parent": parent})
@@ -537,34 +551,45 @@ def family_detail(request, family_id):
 @login_required
 def accept_invite(request, invite_id):
     invite = Invite.objects.get(id=invite_id)
-    if request.user != invite.inviter:
-        messages.error(request, "You are not authorized to accept this invite.")
+
+    #RUNS WHEN CREATOR OF FAMILY SENDS INVITE 
+    if invite.invite_type == "sent_invite" and invite.receiver == request.user:
+        invite.family.parents.add(invite.receiver)
+        invite.status = "accepted"
+        invite.save()
+        messages.success(request, "You have been added to the family!")
         return redirect('dashboard')
 
-    invite.family.parents.add(invite.requester)
-    invite.status = "accepted"
-    invite.save()
-    messages.success(request, f"{invite.requester.username} has been added to the family!")
-    return redirect('dashboard')
+        #RUNS WHEN CREATOR OF FAMILY RECEIVES INVITE 
+    elif invite.invite_type == "join_request" and invite.receiver == request.user:
+        invite.family.parents.add(invite.sender)
+        invite.status = "accepted"
+        invite.save()
+        messages.success(request, f"{invite.requester.username} has been added to the family!")
+        return redirect('dashboard')
+    
+    else:
+        messages.error(request, "You are not authorized to accept this invite.")
+        return redirect('dashboard')
 
 
 
 @login_required
 def decline_invite(request, invite_id):
     invite = Invite.objects.get(id=invite_id)
-    if request.user != invite.inviter:
+
+    if invite.receiver != request.user:
         messages.error(request, "You are not authorized to decline this invite.")
         return redirect('dashboard')
+    
 
-    invite.status = "declined"
-    invite.save()
-
+    invite.delete()
     messages.success(request, "Invite has been declined.")
     return redirect('dashboard')
 
 @login_required
 def notifications(request):
-    pending_requests = Invite.objects.filter(inviter=request.user, status="pending",).order_by("-created_at")
+    pending_requests = Invite.objects.filter(receiver=request.user, status="pending",).order_by("-created_at")
 
     return render(request, "core/notifications.html", {
         'pending_requests': pending_requests
@@ -610,6 +635,40 @@ def find_teams(request):
         teams = Team.objects.none()         #Shows no teams on page load
 
     return render(request, "core/find_teams.html", {"teams": teams})
+
+
+@login_required
+def team_invite(request, team_id):
+    try:
+        team = Team.objects.get(id=team_id)
+    except Team.DoesNotExist:
+        messages.error(request, "Team not found.")
+        return redirect('find_teams')
+
+    # Check if user is already a member
+    if TeamMembership.objects.filter(team=team, user=request.user).exists():
+        messages.warning(request, "You are already a member of this team.")
+        return redirect('find_teams')
+
+    # Check if user already has a pending request
+    if TeamInvite.objects.filter(team=team, user=request.user, status='pending').exists():
+        messages.warning(request, "You have already sent a request to join this team.")
+        return redirect('find_teams')
+
+    #Check if user owns team being requested 
+    if team.owner == request.user:
+        messages.error(request, "You cannot request to join your own team.")
+        return redirect('find_team')
+
+    # Create the join request
+    TeamInvite.objects.create(
+        team=team,
+        user=request.user,
+        status='pending'
+    )
+
+    messages.success(request, f"Request to join '{team.name}' has been sent!")
+    return redirect('find_teams')
 
 
 
