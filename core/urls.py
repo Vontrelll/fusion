@@ -32,5 +32,6 @@ urlpatterns = [
     path('google/login/callback/', views.google_callback, name='google_callback'),
     path('create_team/', views.create_team, name='create_team'),
     path('team_list/', views.team_list, name='team_list'),
-    path('find_teams/', views.find_teams, name='find_teams')
+    path('find_teams/', views.find_teams, name='find_teams'),
+    path('team_invite/<int:team_id>/', views.team_invite, name='team_invite'),
 ]
