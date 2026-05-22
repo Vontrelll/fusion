@@ -3,6 +3,14 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- Special message when coming from Invite Parent button -->
+    {% if from_invite %}
+    <div class="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-8 text-center">
+        <p class="font-medium text-blue-700">Choose a team you want to invite a parent to:</p>
+    </div>
+    {% endif %}
+
     <div class="flex justify-between items-center mb-8">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">My Teams</h1>
@@ -26,15 +34,13 @@
                     Admin
                 </span>
             </div>
-            
             <div class="mt-6 flex gap-3">
-                <a href="#" 
-                   class="flex-1 text-center py-3 bg-gray-100 hover:bg-gray-200 rounded-2xl text-sm font-medium">
+                <a href="#" class="flex-1 text-center py-3 bg-gray-100 hover:bg-gray-200 rounded-2xl text-sm font-medium">
                     View Roster
                 </a>
-                <a href="#" 
+                <a href="{% url 'team_to_parent_invite_search' team.id %}" 
                    class="flex-1 text-center py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-medium">
-                    Manage Team
+                    Invite Parent
                 </a>
             </div>
         </div>

@@ -8,9 +8,9 @@
     <!-- Search Bar -->
     <form method="GET" class="mb-10">
         <div class="relative max-w-2xl mx-auto">
-            <input type="text" 
-                   name="q" 
-                   value="{{ query }}"
+            <input type="text"
+                   name="q"
+                   value="{{ query|default:'' }}"
                    placeholder="Search by team name..."
                    class="w-full px-6 py-4 border border-gray-300 rounded-3xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
             <button type="submit"
@@ -20,18 +20,32 @@
         </div>
     </form>
 
-    <!-- Results - Always show -->
+    <!-- Results -->
     <div class="space-y-4">
         {% for team in teams %}
         <div class="bg-white rounded-3xl shadow p-6 flex justify-between items-center">
             <div>
                 <h3 class="text-xl font-semibold">{{ team.name }}</h3>
                 <p class="text-gray-500">{{ team.get_sport_type_display|default:"Unknown Sport" }}</p>
+                <p class="text-sm text-gray-400">{{ team.organization.name }}</p>
             </div>
-            <a href="{% url 'team_invite' team.id %}" 
-               class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-medium">
-                Request to Join
-            </a>
+
+            {% if team.user_is_member %}
+                <button disabled
+                        class="inline-flex items-center gap-2 bg-green-100 text-green-700 px-6 py-3 rounded-2xl font-medium cursor-not-allowed">
+                    ✅ Member
+                </button>
+            {% elif team.user_has_pending_request %}
+                <button disabled
+                        class="bg-yellow-100 text-yellow-700 px-6 py-3 rounded-2xl font-medium cursor-not-allowed">
+                    ⏳ Request Pending
+                </button>
+            {% else %}
+                <a href="{% url 'parent_to_team_request' team.id %}"
+                   class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-medium">
+                    Request to Join
+                </a>
+            {% endif %}
         </div>
         {% empty %}
         <div class="text-center py-20 text-gray-500">

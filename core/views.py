@@ -1,8 +1,6 @@
-from http.client import HTTPResponse
-import re
 from django.shortcuts import render, redirect
-from .models import Kid, Event, Family, Invite, Team, TeamInvite, TeamMembership 
-from django.contrib.auth.models import User
+from oauthlib.oauth2.rfc6749.errors import LoginRequired
+from .models import Kid, Event, Family, Invite, Team, TeamMembership, Profile, Organization 
 from django.http import HttpResponse 
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -10,9 +8,9 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
-from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.forms import PasswordChangeForm, User
 from django.contrib.auth import update_session_auth_hash
-from core.forms import CustomUserCreationForm
+from core.forms import CustomUserCreationForm, OrganizationForm
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from .models import GoogleToken
@@ -27,130 +25,286 @@ from . forms import TeamForm
 
 @login_required
 def dashboard(request):
-    # Get all families the user belongs to
-    user_families = request.user.families.all()
+    profile = request.user.profile   # This works because of OneToOne
+    if profile.role != "parent":
+        return redirect('owner_dashboard')
+    
+    else:
+        # Get all families the user belongs to
+        user_families = request.user.families.all()
 
-    kids = request.user.kids.all()
+        kids = request.user.kids.all()
 
-    now = timezone.now()
+        now = timezone.now()
+        today = timezone.localdate()
 
-    # Proper today range (fixes the off-by-one day bug)
-    today_start = timezone.make_aware(
-    timezone.datetime.combine(now.date(), timezone.datetime.min.time())
-)
-    today_end = today_start + timedelta(days=1)
 
-    todays_events = Event.objects.filter(
-    family__in=user_families,
-    start_time__gte=today_start,
-    start_time__lt=today_end
-).order_by('start_time')
+        # Proper today range (fixes the off-by-one day bug)
 
-    # This week's events (family-wide)
-    week_ago = now - timedelta(days=7)
-    this_weeks_events = Event.objects.filter(
+        todays_events = Event.objects.filter(
         family__in=user_families,
-        start_time__gte=week_ago
+        start_time__date=today   # This is the simplest and most reliable way
     ).order_by('start_time')
 
-    context = {
-        "num_of_kids": kids.count(),
-        "num_of_events": todays_events.count(),
-        "weeks_events_count": this_weeks_events.count(),
-        "user_events": todays_events,
-        "kids": kids,
+        print(f"Today's events found: {todays_events.count()}")
+        for event in todays_events:
+            print(f" - {event.name} | {event.start_time} | {event.start_time.date()}")
+
+        # This week's events (family-wide)
+        week_ago = now - timedelta(days=7)
+        this_weeks_events = Event.objects.filter(
+            family__in=user_families,
+            start_time__gte=week_ago
+        ).order_by('start_time')
+
+        context = {
+            "num_of_kids": kids.count(),
+            "num_of_events": todays_events.count(),
+            "weeks_events_count": this_weeks_events.count(),
+            "user_events": todays_events,
+            "kids": kids,
     }
 
     return render(request, "core/dashboard.html", context)
+
+@login_required
+def owner_dashboard(request):
+    # Role check - only allow owners
+    profile = request.user.profile
+    if profile.role != "owner":
+        messages.error(request, "You do not have access to the Owner Dashboard.")
+        return redirect('dashboard')  # or 'parent_dashboard' if you rename it
+
+    # Get user's organization (assuming one for now)
+    organization = Organization.objects.filter(owner=request.user).first()
+    
+    # Get teams under that organization
+    teams = Team.objects.filter(organization=organization) if organization else []
+
+    pending_requests = Invite.objects.filter(receiver=request.user,status="pending").count()
+
+    context = {
+        'user_organization': organization,
+        'total_teams': len(teams),
+        'total_players': 0,           # TODO: Update later with real player count
+        'pending_requests': pending_requests,  
+        'my_teams': teams,
+    }
+    
+    return render(request, "core/owner_dashboard.html", context)
+
     
 
 #This section below is for all things Events related 
 # Creating a new event. Connects to add_event.html
+#THI ADD EVENT IS FOR FAMILIES ONLY
 @login_required
 def add_event(request):
+    #PERMISSION CHECK TO AVOID OWNERS OR FUTURE ROLES FROM CREATING EVENTS FOR 
+    #FAMILIES 
+    if request.user.profile.role != "parent":
+        messages.error(request, "Only parents can create family events.")
+        return redirect('owner_dashboard')
+
+    #GETTING KIDS AND FAMILIES CONNECTED TO THE USER 
+    user_kids = request.user.kids.all()
+    user_families = request.user.families.all()
+
+    #SUBMITTING THE DATA FOR EVENT TO BE CHECKED BEFORE SAVED 
     if request.method == "POST":
         name = request.POST.get("name")
         start_time_str = request.POST.get("start_time")
         end_time_str = request.POST.get("end_time")
         location = request.POST.get("location")
         kid_id = request.POST.get('kid')
-        kid = Kid.objects.get(id=kid_id) #Fetching the Kid
-        user_family = request.user.families.first()
 
-        #PERMISSIONS CHECK BEFORE CREATING EVENT TO PREVENT CREATING EVENTS FOR FAMILIES USER 
-        #IS NOT A MEMBER 
-        if user_family not in request.user.families.all():
-            messages.error(request, "You do not have permission to add events to this family.")
-            return redirect('dashboard')
+
+        #CHECK IF KIDS EXIST
+        try:
+            kid = Kid.objects.get(id=kid_id) 
+        except Kid.DoesNotExist:
+            messages.error(request, "Invalid kid selected.")
+            return redirect('add_event')
+
+    #THIS CHECK IS FOR PARENTS WITH MULTIPLE FAMILIES. IF NO FAMILIY IS SELECTED
+    #THE DEFAULT IS THE FIRST FAMILY
+        family_id = request.POST.get('family')
+        if family_id:
+            family = Family.objects.get(id=family_id, parents=request.user)
+        else:
+            family = user_families.first()
+
+        try:
+            #Converting strings to timezone-aware datetime
+            start_time = timezone.make_aware(datetime.fromisoformat(start_time_str))
+            end_time = timezone.make_aware(datetime.fromisoformat(end_time_str))
+
+        except ValueError:
+            messages.error(request, "Invalid date or time format. Please try again.")
+            return redirect('add_event')
         
-
-        #Converting strings to timezone-aware datetime
-        start_time = timezone.make_aware(datetime.fromisoformat(start_time_str))
-        end_time = timezone.make_aware(datetime.fromisoformat(end_time_str))
+        #CREATING THE EVENT
         event = Event(name=name, start_time=start_time, end_time=end_time, 
-        location=location, kid_attending=kid)
-        event.created_by= request.user
-        event.family = user_family
+        location=location, kid_attending=kid, created_by= request.user, family=family)
         
         #Conflict Detection 
         if has_conflict(event):
-            return HttpResponse("Conflict detected! Event was not added")
+            messages.error(request, "Time conflict detected. This slot overlaps with an existing event. Please choose a different time.")
+            return redirect('add_event')
 
         #No conflict --> event saved 
         event.save() 
         return redirect("event_list")
 
     #GET request 
-    kids = Kid.objects.all()
-    return render(request, "core/add_event.html", {'kids': kids})
-            
+    return render(request, "core/add_event.html", {'kids': user_kids, 'families': user_families})
 
-#Edit Event
+
+#THIS EVENT CREATION IS FOR TEAMS
 @login_required
-def edit_event(request, event_id):
-    event = Event.objects.get(id= event_id)
-
-        #PERMISSIONS CHECK BEFORE CREATING EVENT TO PREVENT CREATING EVENTS FOR FAMILIES USER 
-        #IS NOT A MEMBER 
-    if event.family not in request.user.families.all():
-        messages.error(request, "You do not have permission to modify this event.")
-        return redirect('event_list')
-
+def add_team_event(request):
+    #PERMISSION CHECK TO PREVENT ROLES THAT ARE NOT 'OWNER' FROM CREATING EVENTS
+    #FOR TEAMS
+    if request.user.profile.role != "owner":
+        messages.error(request, "Only team owners/coaches can create team events.")
+        return redirect('dashboard')
     
+    #ACCESS THE TEAMS FOR THE USER
+    teams = Team.objects.filter(organization__owner=request.user).order_by('name')
+
+    #PROCESSING THE FORM
     if request.method == "POST":
+        name = request.POST.get("name")
         start_time_str = request.POST.get("start_time")
         end_time_str = request.POST.get("end_time")
-        start_time = timezone.make_aware(datetime.fromisoformat(start_time_str))
-        end_time = timezone.make_aware(datetime.fromisoformat(end_time_str))
+        location = request.POST.get("location")
+        team_id = request.POST.get('team')
+
+        try:
+            team = Team.objects.get(id=team_id)
+        except Team.DoesNotExist:
+         messages.error(request, "Invalid team selected.")
+         return redirect('add_team_event')
+
+        try:
+            #Converting strings to timezone-aware datetime
+            start_time = timezone.make_aware(datetime.fromisoformat(start_time_str))
+            end_time = timezone.make_aware(datetime.fromisoformat(end_time_str))
+        except ValueError:
+            messages.error(request, "Invalid date or time format. Please try again.")
+            return redirect('add_team_event')
+
+        #CREATE THE EVENT FOR THE TEAM 
+        event = Event(name=name, start_time=start_time, end_time=end_time, 
+        location=location, team=team, created_by= request.user)
+        
+        #Conflict Detection 
+        if has_conflict(event):
+            messages.error(request, "Time conflict detected. This slot overlaps with an existing event. Please choose a different time.")
+            return redirect('add_team_event')
+
+            #No conflict --> event saved 
+        event.save() 
+        messages.success(request, 'Event created successfully.')
+        return redirect("event_list")
+        
+
+    return render(request,"core/add_team_event.html", {"teams": teams})
+
+
+
+
+
+
+#EDIT FAMILY AND TEAM EVENTS 
+@login_required
+def edit_event(request, event_id):
+
+    #GAIN ACCESS TO THE EVENT BEING EDITED
+    try:
+        event = Event.objects.get(id= event_id)
+    except Event.DoesNotExist:
+        messages.error(request, "Event not found.")
+        return redirect('event_list')
+    
+    kids = []
+    team = None
+        
+    #CHECKING IF EVENT HAS FAMILY BECAUSE THAT MEANS ITS A FAMILY EVENT 
+    if event.family:
+        kids = Kid.objects.filter(family=event.family)
+
+        #CHECKS IF USER HAS PERMISSION TO EDIT THIS EVENT
+        if not request.user.families.filter(id=event.family.id).exists():
+            messages.error(request, "You do not have permission to modify this event.")
+            return redirect('event_list')
+
+    
+    elif event.team:
+        team = event.team
+        if request.user != event.team.organization.owner:
+            messages.error(request, "You do not have permission to modify this event.")
+            return redirect('event_list')
+        
+
+    #GATHERING INFO USER WANTS TO UPDATE
+    if request.method == "POST":
         event.name = request.POST.get("name")
         event.location = request.POST.get("location")
-        event.start_time = start_time
-        event.end_time = end_time
+        start_time_str = request.POST.get("start_time")
+        end_time_str = request.POST.get("end_time")
 
+        if event.family:
+            kid_id = request.POST.get("kid")
+            if kid_id:
+                try:
+                    kid = Kid.objects.get(id=kid_id)
+                    event.kid_attending = kid
+                except Kid.DoesNotExist:
+                    messages.error(request, 'This kid does not exist.')
+                    return redirect('edit_event')
+            
 
-
-        kid_id = request.POST.get('kid')
-        kid = Kid.objects.get(id=kid_id) 
-        event.kid_attending = kid
+        #CONVERTING STRINGS INTO TIMEZONE-AWARE DATEANDTIME
+        try:
+            event.start_time = timezone.make_aware(datetime.fromisoformat(start_time_str))
+            event.end_time = timezone.make_aware(datetime.fromisoformat(end_time_str))
+        except ValueError:
+            messages.error(request, "Invalid date/time format.")
+            return redirect('edit_event', event_id=event_id)
 
         if has_conflict(event):
-            messages.error(request, "Conflict detected! Event was not updated.")
+            messages.error(request, "Time conflict detected. This slot overlaps with an existing event. Please choose a different time.")
+            return redirect('edit_event', event_id=event_id) 
         
         event.save()
+        messages.success(request, 'Event update successful.')
         return redirect("event_list")
-
-    kids = Kid.objects.filter(family= event.family)
+            
     return render(request, "core/edit_event.html", {"event": event,
-    "kids": kids
-    })
+    "kids": kids, "team": team})
 
 #Delete List
 @login_required
 def delete_event(request, event_id):
-    event = Event.objects.get(id=event_id)
-    if event.family not in request.user.families.all():
-        messages.error(request, "You do not have permission to delete this event.")
-        return redirect('event_list')
+    try:
+        event = Event.objects.get(id=event_id)
+    except Event.DoesNotExist:
+         messages.error(request, "Event not found.")
+         return redirect('event_list')
+    
+    if event.family:
+
+        #CHECKS IF USER HAS PERMISSION TO EDIT THIS EVENT
+         #CHECKS IF USER HAS PERMISSION TO EDIT THIS EVENT
+        if not request.user.families.filter(id=event.family.id).exists():
+            messages.error(request, "You do not have permission to delete this event.")
+            return redirect('event_list')
+
+    if event.team:
+        if request.user != event.team.organization.owner:
+            messages.error(request, "You do not have permission to delete this event.")
+            return redirect('event_list')
 
     if request.method == "POST":
         event.delete()
@@ -164,19 +318,45 @@ def delete_event(request, event_id):
 #Event list 
 @login_required
 def event_list(request):
-    user_families = request.user.families.all()
-    events = Event.objects.filter(family__in=user_families).order_by('start_time')
-    return render(request, "core/event_list.html", context= {"events": events})
+
+    if request.user.profile.role == "parent":
+        user_families = request.user.families.all()
+        events = Event.objects.filter(family__in=user_families).order_by('start_time')
+    
+    elif request.user.profile.role == "owner":
+        events = Event.objects.filter(team__organization__owner= request.user).order_by('start_time')
+
+
+    else:
+        events = Event.objects.none()   # fallback
+
+    # One single return at the end
+    return render(request, "core/event_list.html", {
+        "events": events,})
 
 #Conflict Detection 
 def has_conflict(new_event):
-    for event in new_event.family.events.all():
-        if event.id == new_event.id:
-            continue 
-        if (new_event.start_time < event.end_time) and (new_event.end_time > event.start_time):
-            return True
+    if new_event.family:
+        family_events = new_event.family.events.all()
+        for event in family_events:
+            if event.id == new_event.id:
+                continue 
+            if (new_event.start_time < event.end_time) and (new_event.end_time > event.start_time) and (new_event.kid_attending == event.kid_attending):
+                return True
 
         return False 
+
+    elif new_event.team:
+        team_events = new_event.team.events.all()
+
+        for event in team_events:
+            if event.id == new_event.id:
+                continue 
+            if (new_event.start_time < event.end_time) and (new_event.end_time > event.start_time):
+                return True
+        
+        return False
+
 
 
 
@@ -215,9 +395,13 @@ def signup_view(request):
     if request.method == "POST":
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()
+            user = form.save()                    # This already creates the Profile
             login(request, user)
-            return redirect('setup_family')
+            
+            if user.profile.role == 'owner':
+                return redirect('owner_dashboard')
+            else:
+                return redirect('setup_family')
     else:
         form = CustomUserCreationForm()
 
@@ -437,6 +621,7 @@ def create_first_family(request):
     if request.method == "POST":
         family_name = request.POST.get("family_name")
         new_family = Family(family_name=family_name)
+        new_family.created_by = request.user
         new_family.save()
         new_family.parents.add(request.user)
         return redirect('dashboard')
@@ -473,7 +658,7 @@ def join_family(request):
                     messages.error(request, f"You are already a member of the {family.family_name} family")
                     
                 else:
-                    invite= Invite.objects.create(sender=request.user, requester=target_user, family=family, status="pending", invite_type="join_request")
+                    invite= Invite.objects.create(sender=request.user, receiver=target_user, family=family, status="pending", invite_type="join_request")
                     messages.success(request, "Your family request was sent successfully")
                     return redirect('dashboard')
 
@@ -493,7 +678,7 @@ def join_family(request):
 
 
 
-#Invite Parent to Family
+#ALL THINGS INVITE RELATED. FOR PARENT TO PARENT INVITE/REQUEST AS WELL AS TEAM TO PARENT AND PARENT TO TEAM INVITE/REQUEST
 @login_required
 def invite_parent(request, family_id):
     
@@ -510,7 +695,7 @@ def invite_parent(request, family_id):
             elif target_user in family.parents.all():
                 messages.error(request, f"{target_user.username} is already a member of the family")
 
-            elif Invite.objects.filter(family=family, receiver= target_user, status="pending"):
+            elif Invite.objects.filter(family=family, receiver=target_user, status="pending"):
                 messages.error(request, "An invite has already been sent")
                 return redirect('invite_parent', family_id=family_id)
 
@@ -524,6 +709,88 @@ def invite_parent(request, family_id):
             messages.error(request, "User does not exist")
     
     return render(request, "core/invite_parent.html")
+
+@login_required
+def team_invite_to_parent(request, team_id, username):
+    try:
+        team = Team.objects.get(id= team_id)
+        target_user= User.objects.get(username__iexact=username)
+    except User.DoesNotExist:
+        messages.error(request, "User does not exist.")
+        return redirect('team_to_parent_invite_search', team_id=team_id)
+
+    
+    # PERMISSION CHECK
+    if request.user.profile.role != "owner":
+        messages.error(request, "You are not authorized to send this invite.")
+        return redirect('dashboard')
+
+        
+    #CHECK IF THE TARGET USER IS ALREADY A MEMBER OF THE TEAM
+    if TeamMembership.objects.filter(team=team, user=target_user).exists():
+        messages.error(request, f"{target_user} is already a member of this team.")
+        return redirect('team_to_parent_invite_search')
+
+
+    #CHECK IF AN INVITE ALREADY EXIST
+    if Invite.objects.filter(team=team, receiver=target_user).exclude(status="declined").exists():
+        messages.error(request, "An invite has already been sent to this user.")
+        return redirect('team_to_parent_invite_search', team_id=team_id)
+
+    # CREATE THE INVITE
+    Invite.objects.create(
+        team=team,
+        sender=request.user,
+        receiver=target_user,
+        invite_type="team_sent_invite",
+        status="pending"
+    )
+
+    messages.success(request, f"Invite sent to {username} successfully!")
+    return redirect('owner_dashboard')
+
+
+@login_required
+def parent_to_team_request(request, team_id):
+    try:
+        team = Team.objects.get(id=team_id)
+
+    except Team.DoesNotExist:
+        messages.error(request, "Team does not exist.")
+        return redirect('parent_to_team_request', team_id=team_id)
+
+    if request.user.profile.role != "parent":
+        messages.error(request, "You are not authorized to send this request")
+        return redirect('owner_dashboard')
+
+
+    if request.method == "POST":
+
+        if TeamMembership.objects.filter(team=team, user=request.user).exists():
+            messages.error(request, 'you are already a member of this team.')
+            return redirect('find_teams')
+
+        if Invite.objects.filter(team=team, sender=request.user).exclude(status="declined").exists():
+            messages.error(request, 'You are already a member of this team.')
+            return redirect('find_teams')
+
+# Create the join request
+        Invite.objects.create(
+            team=team,
+            sender=request.user,
+            receiver=team.organization.owner, 
+            invite_type="team_join_request",
+            status="pending")
+        messages.success(request, 'Request successfully sent')
+        return redirect('find_teams')
+
+
+    return render(request, "core/parent_to_team_request.html", {"team": team})
+        
+        
+ 
+
+
 
 @login_required
 def remove_parent(request, family_id, parent_id,):
@@ -548,29 +815,46 @@ def family_detail(request, family_id):
 
     return render(request, "core/family_details.html", context= {"family":family})
 
+
 @login_required
 def accept_invite(request, invite_id):
     invite = Invite.objects.get(id=invite_id)
 
-    #RUNS WHEN CREATOR OF FAMILY SENDS INVITE 
-    if invite.invite_type == "sent_invite" and invite.receiver == request.user:
-        invite.family.parents.add(invite.receiver)
-        invite.status = "accepted"
-        invite.save()
-        messages.success(request, "You have been added to the family!")
-        return redirect('dashboard')
-
-        #RUNS WHEN CREATOR OF FAMILY RECEIVES INVITE 
-    elif invite.invite_type == "join_request" and invite.receiver == request.user:
-        invite.family.parents.add(invite.sender)
-        invite.status = "accepted"
-        invite.save()
-        messages.success(request, f"{invite.requester.username} has been added to the family!")
-        return redirect('dashboard')
-    
-    else:
+    if invite.receiver != request.user:
         messages.error(request, "You are not authorized to accept this invite.")
         return redirect('dashboard')
+
+    # Handle different invite types
+    if invite.invite_type == "join_request":
+        invite.family.parents.add(invite.sender)
+
+    elif invite.invite_type == "sent_invite":
+        invite.family.parents.add(invite.receiver)
+
+    elif invite.invite_type == "team_join_request":
+        TeamMembership.objects.create(
+            team=invite.team,
+            user=invite.sender,
+            role="parent"
+        )
+
+    elif invite.invite_type == "team_sent_invite":
+        TeamMembership.objects.create(
+            team=invite.team,
+            user=invite.receiver,
+            role="parent"
+        )
+
+    else:
+        # Unknown invite type - safety net
+        messages.error(request, "Invalid invite type.")
+        return redirect('dashboard')
+
+    # Only run this if we successfully handled the invite
+    invite.status = "accepted"
+    invite.save()
+    messages.success(request, "Invite accepted successfully!")
+    return redirect('dashboard')
 
 
 
@@ -596,23 +880,33 @@ def notifications(request):
     })
 
 
-#THE SECTION BELOW IS FOR ALL THINGS TEAM RELATED
+#THE SECTION BELOW IS FOR ALL THINGS TEAM/ORGANIZATION RELATED
 
 @login_required
 def create_team(request):
-    if request.method == "POST":
-        form = TeamForm(request.POST)
+        #CHECKS IF USER HAS AN ORG BECAUSE THEY ARE REQUIRED TO HAVE ONE BEFORE CREATING A TEAM
+    if not Organization.objects.filter(owner=request.user).exists():
+        messages.error(request, "You must have an Organization before you can create a team.")
+        return redirect('create_organization')
 
+        #RUNS IF USER HAS AN ORG
+    elif request.method == "POST":
+        form = TeamForm(request.POST)
+         
+        #FORM CHECK IF PASS, CREATES AND SAVES TEAM
         if form.is_valid():
             team = form.save(commit=False)
-            team.owner = request.user
+            organization = Organization.objects.get(owner=request.user) #BE SURE THAT TEAMS OWNERS ONLY HAVE ONE ORG
+            team.organization = organization #THIS CREATES THE CONNECTION TO THE OWNERS ORG
             team.save()
 
-            membership = TeamMembership(team=team, user=request.user, role='admin')
+            # TeamMembership acts as a join table between User and Team.
+            # It defines the relationship + role (admin, parent, etc.) 
+            # and allows one user to be part of multiple teams.
+            membership = TeamMembership(team=team, user=request.user, role='admin') 
             membership.save()
             messages.success(request, f"Team '{team.name}' created successfully!")
-            return redirect('dashboard')
-
+            return redirect('owner_dashboard')
     else:
         form = TeamForm()
 
@@ -620,56 +914,106 @@ def create_team(request):
 
 
 @login_required
-def team_list(request):
-    teams = request.user.owned_teams.all()
-    return render(request, "core/team_list.html", {"teams": teams})
+def team_list(request): 
+    teams = Team.objects.filter(organization__owner= request.user).order_by('name')
+
+    # ← Pass this flag that lets teamlist know its present in order to send a parent invite. user has to select team first
+    from_invite = request.GET.get('from') == 'invite_parent'
+
+    context = {
+        'teams': teams,
+        'from_invite': from_invite,          
+    }
+
+    return render(request, "core/team_list.html", context)
 
 @login_required
 def find_teams(request):
-    query = request.GET.get('q', '')        # Read search term from URL
-
+    query = request.GET.get('q', '').strip()
+    
     if query:
         teams = Team.objects.filter(name__icontains=query).order_by('name')
-        print("Found teams:", teams)   # Debug line
     else:
-        teams = Team.objects.none()         #Shows no teams on page load
+        teams = Team.objects.all().order_by('name')
 
-    return render(request, "core/find_teams.html", {"teams": teams})
+    # Annotate each team with membership status
+    for team in teams:
+        team.user_is_member = TeamMembership.objects.filter(
+            team=team, 
+            user=request.user
+        ).exists()
+        
+        team.user_has_pending_request = Invite.objects.filter(
+            team=team, 
+            sender=request.user, 
+            status="pending"
+        ).exists()
+
+    return render(request, "core/find_teams.html", {
+        "teams": teams,
+        "query": query
+    })
 
 
 @login_required
-def team_invite(request, team_id):
+def team_to_parent_invite_search(request, team_id):
     try:
         team = Team.objects.get(id=team_id)
     except Team.DoesNotExist:
         messages.error(request, "Team not found.")
-        return redirect('find_teams')
+        return redirect('owner_dashboard')
 
-    # Check if user is already a member
-    if TeamMembership.objects.filter(team=team, user=request.user).exists():
-        messages.warning(request, "You are already a member of this team.")
-        return redirect('find_teams')
+    # Only team owner / admin can invite
+    if request.user != team.organization.owner:
+        messages.error(request, "You do not have permission to invite to this team.")
+        return redirect('owner_dashboard')
 
-    # Check if user already has a pending request
-    if TeamInvite.objects.filter(team=team, user=request.user, status='pending').exists():
-        messages.warning(request, "You have already sent a request to join this team.")
-        return redirect('find_teams')
+    query = request.GET.get('q', '').strip()
+    results = []
 
-    #Check if user owns team being requested 
-    if team.owner == request.user:
-        messages.error(request, "You cannot request to join your own team.")
-        return redirect('find_team')
+    if query:
+        # Search users by username (case insensitive)
+        results = User.objects.filter(username__icontains=query).exclude(id=request.user.id)[:20]
 
-    # Create the join request
-    TeamInvite.objects.create(
-        team=team,
-        user=request.user,
-        status='pending'
-    )
+    context = {
+        'team': team,
+        'query': query,
+        'results': results,
+    }
+    return render(request, 'core/team_to_parent_invite_search.html', context)
 
-    messages.success(request, f"Request to join '{team.name}' has been sent!")
-    return redirect('find_teams')
 
+@login_required
+def create_organization(request):
+    if Organization.objects.filter(owner=request.user).exists():
+        messages.error("You already have an organization.")
+        return redirect('owner_dashboard')
+    if request.method == "POST":
+        form = OrganizationForm(request.POST)
+        if form.is_valid():
+            organization = form.save(commit=False)
+            organization.owner = request.user          # Important: Set current user as owner
+            organization.save()
+            
+            messages.success(request, f"Organization '{organization.name}' created successfully!")
+            return redirect('owner_dashboard')         # or 'create_team' later
+    else:
+        form = OrganizationForm()
+
+    return render(request, "core/create_organization.html", {"form": form})
+
+def organization_details(request, org_id):
+    try:
+        organization = Organization.objects.get(id=org_id, owner=request.user)
+    except Organization.DoesNotExist:
+        messages.error(request, "Organization not found.")
+        return redirect('owner_dashboard')
+
+    context = {
+        'organization': organization,
+        # Add more context later (teams, members, etc.)
+    }
+    return render(request, 'core/organization_details.html', context)
 
 
    
