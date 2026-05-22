@@ -1,0 +1,47 @@
+{% extends 'core/base.html' %}
+{% block title %}Invite to {{ team.name }} - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-6 py-8">
+    <div class="mb-8">
+        <a href="{% url 'owner_dashboard' %}" class="text-blue-600 hover:underline">← Back</a>
+        <h1 class="text-3xl font-bold mt-4">Invite Parents to {{ team.name }}</h1>
+        <p class="text-gray-600">Search by username</p>
+    </div>
+
+    <!-- Search Form -->
+    <form method="GET" class="mb-10">
+        <div class="relative">
+            <input type="text" 
+                   name="q" 
+                   value="{{ query|default:'' }}"
+                   placeholder="Search username..."
+                   class="w-full px-6 py-4 border border-gray-300 rounded-3xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button type="submit"
+                    class="absolute right-4 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-2xl font-medium">
+                Search
+            </button>
+        </div>
+    </form>
+
+    <!-- Results -->
+    {% if results %}
+    <div class="space-y-3">
+        {% for user in results %}
+        <div class="bg-white rounded-3xl shadow p-6 flex justify-between items-center">
+            <div>
+                <p class="font-semibold">{{ user.username }}</p>
+                <p class="text-sm text-gray-500">{{ user.first_name }} {{ user.last_name }}</p>
+            </div>
+            <a href="{% url 'team_invite_to_parent' team.id user.username %}"
+               class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-medium">
+                Send Invite
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% elif query %}
+    <p class="text-center text-gray-500 py-10">No users found for "{{ query }}"</p>
+    {% endif %}
+</div>
+{% endblock %}

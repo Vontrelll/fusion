@@ -1,0 +1,103 @@
+{% extends 'core/base.html' %}
+{% block title %}Owner Dashboard - Fusion{% endblock %}
+{% block content %}
+
+<!-- Temporary Owner Navigation -->
+<div class="bg-white border-b shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex gap-8 text-sm font-medium">
+        <a href="{% url 'owner_dashboard' %}" class="text-blue-600 font-semibold">Owner Dashboard</a>
+        <a href="{% url 'create_team' %}" class="hover:text-blue-600">Create Team</a>
+        <a href="#" class="hover:text-blue-600">Organizations</a>
+        <a href="#" class="hover:text-blue-600">Announcements</a>
+        <a href="#" class="hover:text-blue-600">Manage Teams</a>
+    </div>
+</div>
+
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex justify-between items-start mb-10">
+        <div>
+            <h1 class="text-4xl font-bold text-gray-900">
+                Welcome back, {{ request.user.first_name|default:request.user.username }} 👋
+            </h1>
+            <p class="text-gray-600 mt-1">Manage your organization and teams</p>
+        </div>
+        <a href="{% url 'create_team' %}"
+           class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 text-lg">
+            <span class="text-xl">+</span> Create New Team
+        </a>
+    </div>
+
+    <!-- Organization Card - Now Clickable -->
+    {% if user_organization %}
+    <a href="{% url 'organization_details' user_organization.id %}" 
+       class="block bg-white rounded-3xl shadow p-8 mb-10 hover:shadow-xl transition-all duration-200">
+        <div class="flex items-center gap-4">
+            <div class="text-5xl">🏢</div>
+            <div>
+                <h2 class="text-3xl font-bold text-gray-900">{{ user_organization.name }}</h2>
+                <p class="text-gray-500">Your Organization</p>
+            </div>
+        </div>
+    </a>
+    {% endif %}
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <a href="{% url 'team_list' %}" 
+           class="bg-white rounded-3xl shadow p-6 hover:shadow-lg transition">
+            <p class="text-sm text-gray-500">Total Teams</p>
+            <p class="text-5xl font-bold text-blue-600 mt-2">{{ total_teams|default:0 }}</p>
+        </a>
+
+        <a href="#" class="bg-white rounded-3xl shadow p-6 hover:shadow-lg transition">
+            <p class="text-sm text-gray-500">Total Players</p>
+            <p class="text-5xl font-bold text-emerald-600 mt-2">{{ total_players|default:0 }}</p>
+        </a>
+
+        <a href="{% url 'notifications' %}" 
+           class="bg-white rounded-3xl shadow p-6 hover:shadow-lg transition">
+            <p class="text-sm text-gray-500">Pending Requests</p>
+            <p class="text-5xl font-bold text-orange-600 mt-2">{{ pending_requests|default:0 }}</p>
+        </a>
+    </div>
+
+    <!-- Quick Action Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <a href="#" class="bg-white border border-gray-200 hover:border-purple-300 rounded-3xl p-8 transition text-center">
+            <div class="text-4xl mb-4">📢</div>
+            <h3 class="font-semibold text-xl">Create Post</h3>
+            <p class="text-gray-500">Announce to parents</p>
+        </a>
+
+        <a href="{% url 'team_list' %}?from=invite_parent"
+           class="bg-white border border-gray-200 hover:border-blue-300 rounded-3xl p-8 transition text-center">
+            <div class="text-4xl mb-4">👨‍👩‍👧</div>
+            <h3 class="font-semibold text-xl">Invite Parent</h3>
+            <p class="text-gray-500">Add to your organization</p>
+        </a>
+
+        <a href="{% url 'create_team' %}" class="bg-white border border-gray-200 hover:border-blue-300 rounded-3xl p-8 transition text-center">
+            <div class="text-4xl mb-4">🏟️</div>
+            <h3 class="font-semibold text-xl">New Team</h3>
+            <p class="text-gray-500">Create a new team</p>
+        </a>
+
+        {% if user_organization %}
+        <a href="{% url 'organization_details' user_organization.id %}" 
+           class="bg-white border border-gray-200 hover:border-emerald-300 rounded-3xl p-8 transition text-center">
+            <div class="text-4xl mb-4">⚙️</div>
+            <h3 class="font-semibold text-xl">Manage Org</h3>
+            <p class="text-gray-500">Settings & Details</p>
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Recent Announcements -->
+    <h2 class="text-2xl font-semibold mb-6">Recent Announcements</h2>
+    <div class="space-y-6">
+        <!-- Your placeholder posts go here -->
+    </div>
+</div>
+
+{% endblock %}
