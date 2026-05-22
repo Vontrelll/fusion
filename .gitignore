@@ -1,7 +1,6 @@
 # Environment variables
 .env
 
-
 # Python
 __pycache__/
 *.py[cod]
@@ -10,6 +9,7 @@ __pycache__/
 
 # Django
 *.log
+*.pot
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -17,10 +17,18 @@ db.sqlite3-journal
 # Virtual Environment
 venv/
 ENV/
+env/
+.venv/
 
-# IDE
+# IDE / Editor
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Mac
+# Mac OS
 .DS_Store
+Thumbs.db
+
+# Migration cache
+core/migrations/__pycache__/
