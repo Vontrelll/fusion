@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from oauthlib.oauth2.rfc6749.errors import LoginRequired
-from .models import Kid, Event, Family, Invite, Team, TeamMembership, Profile, Organization 
+from .models import Kid, Event, Family, Invite, PlayerRegistration, Team, TeamEventInvitation, TeamMembership, Profile, Organization, TeamEvent, TeamEventAttendance, Notification 
 from django.http import HttpResponse 
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -10,7 +10,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
 from django.contrib.auth.forms import PasswordChangeForm, User
 from django.contrib.auth import update_session_auth_hash
-from core.forms import CustomUserCreationForm, OrganizationForm
+from core.forms import CustomUserCreationForm, OrganizationForm, TeamEventForm
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from .models import GoogleToken
@@ -21,6 +21,7 @@ from . forms import TeamForm
 
 
 # Create your views here.
+# core/views.py
 
 
 @login_required
@@ -100,117 +101,102 @@ def owner_dashboard(request):
 #THI ADD EVENT IS FOR FAMILIES ONLY
 @login_required
 def add_event(request):
-    #PERMISSION CHECK TO AVOID OWNERS OR FUTURE ROLES FROM CREATING EVENTS FOR 
-    #FAMILIES 
     if request.user.profile.role != "parent":
         messages.error(request, "Only parents can create family events.")
         return redirect('owner_dashboard')
 
-    #GETTING KIDS AND FAMILIES CONNECTED TO THE USER 
     user_kids = request.user.kids.all()
     user_families = request.user.families.all()
 
-    #SUBMITTING THE DATA FOR EVENT TO BE CHECKED BEFORE SAVED 
     if request.method == "POST":
         name = request.POST.get("name")
         start_time_str = request.POST.get("start_time")
         end_time_str = request.POST.get("end_time")
         location = request.POST.get("location")
         kid_id = request.POST.get('kid')
+        family_id = request.POST.get('family')
 
-
-        #CHECK IF KIDS EXIST
         try:
-            kid = Kid.objects.get(id=kid_id) 
+            kid = Kid.objects.get(id=kid_id)
         except Kid.DoesNotExist:
             messages.error(request, "Invalid kid selected.")
             return redirect('add_event')
 
-    #THIS CHECK IS FOR PARENTS WITH MULTIPLE FAMILIES. IF NO FAMILIY IS SELECTED
-    #THE DEFAULT IS THE FIRST FAMILY
-        family_id = request.POST.get('family')
-        if family_id:
-            family = Family.objects.get(id=family_id, parents=request.user)
-        else:
-            family = user_families.first()
+        family = Family.objects.get(id=family_id, parents=request.user) if family_id else user_families.first()
 
         try:
-            #Converting strings to timezone-aware datetime
             start_time = timezone.make_aware(datetime.fromisoformat(start_time_str))
             end_time = timezone.make_aware(datetime.fromisoformat(end_time_str))
-
         except ValueError:
-            messages.error(request, "Invalid date or time format. Please try again.")
-            return redirect('add_event')
-        
-        #CREATING THE EVENT
-        event = Event(name=name, start_time=start_time, end_time=end_time, 
-        location=location, kid_attending=kid, created_by= request.user, family=family)
-        
-        #Conflict Detection 
-        if has_conflict(event):
-            messages.error(request, "Time conflict detected. This slot overlaps with an existing event. Please choose a different time.")
+            messages.error(request, "Invalid date or time format.")
             return redirect('add_event')
 
-        #No conflict --> event saved 
-        event.save() 
+        # Create event object (not saved yet)
+        event = Event(
+            name=name,
+            start_time=start_time,
+            end_time=end_time,
+            location=location,
+            kid_attending=kid,
+            created_by=request.user,
+            family=family
+        )
+
+        # === CONFLICT CHECK ===
+        if has_conflict(event, kid=kid):
+            messages.error(request, "Time conflict detected. This slot overlaps with an existing event or team event.")
+            return redirect('add_event')
+
+        event.save()
+        messages.success(request, "Event created successfully!")
         return redirect("event_list")
 
-    #GET request 
     return render(request, "core/add_event.html", {'kids': user_kids, 'families': user_families})
 
 
-#THIS EVENT CREATION IS FOR TEAMS
 @login_required
 def add_team_event(request):
-    #PERMISSION CHECK TO PREVENT ROLES THAT ARE NOT 'OWNER' FROM CREATING EVENTS
-    #FOR TEAMS
     if request.user.profile.role != "owner":
-        messages.error(request, "Only team owners/coaches can create team events.")
+        messages.error(request, "Only team owners can create team events.")
         return redirect('dashboard')
-    
-    #ACCESS THE TEAMS FOR THE USER
-    teams = Team.objects.filter(organization__owner=request.user).order_by('name')
 
-    #PROCESSING THE FORM
     if request.method == "POST":
-        name = request.POST.get("name")
-        start_time_str = request.POST.get("start_time")
-        end_time_str = request.POST.get("end_time")
-        location = request.POST.get("location")
-        team_id = request.POST.get('team')
+        form = TeamEventForm(request.POST, user=request.user)
+        if form.is_valid():
+            team_event = form.save(commit=False)
+            team_event.created_by = request.user
 
-        try:
-            team = Team.objects.get(id=team_id)
-        except Team.DoesNotExist:
-         messages.error(request, "Invalid team selected.")
-         return redirect('add_team_event')
+            # === CONFLICT CHECK FOR TEAM ===
+            if has_conflict(team_event, team=team_event.team):
+                messages.error(request, "Time conflict detected. This team already has an event at this time.")
+                return redirect('add_team_event')
 
-        try:
-            #Converting strings to timezone-aware datetime
-            start_time = timezone.make_aware(datetime.fromisoformat(start_time_str))
-            end_time = timezone.make_aware(datetime.fromisoformat(end_time_str))
-        except ValueError:
-            messages.error(request, "Invalid date or time format. Please try again.")
-            return redirect('add_team_event')
+            team_event.save()
 
-        #CREATE THE EVENT FOR THE TEAM 
-        event = Event(name=name, start_time=start_time, end_time=end_time, 
-        location=location, team=team, created_by= request.user)
-        
-        #Conflict Detection 
-        if has_conflict(event):
-            messages.error(request, "Time conflict detected. This slot overlaps with an existing event. Please choose a different time.")
-            return redirect('add_team_event')
+            # Create invitations...
+            memberships = TeamMembership.objects.filter(
+                team=team_event.team,
+                role='parent'
+            ).select_related('user')
 
-            #No conflict --> event saved 
-        event.save() 
-        messages.success(request, 'Event created successfully.')
-        return redirect("event_list")
-        
+            count = 0
+            for membership in memberships:
+                _, created = TeamEventInvitation.objects.get_or_create(
+                    team_event=team_event,
+                    user=membership.user,
+                    defaults={'status': 'pending'}
+                )
+                if created:
+                    count += 1
 
-    return render(request,"core/add_team_event.html", {"teams": teams})
+            messages.success(request, f"Team event '{team_event.name}' created and {count} parents invited.")
+            return redirect('event_list')
+        else:
+            messages.error(request, "Form has errors.")
+    else:
+        form = TeamEventForm(user=request.user)
 
+    return render(request, 'core/add_team_event.html', {'form': form})
 
 
 
@@ -284,80 +270,208 @@ def edit_event(request, event_id):
     return render(request, "core/edit_event.html", {"event": event,
     "kids": kids, "team": team})
 
-#Delete List
-@login_required
-def delete_event(request, event_id):
-    try:
-        event = Event.objects.get(id=event_id)
-    except Event.DoesNotExist:
-         messages.error(request, "Event not found.")
-         return redirect('event_list')
-    
-    if event.family:
 
-        #CHECKS IF USER HAS PERMISSION TO EDIT THIS EVENT
-         #CHECKS IF USER HAS PERMISSION TO EDIT THIS EVENT
-        if not request.user.families.filter(id=event.family.id).exists():
-            messages.error(request, "You do not have permission to delete this event.")
-            return redirect('event_list')
-
-    if event.team:
-        if request.user != event.team.organization.owner:
-            messages.error(request, "You do not have permission to delete this event.")
-            return redirect('event_list')
-
-    if request.method == "POST":
-        event.delete()
-        messages.success(request, "Event deleted successfully.")
-        return redirect("event_list")
-
-    return render(request, "core/delete_event.html", {"event": event})
-
-
-
-#Event list 
-@login_required
-def event_list(request):
-
-    if request.user.profile.role == "parent":
-        user_families = request.user.families.all()
-        events = Event.objects.filter(family__in=user_families).order_by('start_time')
-    
-    elif request.user.profile.role == "owner":
-        events = Event.objects.filter(team__organization__owner= request.user).order_by('start_time')
-
-
-    else:
-        events = Event.objects.none()   # fallback
-
-    # One single return at the end
-    return render(request, "core/event_list.html", {
-        "events": events,})
-
-#Conflict Detection 
-def has_conflict(new_event):
-    if new_event.family:
-        family_events = new_event.family.events.all()
-        for event in family_events:
-            if event.id == new_event.id:
-                continue 
-            if (new_event.start_time < event.end_time) and (new_event.end_time > event.start_time) and (new_event.kid_attending == event.kid_attending):
-                return True
-
-        return False 
-
-    elif new_event.team:
-        team_events = new_event.team.events.all()
-
-        for event in team_events:
-            if event.id == new_event.id:
-                continue 
-            if (new_event.start_time < event.end_time) and (new_event.end_time > event.start_time):
-                return True
-        
+def has_conflict(new_event, kid=None, team=None):
+    if not new_event.start_time or not new_event.end_time:
         return False
 
+    # === PARENT CREATING PERSONAL EVENT ===
+    if kid:
+        # Check personal events
+        personal_events = Event.objects.filter(
+            created_by=new_event.created_by if hasattr(new_event, 'created_by') else None,
+            kid_attending=kid
+        )
+        for event in personal_events:
+            if (new_event.start_time < event.end_time) and (new_event.end_time > event.start_time):
+                return True
 
+        # Check accepted Team Events
+        team_events = TeamEvent.objects.filter(
+            attendances__kid=kid,
+            attendances__status='accepted'
+        )
+        for event in team_events:
+            if (new_event.start_time < event.end_time) and (new_event.end_time > event.start_time):
+                return True
+
+    # === OWNER CREATING TEAM EVENT ===
+    if team:
+        existing_team_events = TeamEvent.objects.filter(team=team)
+        for event in existing_team_events:
+            if (new_event.start_time < event.end_time) and (new_event.end_time > event.start_time):
+                if getattr(new_event, 'id', None) != event.id:
+                    return True
+
+    return False
+
+
+
+
+
+@login_required
+def delete_event(request, event_id=None, attendance_id=None, team_event_id=None):
+    """Unified delete view for:
+    - Personal/Family Events
+    - Parent removing themselves from a Team Event
+    - Owner deleting a Team Event for everyone
+    """
+
+    # ==================== CASE 1: Personal / Family Event ====================
+    if event_id:
+        try:
+            event = Event.objects.get(id=event_id)
+        except Event.DoesNotExist:
+            messages.error(request, "Event not found.")
+            return redirect('event_list')
+
+        # Permission check
+        if event.family and not request.user.families.filter(id=event.family.id).exists():
+            messages.error(request, "You do not have permission to delete this event.")
+            return redirect('event_list')
+
+        if request.method == "POST":
+            event_name = event.name
+            event.delete()
+            messages.success(request, f"Event '{event_name}' deleted successfully.")
+            return redirect("event_list")
+
+        return render(request, "core/delete_event.html", {
+            "event": event,
+            "is_personal_event": True
+        })
+
+    # ==================== CASE 2: Parent opting out of Team Event ====================
+    elif attendance_id:
+        try:
+            attendance = TeamEventAttendance.objects.get(id=attendance_id, kid__parent=request.user)
+        except TeamEventAttendance.DoesNotExist:
+            messages.error(request, "Event not found.")
+            return redirect('event_list')
+
+        if request.method == "POST":
+            event_name = attendance.team_event.name
+            attendance.delete()
+            messages.success(request, f"You have been removed from '{event_name}'. This event will no longer appear in your calendar.")
+            return redirect("event_list")
+
+        return render(request, "core/delete_event.html", {
+            "event": attendance.team_event,
+            "is_team_attendance": True
+        })
+
+    # ==================== CASE 3: Owner deleting full Team Event ====================
+    elif team_event_id:
+        try:
+            team_event = TeamEvent.objects.get(id=team_event_id)
+        except TeamEvent.DoesNotExist:
+            messages.error(request, "Team event not found.")
+            return redirect('event_list')
+
+        if request.user != team_event.team.organization.owner:
+            messages.error(request, "You do not have permission to delete this team event.")
+            return redirect('event_list')
+
+        if request.method == "POST":
+            event_name = team_event.name
+            team_name = team_event.team.name
+            org_name = team_event.team.organization.name
+
+            # Notify all affected parents
+            attendances = TeamEventAttendance.objects.filter(
+                team_event=team_event,
+                status='accepted'
+            ).select_related('kid__parent')
+
+            for attendance in attendances:
+                parent = attendance.kid.parent
+                Notification.objects.create(
+                    user=parent,
+                    title="Team Event Canceled",
+                    message=f"The event '{event_name}' for {team_name} ({org_name}) has been canceled by the organizer.",
+                    notification_type='team_event_canceled'
+                )
+
+            # Delete all attendances and the team event
+            attendances.delete()
+            team_event.delete()
+
+            messages.success(request, f"Team event '{event_name}' has been deleted and parents have been notified.")
+            return redirect("event_list")
+
+        return render(request, "core/delete_event.html", {
+            "event": team_event,
+            "is_team_event": True
+        })
+
+    # Invalid request
+    messages.error(request, "Invalid request.")
+    return redirect('event_list')
+
+
+
+@login_required
+def notifications(request):
+    pending_requests = Invite.objects.filter(receiver=request.user, status="pending").order_by("-created_at")
+    
+    team_event_invitations = TeamEventInvitation.objects.filter(
+        user=request.user, status="pending"
+    ).select_related('team_event', 'team_event__team').order_by("-created_at")
+
+    # New: Canceled team events
+    canceled_notifications = Notification.objects.filter(
+        user=request.user,
+        notification_type='team_event_canceled'
+    ).order_by('-created_at')
+
+    return render(request, "core/notifications.html", {
+        'pending_requests': pending_requests,
+        'team_event_invitations': team_event_invitations,
+        'canceled_notifications': canceled_notifications,   # ← Add this
+    })
+
+@login_required
+def event_list(request):
+    if request.user.profile.role == "parent":
+        user_families = request.user.families.all()
+
+        # Personal Events
+        personal_events = list(Event.objects.filter(
+            family__in=user_families
+        ).select_related('kid_attending', 'team'))
+
+        # Accepted Team Events
+        accepted_team_events = list(TeamEvent.objects.filter(
+            attendances__kid__parent=request.user,
+            attendances__status='accepted'
+        ).select_related('team'))
+
+        # Combine
+        all_events = personal_events + accepted_team_events
+        all_events.sort(key=lambda x: x.start_time)
+
+        # Add attendance_id to team events for delete button
+        for event in all_events:
+            if hasattr(event, 'attendances'):  # This is a TeamEvent
+                attendance = event.attendances.filter(
+                    kid__parent=request.user,
+                    status='accepted'
+                ).first()
+                if attendance:
+                    event.attendance_id = attendance.id   # Attach for template
+
+        context = {
+            'events': all_events,
+            'is_parent': True,
+        }
+
+    else:  # Owner
+        events = TeamEvent.objects.filter(
+            team__organization__owner=request.user
+        ).select_related('team').order_by('start_time')
+        context = {'events': events, 'is_parent': False}
+
+    return render(request, 'core/event_list.html', context)
 
 
 
@@ -832,18 +946,21 @@ def accept_invite(request, invite_id):
         invite.family.parents.add(invite.receiver)
 
     elif invite.invite_type == "team_join_request":
-        TeamMembership.objects.create(
+        membership, created = TeamMembership.objects.get_or_create(
             team=invite.team,
             user=invite.sender,
-            role="parent"
-        )
+            defaults={'role': 'parent'})
+        return redirect('select_kids_for_team_roster', invite_id=invite.id)
 
+    
     elif invite.invite_type == "team_sent_invite":
-        TeamMembership.objects.create(
+        # Correct way using get_or_create
+        membership, created = TeamMembership.objects.get_or_create(
             team=invite.team,
             user=invite.receiver,
-            role="parent"
-        )
+            defaults={'role': 'parent'})
+        return redirect('select_kids_for_team_roster', invite_id=invite.id)
+
 
     else:
         # Unknown invite type - safety net
@@ -873,10 +990,26 @@ def decline_invite(request, invite_id):
 
 @login_required
 def notifications(request):
-    pending_requests = Invite.objects.filter(receiver=request.user, status="pending",).order_by("-created_at")
+    pending_requests = Invite.objects.filter(
+        receiver=request.user, 
+        status="pending"
+    ).order_by("-created_at")
+
+    team_event_invitations = TeamEventInvitation.objects.filter(
+        user=request.user, 
+        status="pending"
+    ).select_related('team_event', 'team_event__team').order_by("-created_at")
+
+    # Canceled team events
+    canceled_notifications = Notification.objects.filter(
+        user=request.user,
+        notification_type='team_event_canceled'
+    ).order_by('-created_at')
 
     return render(request, "core/notifications.html", {
-        'pending_requests': pending_requests
+        'pending_requests': pending_requests,
+        'team_event_invitations': team_event_invitations,
+        'canceled_notifications': canceled_notifications,
     })
 
 
@@ -981,6 +1114,235 @@ def team_to_parent_invite_search(request, team_id):
         'results': results,
     }
     return render(request, 'core/team_to_parent_invite_search.html', context)
+
+
+def select_kids_for_team_roster(request, invite_id):
+    invite = Invite.objects.get(id=invite_id)
+
+    # Authorization check
+    if invite.receiver != request.user:
+        messages.error(request, "You are not authorized to select kids for this invite.")
+        return redirect('dashboard')
+
+    try:
+        membership = TeamMembership.objects.get(user=request.user, team=invite.team)
+    except TeamMembership.DoesNotExist:
+        messages.error(request, "Team membership not found.")
+        return redirect('dashboard')
+
+    kids = Kid.objects.filter(parent=request.user)
+
+    if request.method == "POST":
+        selected_kid_ids = request.POST.getlist('kids')
+
+        if not selected_kid_ids:
+            messages.error(request, "Please select at least one kid.")
+        else:
+            for kid_id in selected_kid_ids:
+                kid = Kid.objects.get(id=kid_id)
+                PlayerRegistration.objects.create(
+                    team_membership=membership, 
+                    kid=kid
+                )
+
+            # Mark the invite as accepted
+            invite.status = "accepted"
+            invite.save()
+
+            messages.success(request, "Kids successfully added to the team!")
+            return redirect('dashboard')
+
+    # GET request - show the form
+    context = {
+        'invite': invite,
+        'kids': kids,
+        'team': invite.team,
+    }
+    return render(request, "core/select_kids_for_team_roster.html", context)
+
+@login_required
+def decline_team_event_invite(request, team_event_invitation_id):
+    try:
+        invitation = TeamEventInvitation.objects.get(id=team_event_invitation_id)
+    except TeamEventInvitation.DoesNotExist:
+        messages.error(request, "Invitation not found.")
+        return redirect('notifications')
+
+    # Authorization check
+    if invitation.user != request.user:
+        messages.error(request, "You are not authorized to decline this invite.")
+        return redirect('dashboard')
+
+    invitation.delete()
+    messages.success(request, "Invite has been declined.")
+    return redirect('notifications')
+
+
+@login_required
+def team_event_kid_selection(request, team_event_invitation_id):
+    try:
+        invitation = TeamEventInvitation.objects.get(id=team_event_invitation_id)
+        team_event = invitation.team_event
+    except TeamEventInvitation.DoesNotExist:
+        messages.error(request, "Invitation not found.")
+        return redirect('notifications')
+
+    if invitation.user != request.user:
+        messages.error(request, "Unauthorized.")
+        return redirect('notifications')
+
+    kids = Kid.objects.filter(
+        playerregistration__team_membership__team=team_event.team,
+        parent=request.user
+    ).distinct()
+
+    if request.method == "POST":
+        selected_kid_ids = request.POST.getlist('kids')
+        if not selected_kid_ids:
+            messages.error(request, "Please select at least one kid.")
+            return render(request, "core/team_event_kid_selection.html", {
+                'invitation': invitation,
+                'team_event': team_event,
+                'kids': kids
+            })
+
+        kid_id = selected_kid_ids[0]
+        try:
+            kid = Kid.objects.get(id=kid_id)
+            kid_full_name = f"{kid.first_name} {kid.last_name}".strip()
+        except Kid.DoesNotExist:
+            messages.error(request, "Selected kid not found.")
+            return redirect('notifications')
+
+        # Check for conflict
+        conflicting_events = Event.objects.filter(
+            created_by=request.user,
+            kid_attending=kid,
+            start_time__lt=team_event.end_time,
+            end_time__gt=team_event.start_time,
+        )
+
+        if conflicting_events.exists():
+            request.session['selected_kid_id'] = kid_id
+            return redirect('resolve_team_event_conflict', team_event_invitation_id=team_event_invitation_id)
+        else:
+            # No conflict → Create Attendance
+            TeamEventAttendance.objects.create(
+                team_event=team_event,
+                kid=kid,
+                status='accepted'
+            )
+            invitation.status = "accepted"
+            invitation.save()
+            messages.success(request, f"Event added successfully for {kid_full_name}!")
+            return redirect('event_list')
+
+    context = {
+        'invitation': invitation,
+        'team_event': team_event,
+        'kids': kids,
+    }
+    return render(request, "core/team_event_kid_selection.html", context)
+
+@login_required
+def resolve_team_event_conflict(request, team_event_invitation_id):
+    try:
+        invitation = TeamEventInvitation.objects.get(id=team_event_invitation_id)
+        team_event = invitation.team_event
+    except TeamEventInvitation.DoesNotExist:
+        messages.error(request, "Invitation not found.")
+        return redirect('notifications')
+
+    if invitation.user != request.user:
+        messages.error(request, "You are not authorized.")
+        return redirect('notifications')
+
+    # Get the kid that was selected
+    kid_id = request.session.get('selected_kid_id')
+    chosen_kid = None
+    if kid_id:
+        try:
+            chosen_kid = Kid.objects.get(id=kid_id, parent=request.user)
+        except Kid.DoesNotExist:
+            pass
+
+    # Find conflicting personal events for this kid
+    conflicting_event = None
+    if chosen_kid:
+        conflicting_event = Event.objects.filter(
+            created_by=request.user,
+            kid_attending=chosen_kid,
+            start_time__lt=team_event.end_time,
+            end_time__gt=team_event.start_time,
+        ).first()
+
+    context = {
+        'invitation': invitation,
+        'team_event': team_event,
+        'conflicting_event': conflicting_event,
+        'chosen_kid': chosen_kid,
+    }
+    return render(request, 'core/resolve_team_event_conflict.html', context)
+
+@login_required
+def replace_with_team_event(request, team_event_invitation_id):
+    try:
+        invitation = TeamEventInvitation.objects.get(id=team_event_invitation_id)
+        team_event = invitation.team_event
+    except TeamEventInvitation.DoesNotExist:
+        messages.error(request, "Invitation not found.")
+        return redirect('notifications')
+
+    if invitation.user != request.user:
+        messages.error(request, "Unauthorized.")
+        return redirect('notifications')
+
+    kid_id = request.session.get('selected_kid_id')
+    if not kid_id:
+        messages.error(request, "Kid selection missing.")
+        return redirect('notifications')
+
+    try:
+        chosen_kid = Kid.objects.get(id=kid_id, parent=request.user)
+        kid_full_name = f"{chosen_kid.first_name} {chosen_kid.last_name}".strip()
+    except Kid.DoesNotExist:
+        messages.error(request, "Invalid kid.")
+        return redirect('notifications')
+
+    # Delete conflicting personal events
+    conflicting_events = Event.objects.filter(
+        created_by=request.user,
+        kid_attending=chosen_kid,
+        start_time__lt=team_event.end_time,
+        end_time__gt=team_event.start_time,
+    )
+    deleted_count = conflicting_events.count()
+    conflicting_events.delete()
+
+    # Create attendance instead of new Event
+    TeamEventAttendance.objects.create(
+        team_event=team_event,
+        kid=chosen_kid,
+        status='accepted'
+    )
+
+    # Cleanup
+    if 'selected_kid_id' in request.session:
+        del request.session['selected_kid_id']
+
+    invitation.status = "accepted"
+    invitation.save()
+
+    if deleted_count > 0:
+        messages.success(request, f"Replaced {deleted_count} conflicting event(s) for {kid_full_name}.")
+    else:
+        messages.success(request, f"Team event added successfully for {kid_full_name}.")
+
+    return redirect('event_list')
+
+
+
+
 
 
 @login_required

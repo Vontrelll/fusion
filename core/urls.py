@@ -6,7 +6,10 @@ urlpatterns = [
     path('add_event/', views.add_event, name = 'add_event'),
     path('edit_event/<int:event_id>/', views.edit_event, name = 'edit_event'),
     path('', views.event_list, name='event_list'),
-    path('delete_event/<int:event_id>/', views.delete_event, name= 'delete_event'),
+    # Unified delete view that can handle different types
+    path('delete_event/<int:event_id>/', views.delete_event, name='delete_event'),
+    path('delete_attendance/<int:attendance_id>/', views.delete_event, name='delete_attendance'),  # for team events
+    path('delete_team_event/<int:team_event_id>/', views.delete_event, name='delete_team_event'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('dashboard/', views.dashboard, name='dashboard'),
@@ -40,4 +43,9 @@ urlpatterns = [
     path('team_to_parent_invite_search/<int:team_id>/', views.team_to_parent_invite_search, name='team_to_parent_invite_search'),
     path('organization_details/<int:org_id>/', views.organization_details, name='organization_details'),
     path('add_team_event/', views.add_team_event, name='add_team_event'),
+    path('decline_team_event_invite/<int:team_event_invitation_id>/', views.decline_team_event_invite, name='decline_team_event_invite'),
+    path('resolve_team_event_conflict/<int:team_event_invitation_id>/', views.resolve_team_event_conflict, name='resolve_team_event_conflict'),
+    path('select_kids_for_team_roster/<int:invite_id>/', views.select_kids_for_team_roster, name='select_kids_for_team_roster'),
+    path('team_event_kid_selection/<int:team_event_invitation_id>/', views.team_event_kid_selection, name='team_event_kid_selection'),
+    path('replace_with_team_event/<int:team_event_invitation_id>/', views.replace_with_team_event, name='replace_with_team_event'),
 ]

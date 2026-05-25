@@ -1,0 +1,55 @@
+{% extends 'core/base.html' %}
+{% block title %}Select Kids for Event - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-6 py-8">
+    <h1 class="text-3xl font-bold mb-6">Which kid(s) is this event for?</h1>
+    
+    <div class="bg-white rounded-3xl shadow p-8 mb-8">
+        <p class="text-xl font-medium mb-2">{{ team_event.name }}</p>
+        <p class="text-gray-600">
+            {{ team_event.start_time|date:"D, M d - g:i A" }} — 
+            {{ team_event.end_time|date:"g:i A" }}
+        </p>
+        {% if team_event.location %}
+            <p class="text-gray-500 mt-2">📍 {{ team_event.location }}</p>
+        {% endif %}
+        <p class="text-sm text-gray-500 mt-3">
+            From: <strong>{{ team_event.team.name }}</strong>
+        </p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="space-y-4 mb-10">
+            {% for kid in kids %}
+            <div class="flex items-center p-5 border border-gray-200 rounded-2xl hover:bg-gray-50">
+                <input type="checkbox" 
+                       name="kids" 
+                       value="{{ kid.id }}"
+                       id="kid_{{ kid.id }}"
+                       class="w-5 h-5 text-blue-600 rounded">
+                <label for="kid_{{ kid.id }}" class="ml-4 flex-1 cursor-pointer">
+                    <span class="text-lg font-medium">{{ kid.first_name }} {{ kid.last_name }}</span>
+                </label>
+            </div>
+            {% empty %}
+                <p class="text-red-500 text-center py-12">No kids registered on this team yet.</p>
+            {% endfor %}
+        </div>
+
+        <div class="flex gap-4">
+            <button type="submit" 
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-semibold text-lg">
+                ✅ Add Event to Selected Kids
+            </button>
+            
+            <a href="{% url 'notifications' %}" 
+               class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-4 rounded-2xl font-semibold text-lg text-center">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
