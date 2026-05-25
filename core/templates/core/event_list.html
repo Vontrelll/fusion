@@ -10,60 +10,28 @@
             <h3 class="font-semibold mb-4 flex items-center gap-2">
                 <span class="text-2xl">📅</span> Events
             </h3>
-            <div class="space-y-1">
-                <a href="{% url 'event_list' %}" 
-                   class="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 text-blue-600 font-semibold">
-                    <span>All Events</span>
-                </a>
-                <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
-                    <span>Upcoming</span>
-                </a>
-                <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
-                    <span>This Week</span>
-                </a>
-                <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
-                    <span>Past Events</span>
-                </a>
-            </div>
-            
-            <div class="border-t border-gray-200 my-6"></div>
-            
-            <!-- Dynamic Create Button -->
-            {% if request.user.profile.role == "parent" %}
-                <a href="{% url 'add_event' %}" 
-                   class="block w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-3 rounded-xl font-semibold">
-                    + Create New Event
-                </a>
-            {% elif request.user.profile.role == "owner" %}
-                <a href="{% url 'add_team_event' %}" 
-                   class="block w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-3 rounded-xl font-semibold">
-                    + Create Team Event
-                </a>
-            {% endif %}
+            <!-- Your sidebar links -->
         </div>
     </div>
 
     <!-- MAIN CONTENT -->
     <div class="flex-1 max-w-2xl">
-        <!-- Dynamic Header -->
         <div class="flex justify-between items-center mb-8">
             <div>
-                {% if request.user.profile.role == "parent" %}
-                    <h1 class="text-3xl font-bold text-gray-900">My Family Events</h1>
-                    <p class="text-gray-600 mt-1">All your kids’ activities in one place</p>
-                {% elif request.user.profile.role == "owner" %}
-                    <h1 class="text-3xl font-bold text-gray-900">My Team Events</h1>
-                    <p class="text-gray-600 mt-1">Events for your teams</p>
+                {% if is_parent %}
+                    <h1 class="text-3xl font-bold text-gray-900">My Family Schedule</h1>
+                    <p class="text-gray-600 mt-1">Personal & Team events</p>
+                {% else %}
+                    <h1 class="text-3xl font-bold text-gray-900">Team Events</h1>
                 {% endif %}
             </div>
-            
-            <!-- Dynamic New Event Button in Header -->
-            {% if request.user.profile.role == "parent" %}
+
+            {% if is_parent %}
                 <a href="{% url 'add_event' %}" 
                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 shadow">
-                    <span class="text-2xl leading-none">+</span> New Event
+                    <span class="text-2xl leading-none">+</span> New Family Event
                 </a>
-            {% elif request.user.profile.role == "owner" %}
+            {% else %}
                 <a href="{% url 'add_team_event' %}" 
                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 shadow">
                     <span class="text-2xl leading-none">+</span> New Team Event
@@ -71,35 +39,45 @@
             {% endif %}
         </div>
 
-        <!-- Events Feed -->
         {% if events %}
         <div class="space-y-4">
             {% for event in events %}
             <div class="bg-white rounded-3xl shadow p-6 flex gap-6 hover:shadow-md transition-all">
+
                 <!-- Date Circle -->
                 <div class="flex-shrink-0 w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl flex flex-col items-center justify-center text-center">
                     <span class="text-xs font-medium tracking-widest">{{ event.start_time|date:"M" }}</span>
                     <span class="text-4xl font-bold leading-none mt-1">{{ event.start_time|date:"d" }}</span>
                 </div>
-                
+
                 <!-- Event Details -->
                 <div class="flex-1 min-w-0">
                     <h2 class="font-semibold text-2xl text-gray-900">{{ event.name }}</h2>
+                    
                     {% if event.kid_attending %}
-                    <div class="flex items-center gap-2 text-gray-600 mt-3">
+                    <div class="flex items-center gap-2 text-gray-600 mt-2">
                         <span class="text-xl">👦</span>
-                        <span>{{ event.kid_attending }}</span>
+                        <span>{{ event.kid_attending.first_name }} {{ event.kid_attending.last_name }}</span>
                     </div>
                     {% endif %}
+
+                    {% if event.team %}
+                    <span class="inline-block mt-2 px-3 py-1 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-full">
+                        TEAM EVENT • {{ event.team.name }}
+                    </span>
+                    {% endif %}
+
                     <div class="mt-4 flex items-center gap-6 text-sm">
                         <div class="flex items-center gap-2">
                             <span class="text-gray-400">🕒</span>
                             <span>{{ event.start_time|time:"g:i A" }} — {{ event.end_time|time:"g:i A" }}</span>
                         </div>
+                        {% if event.location %}
                         <div class="flex items-center gap-2">
                             <span class="text-gray-400">📍</span>
                             <span>{{ event.location }}</span>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -108,46 +86,38 @@
                     <span class="text-xs bg-green-100 text-green-700 px-4 py-1.5 rounded-full font-medium">
                         Confirmed
                     </span>
+                    
                     <div class="flex gap-4 text-sm">
-                        <a href="{% url 'edit_event' event.id %}" class="text-blue-600 hover:text-blue-700 font-medium">Edit</a>
-                        <a href="{% url 'delete_event' event.id %}" class="text-red-600 hover:text-red-700 font-medium">Delete</a>
+                        {% if is_parent %}
+                            {% if event.team and event.attendance_id %}
+                                <!-- Parent removing themselves from Team Event -->
+                                <a href="{% url 'delete_attendance' event.attendance_id %}" 
+                                   class="text-red-600 hover:text-red-700 font-medium">
+                                    Remove
+                                </a>
+                            {% else %}
+                                <!-- Personal Event -->
+                                <a href="{% url 'edit_event' event.id %}" class="text-blue-600 hover:text-blue-700 font-medium">Edit</a>
+                                <a href="{% url 'delete_event' event.id %}" class="text-red-600 hover:text-red-700 font-medium">Delete</a>
+                            {% endif %}
+                        {% else %}
+                            <!-- Owner deleting full Team Event -->
+                            <a href="{% url 'delete_team_event' event.id %}" 
+                               class="text-red-600 hover:text-red-700 font-medium">
+                                Delete Event
+                            </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
             {% endfor %}
         </div>
         {% else %}
-        <!-- Empty State -->
-        <div class="bg-white rounded-3xl p-16 text-center shadow">
-            <div class="text-6xl mb-6">📅</div>
-            {% if request.user.profile.role == "parent" %}
-                <p class="text-2xl font-medium text-gray-700">No family events yet</p>
-                <p class="text-gray-500 mt-3">When you add events for your kids, they will appear here.</p>
-            {% elif request.user.profile.role == "owner" %}
-                <p class="text-2xl font-medium text-gray-700">No team events yet</p>
-                <p class="text-gray-500 mt-3">Events you create for your teams will appear here.</p>
-            {% endif %}
-            <a href="{% url 'add_event' %}" 
-               class="inline-block mt-8 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-semibold">
-                + Add Your First Event
-            </a>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- RIGHT SIDEBAR -->
-    <div class="w-80 hidden xl:block">
-        <div class="sticky top-6 space-y-6">
-            <div class="bg-white rounded-2xl shadow p-6">
-                <h3 class="font-semibold mb-4">This Month</h3>
-                <div class="space-y-4 text-sm">
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Total Events</span>
-                        <span class="font-semibold">{{ events|length }}</span>
-                    </div>
-                </div>
+            <div class="bg-white rounded-3xl p-16 text-center shadow">
+                <div class="text-6xl mb-6">📅</div>
+                <p class="text-2xl font-medium text-gray-700">No events scheduled yet</p>
             </div>
-        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

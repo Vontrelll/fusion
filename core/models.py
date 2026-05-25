@@ -33,15 +33,79 @@ class Event(models.Model):
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
     location = models.CharField(max_length = 100)
+    description = models.TextField(blank=True, null=True)
     kid_attending = models.ForeignKey("Kid", on_delete=models.CASCADE, null=True, blank=True, related_name = 'events')
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
-    team = models.ForeignKey('Team', on_delete=models.CASCADE, null=True, blank=True, related_name='events')
     family = models.ForeignKey("Family", on_delete=models.CASCADE, related_name= 'events', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    # kid_attending = None  this will be a field later for marking kids as attending or missing 
+    updated_at = models.DateTimeField(auto_now=True)
+  
+
 
     def __str__(self):
         return f"{self.name} for {self.kid_attending}"
+    
+    class Meta:
+        ordering = ['start_time']
+
+
+
+class TeamEventInvitation(models.Model):
+    team_event = models.ForeignKey('TeamEvent', on_delete=models.CASCADE, related_name='invitations')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='team_invitations')
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('accepted', 'Accepted'),
+            ('declined', 'Declined')
+        ],
+        default='pending'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)   # ← Added
+
+    class Meta:
+        unique_together = ('team_event', 'user')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.team_event.name} ({self.status})"
+
+class TeamEvent(models.Model):
+    """Master event created by coaches/teams"""
+    name = models.CharField(max_length=200)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    location = models.CharField(max_length=200, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    
+    team = models.ForeignKey('Team', on_delete=models.CASCADE, related_name='team_events')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.team.name}"
+
+
+class TeamEventAttendance(models.Model):
+    """Links a kid to a TeamEvent when parent accepts"""
+    team_event = models.ForeignKey('TeamEvent', on_delete=models.CASCADE, related_name='attendances')
+    kid = models.ForeignKey('Kid', on_delete=models.CASCADE)
+    status = models.CharField(
+        max_length=20,
+        choices=[('accepted', 'Accepted'), ('declined', 'Declined')],
+        default='accepted'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('team_event', 'kid')
+
+    def __str__(self):
+        return f"{self.kid} attending {self.team_event.name}"
 
 
 
@@ -176,6 +240,21 @@ class PlayerRegistration(models.Model):
     jersey_number = models.CharField(max_length=10, blank=True, null=True)
     position = models.CharField(max_length=50, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    notification_type = models.CharField(max_length=50, default='general')  # e.g. 'team_event_canceled', 'invitation'
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.user.username}"
 
 
 

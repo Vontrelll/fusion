@@ -75,3 +75,31 @@ class OrganizationForm(forms.ModelForm):
             'name': 'Organization Name',
             'description': 'Description',
         }
+
+
+from django import forms
+from .models import TeamEvent
+
+# core/forms.py
+from django import forms
+from .models import TeamEvent, Team
+
+class TeamEventForm(forms.ModelForm):
+    class Meta:
+        model = TeamEvent
+        fields = ['name', 'start_time', 'end_time', 'location', 'description', 'team']
+        widgets = {
+            'start_time': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'end_time': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        if self.user:
+            self.fields['team'].queryset = Team.objects.filter(
+                organization__owner=self.user
+            )
+        else:
+            self.fields['team'].queryset = Team.objects.none()
