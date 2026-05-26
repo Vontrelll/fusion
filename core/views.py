@@ -130,6 +130,14 @@ def add_event(request):
         except ValueError:
             messages.error(request, "Invalid date or time format.")
             return redirect('add_event')
+        
+        if start_time < timezone.now():
+            messages.error(request, "Start time cannot be in the past.")
+            return redirect('add_event')
+
+        if start_time > end_time:
+            messages.error(request, "End time must be after start time.")
+            return redirect('add_event')
 
         # Create event object (not saved yet)
         event = Event(
@@ -164,6 +172,15 @@ def add_team_event(request):
         form = TeamEventForm(request.POST, user=request.user)
         if form.is_valid():
             team_event = form.save(commit=False)
+
+            if team_event.start_time < timezone.now():
+                messages.error(request, "Start time cannot be in the past.")
+                return redirect('add_team_event')
+
+            if team_event.start_time > team_event.end_time:
+                messages.error(request, "End time must be after start time.")
+                return redirect('add_team_event')
+
             team_event.created_by = request.user
 
             # === CONFLICT CHECK FOR TEAM ===
@@ -202,9 +219,13 @@ def add_team_event(request):
 
 
 
-#EDIT FAMILY AND TEAM EVENTS 
+#EDIT TEAM EVENTS 
 @login_required
 def edit_event(request, event_id):
+
+    if request.user.profile.role != "parent":
+        messages.error(request, 'you do not have permission to edit this event.')
+        redirect('owner_dashboard')
 
     #GAIN ACCESS TO THE EVENT BEING EDITED
     try:
@@ -269,6 +290,175 @@ def edit_event(request, event_id):
             
     return render(request, "core/edit_event.html", {"event": event,
     "kids": kids, "team": team})
+
+
+def edit_team_event(request, event_id):
+    try:
+        team_event= TeamEvent.objects.get(id=event_id)
+        
+    except TeamEvent.DoesNotExist:
+        messages.error(request, "This team event does not exist.")
+        return redirect('event_list')
+    
+    if request.user.profile.role != "owner":
+        messages.error(request, 'you do not have permission to edit this event.')
+        return redirect('dashboard')
+    
+    user_teams = Team.objects.filter(organization__owner=request.user)
+
+    if request.method == "POST":
+        name = request.POST.get('name')
+        start_time_str = request.POST.get('start_time')
+        end_time_str = request.POST.get('end_time')
+        location = request.POST.get('location')
+        description = request.POST.get('description')
+        team_id = request.POST.get('team')
+
+        try:
+            team = Team.objects.get(id=team_id)
+        except Team.DoesNotExist:
+            messages.error(request, 'Selected team does not exist.')
+            return redirect('edit_team_event', event_id=event_id)
+
+        #CONVERTING STRINGS INTO TIMEZONE-AWARE DATEANDTIME
+        try:
+            start_time = timezone.make_aware(datetime.fromisoformat(start_time_str))
+            end_time = timezone.make_aware(datetime.fromisoformat(end_time_str))
+        except ValueError:
+            messages.error(request, "Invalid date/time format.")
+            return redirect('edit_team_event', event_id=event_id)
+        
+        if start_time < timezone.now():
+            messages.error(request, "Start time cannot be in the past.")
+            return redirect('edit_team_event', event_id=event_id)
+
+        if start_time > end_time:
+            messages.error(request, "End time must be after start time.")
+            return redirect('add_team_event')
+
+        team_event.name = name
+        team_event.start_time = start_time
+        team_event.end_time = end_time
+        team_event.location = location
+        team_event.description = description
+        team_event.team = team
+
+        if has_conflict(team_event, team=team):
+            messages.error(request, "Time conflict detected with another team event.")
+            return redirect('edit_event', event_id=event_id) 
+
+        team_event.save()
+        messages.success(request, "Team event updated successfully.")
+        
+        #SEND NOTIFICATIONS TO PARENTS WHO ACCEPTED THE INVITE 
+        parents_attendances = TeamEventAttendance.objects.filter(team_event= team_event, status= 'accepted').select_related('kid')
+        notified_users = set()
+
+        for attendance in parents_attendances:
+            user = attendance.kid.parent
+            if user.id in notified_users:
+                continue
+        
+            title = f"Updated: {team_event.name}"
+            message = (f"The organizer updated '{team_event.name}'. Please review the new details and check if it still fits your schedule.")
+            Notification.objects.create(user=user, title=title, message=message, notification_type='team_event_updated', extra_data={'team_event_id': team_event.id})
+            notified_users.add(user.id)
+
+        return redirect('event_list')
+
+    context = {"event": team_event, "teams": user_teams }
+
+    return render(request, "core/edit_team_event.html", context)
+
+
+@login_required
+def review_team_event_update(request, event_id):
+    try:
+        team_event = TeamEvent.objects.get(id=event_id)
+        
+        attendance = TeamEventAttendance.objects.filter(
+            team_event=team_event,
+            kid__parent=request.user,
+            status='accepted'
+        ).select_related('kid').first()
+
+        if not attendance:
+            messages.error(request, "You are not attending this event.")
+            return redirect('event_list')
+
+        chosen_kid = attendance.kid
+
+        # Improved conflict check
+        conflicting_events = Event.objects.filter(
+            created_by=request.user,
+            kid_attending=chosen_kid,
+            start_time__lt=team_event.end_time,
+            end_time__gt=team_event.start_time,
+        ).exclude(id=team_event.id)  # just in case
+
+        print("Debug - Team Event Time:", team_event.start_time, "-", team_event.end_time)
+        print("Debug - Found conflicts:", conflicting_events.count())
+
+        context = {
+            'event': team_event,
+            'conflicting_events': conflicting_events,
+            'chosen_kid': chosen_kid,
+        }
+        
+        return render(request, 'core/review_team_event_update.html', context)
+
+    except TeamEvent.DoesNotExist:
+        messages.error(request, "This event no longer exists.")
+        return redirect('event_list')
+
+
+
+@login_required
+def keep_team_event_update(request, event_id):
+    """Parent chooses to keep the updated team event"""
+    try:
+        event = TeamEvent.objects.get(id=event_id)
+        
+        # Mark the notification as read (optional but recommended)
+        Notification.objects.filter(
+            user=request.user,
+            notification_type='team_event_updated'
+        ).update(is_read=True)
+        
+        messages.success(request, f"You kept '{event.name}'. It will remain on your calendar with the updated details.")
+        
+    except TeamEvent.DoesNotExist:
+        messages.error(request, "This event no longer exists.")
+    
+    return redirect('event_list')
+
+
+@login_required
+def remove_team_event_attendance(request, event_id):
+    """Parent chooses to remove the team event from their calendar"""
+    try:
+        event = TeamEvent.objects.get(id=event_id)
+        
+        # Remove the attendance record
+        attendance = TeamEventAttendance.objects.filter(
+            team_event=event,
+            kid__parent=request.user
+        ).first()
+        
+        if attendance:
+            attendance.delete()
+            messages.success(request, f"'{event.name}' has been removed from your calendar.")
+        else:
+            messages.error(request, "You were not attending this event.")
+            
+    except TeamEvent.DoesNotExist:
+        messages.error(request, "This event no longer exists.")
+    
+    return redirect('event_list')
+        
+
+        
+
 
 
 def has_conflict(new_event, kid=None, team=None):
@@ -438,7 +628,7 @@ def event_list(request):
         # Personal Events
         personal_events = list(Event.objects.filter(
             family__in=user_families
-        ).select_related('kid_attending', 'team'))
+        ).select_related('kid_attending', 'family', 'created_by'))
 
         # Accepted Team Events
         accepted_team_events = list(TeamEvent.objects.filter(
@@ -446,11 +636,11 @@ def event_list(request):
             attendances__status='accepted'
         ).select_related('team'))
 
-        # Combine
+        # Combine both
         all_events = personal_events + accepted_team_events
         all_events.sort(key=lambda x: x.start_time)
 
-        # Add attendance_id to team events for delete button
+        # Attach attendance_id for team events (for delete button)
         for event in all_events:
             if hasattr(event, 'attendances'):  # This is a TeamEvent
                 attendance = event.attendances.filter(
@@ -458,7 +648,7 @@ def event_list(request):
                     status='accepted'
                 ).first()
                 if attendance:
-                    event.attendance_id = attendance.id   # Attach for template
+                    event.attendance_id = attendance.id
 
         context = {
             'events': all_events,
@@ -469,6 +659,7 @@ def event_list(request):
         events = TeamEvent.objects.filter(
             team__organization__owner=request.user
         ).select_related('team').order_by('start_time')
+        
         context = {'events': events, 'is_parent': False}
 
     return render(request, 'core/event_list.html', context)
@@ -991,12 +1182,12 @@ def decline_invite(request, invite_id):
 @login_required
 def notifications(request):
     pending_requests = Invite.objects.filter(
-        receiver=request.user, 
+        receiver=request.user,
         status="pending"
     ).order_by("-created_at")
 
     team_event_invitations = TeamEventInvitation.objects.filter(
-        user=request.user, 
+        user=request.user,
         status="pending"
     ).select_related('team_event', 'team_event__team').order_by("-created_at")
 
@@ -1006,10 +1197,18 @@ def notifications(request):
         notification_type='team_event_canceled'
     ).order_by('-created_at')
 
+    # ✅ NEW: Updated Team Events
+    updated_notifications = Notification.objects.filter(
+        user=request.user,
+        notification_type='team_event_updated',
+        is_read=False                     # Only show unread ones
+    ).order_by('-created_at')
+
     return render(request, "core/notifications.html", {
         'pending_requests': pending_requests,
         'team_event_invitations': team_event_invitations,
         'canceled_notifications': canceled_notifications,
+        'updated_notifications': updated_notifications,   # ← Add this
     })
 
 
