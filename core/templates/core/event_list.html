@@ -10,7 +10,6 @@
             <h3 class="font-semibold mb-4 flex items-center gap-2">
                 <span class="text-2xl">📅</span> Events
             </h3>
-            <!-- Your sidebar links -->
         </div>
     </div>
 
@@ -27,13 +26,11 @@
             </div>
 
             {% if is_parent %}
-                <a href="{% url 'add_event' %}" 
-                   class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 shadow">
+                <a href="{% url 'add_event' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 shadow">
                     <span class="text-2xl leading-none">+</span> New Family Event
                 </a>
             {% else %}
-                <a href="{% url 'add_team_event' %}" 
-                   class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 shadow">
+                <a href="{% url 'add_team_event' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 shadow">
                     <span class="text-2xl leading-none">+</span> New Team Event
                 </a>
             {% endif %}
@@ -88,24 +85,21 @@
                     </span>
                     
                     <div class="flex gap-4 text-sm">
-                        {% if is_parent %}
-                            {% if event.team and event.attendance_id %}
-                                <!-- Parent removing themselves from Team Event -->
+                        {% if event.is_team_event or event.team %}
+                            <!-- Team Event -->
+                            {% if is_parent and event.attendance_id %}
                                 <a href="{% url 'delete_attendance' event.attendance_id %}" 
                                    class="text-red-600 hover:text-red-700 font-medium">
                                     Remove
                                 </a>
                             {% else %}
-                                <!-- Personal Event -->
-                                <a href="{% url 'edit_event' event.id %}" class="text-blue-600 hover:text-blue-700 font-medium">Edit</a>
-                                <a href="{% url 'delete_event' event.id %}" class="text-red-600 hover:text-red-700 font-medium">Delete</a>
+                                <a href="{% url 'edit_team_event' event.id %}" class="text-blue-600 hover:text-blue-700 font-medium">Edit</a>
+                                <a href="{% url 'delete_team_event' event.id %}" class="text-red-600 hover:text-red-700 font-medium">Delete</a>
                             {% endif %}
                         {% else %}
-                            <!-- Owner deleting full Team Event -->
-                            <a href="{% url 'delete_team_event' event.id %}" 
-                               class="text-red-600 hover:text-red-700 font-medium">
-                                Delete Event
-                            </a>
+                            <!-- Personal Event -->
+                            <a href="{% url 'edit_event' event.id %}" class="text-blue-600 hover:text-blue-700 font-medium">Edit</a>
+                            <a href="{% url 'delete_event' event.id %}" class="text-red-600 hover:text-red-700 font-medium">Delete</a>
                         {% endif %}
                     </div>
                 </div>

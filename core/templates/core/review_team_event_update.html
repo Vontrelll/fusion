@@ -1,0 +1,78 @@
+{% extends 'core/base.html' %}
+{% block title %}Review Event Update - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-6 py-8">
+    <div class="mb-8">
+        <a href="{% url 'notifications' %}" class="text-blue-600 hover:underline">← Back to Notifications</a>
+        <h1 class="text-3xl font-bold mt-4">Review Event Update</h1>
+        <p class="text-gray-600">The organizer has updated this team event</p>
+    </div>
+
+    <div class="bg-white rounded-3xl shadow p-8 mb-8">
+        <h2 class="text-2xl font-semibold mb-6">{{ event.name }}</h2>
+        
+        <div class="grid grid-cols-2 gap-6 text-sm">
+            <div>
+                <span class="text-gray-500">Team</span>
+                <p class="font-medium">{{ event.team.name }}</p>
+            </div>
+            <div>
+                <span class="text-gray-500">Location</span>
+                <p class="font-medium">{{ event.location }}</p>
+            </div>
+            <div>
+                <span class="text-gray-500">Start Time</span>
+                <p class="font-medium">{{ event.start_time|date:"M j, Y • g:i A" }}</p>
+            </div>
+            <div>
+                <span class="text-gray-500">End Time</span>
+                <p class="font-medium">{{ event.end_time|date:"M j, Y • g:i A" }}</p>
+            </div>
+        </div>
+
+        {% if event.description %}
+        <div class="mt-6">
+            <span class="text-gray-500 block mb-2">Description</span>
+            <p class="text-gray-700">{{ event.description }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Conflict Warning -->
+    {% if conflicting_events %}
+    <div class="bg-red-50 border border-red-200 rounded-3xl p-6 mb-8">
+        <h3 class="text-red-600 font-semibold mb-3">⚠️ Schedule Conflict Detected</h3>
+        <p class="text-red-700 mb-3">This updated time conflicts with the following event(s) in your calendar:</p>
+        <ul class="space-y-2">
+            {% for conflict in conflicting_events %}
+            <li class="text-red-600">• {{ conflict.name }} ({{ conflict.start_time|date:"g:i A" }})</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div class="grid grid-cols-2 gap-4">
+        <form method="POST" action="{% url 'keep_team_event_update' event.id %}">
+            {% csrf_token %}
+            <button type="submit" 
+                    class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 rounded-2xl transition">
+                ✅ Keep Updated Event
+            </button>
+        </form>
+
+        <form method="POST" action="{% url 'remove_team_event_attendance' event.id %}">
+            {% csrf_token %}
+            <button type="submit"
+                    class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-4 rounded-2xl transition">
+                ❌ Remove from Calendar
+            </button>
+        </form>
+    </div>
+
+    <p class="text-center text-gray-500 text-sm mt-8">
+        Keeping the event will keep it on your calendar with the new details.
+    </p>
+</div>
+{% endblock %}

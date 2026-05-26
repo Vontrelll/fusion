@@ -48,4 +48,8 @@ urlpatterns = [
     path('select_kids_for_team_roster/<int:invite_id>/', views.select_kids_for_team_roster, name='select_kids_for_team_roster'),
     path('team_event_kid_selection/<int:team_event_invitation_id>/', views.team_event_kid_selection, name='team_event_kid_selection'),
     path('replace_with_team_event/<int:team_event_invitation_id>/', views.replace_with_team_event, name='replace_with_team_event'),
+    path('edit_team_event/<int:event_id>/', views.edit_team_event, name = 'edit_team_event'),
+    path('review-team-event-update/<int:event_id>/', views.review_team_event_update, name='review_team_event_update'),
+    path('keep-team-event-update/<int:event_id>/', views.keep_team_event_update, name='keep_team_event_update'),
+    path('remove-team-event-attendance/<int:event_id>/', views.remove_team_event_attendance, name='remove_team_event_attendance'),
 ]

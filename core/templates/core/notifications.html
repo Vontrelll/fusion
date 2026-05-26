@@ -5,6 +5,34 @@
 <div class="max-w-3xl mx-auto px-4 py-8">
     <h1 class="text-3xl font-bold mb-8">Notifications</h1>
 
+    <!-- Updated Team Events -->
+    {% if updated_notifications %}
+    <h2 class="text-xl font-semibold mb-4 text-blue-600">Updated Team Events</h2>
+    <div class="space-y-4 mb-10">
+        {% for notif in updated_notifications %}
+        {% if notif.extra_data and notif.extra_data.team_event_id %}
+        <a href="{% url 'review_team_event_update' notif.extra_data.team_event_id %}" 
+           class="block bg-white rounded-3xl shadow p-6 border-l-4 border-blue-500 hover:shadow-md transition">
+        {% else %}
+        <div class="block bg-white rounded-3xl shadow p-6 border-l-4 border-blue-500 opacity-75">
+        {% endif %}
+            <div class="flex items-start gap-4">
+                <span class="text-3xl">📝</span>
+                <div class="flex-1">
+                    <h3 class="font-semibold text-blue-600">{{ notif.title }}</h3>
+                    <p class="text-gray-600 mt-1">{{ notif.message }}</p>
+                    <p class="text-xs text-gray-500 mt-3">{{ notif.created_at|timesince }} ago</p>
+                </div>
+            </div>
+        {% if notif.extra_data and notif.extra_data.team_event_id %}
+        </a>
+        {% else %}
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- Canceled Team Events -->
     {% if canceled_notifications %}
     <h2 class="text-xl font-semibold mb-4 text-red-600">Canceled Team Events</h2>
@@ -38,11 +66,11 @@
                 </p>
             </div>
             <div class="flex gap-3">
-                <a href="{% url 'team_event_kid_selection' invitation.id %}" 
+                <a href="{% url 'team_event_kid_selection' invitation.id %}"
                    class="px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 font-medium">
                     Accept
                 </a>
-                <a href="{% url 'decline_team_event_invite' invitation.id %}" 
+                <a href="{% url 'decline_team_event_invite' invitation.id %}"
                    class="px-6 py-3 bg-gray-200 text-gray-800 rounded-2xl hover:bg-gray-300 font-medium">
                     Decline
                 </a>
@@ -52,13 +80,13 @@
     </div>
     {% endif %}
 
-    <!-- Other pending requests (your original ones) -->
+    <!-- Other pending requests -->
     {% if pending_requests %}
     <h2 class="text-xl font-semibold mt-10 mb-4">Other Requests</h2>
-    <!-- Your existing code for pending_requests goes here -->
+    <!-- Your existing pending requests code goes here -->
     {% endif %}
 
-    {% if not canceled_notifications and not team_event_invitations and not pending_requests %}
+    {% if not updated_notifications and not canceled_notifications and not team_event_invitations and not pending_requests %}
     <div class="bg-white rounded-3xl p-16 text-center">
         <p class="text-gray-500 text-xl">No new notifications</p>
     </div>
