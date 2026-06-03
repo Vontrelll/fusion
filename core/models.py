@@ -2,7 +2,10 @@ from django.db import models
 from django.conf import settings
 from django.forms import CharField
 from django.conf import settings
+from django.contrib.auth import get_user_model
 import pytz
+
+User = get_user_model()
 
 # Create your models here.
 GENDER_CHOICES = [("M", "Male"), ("F", "Female")]
@@ -11,7 +14,6 @@ GENDER_CHOICES = [("M", "Male"), ("F", "Female")]
 class Family(models.Model):
     family_name = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
-    parents = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name= 'families')
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     class Meta:
@@ -19,6 +21,11 @@ class Family(models.Model):
 
     def __str__(self):
         return self.family_name
+
+    @property
+    def parents(self):
+        """Returns QuerySet of Users who belong to this family."""
+        return User.objects.filter(profile__family=self)
 
 
 #------------------------------------------------------------------------------------------------------------------------------
@@ -28,7 +35,8 @@ class Event(models.Model):
     end_time = models.DateTimeField()
     location = models.CharField(max_length = 100)
     description = models.TextField(blank=True, null=True)
-    kid_attending = models.ForeignKey("Kid", on_delete=models.CASCADE, null=True, blank=True, related_name = 'events')
+    kids = models.ManyToManyField("Kid", related_name='events', blank=True)
+    attending_parents = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='attending_events', blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     family = models.ForeignKey("Family", on_delete=models.CASCADE, related_name= 'events', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -37,7 +45,8 @@ class Event(models.Model):
 
 
     def __str__(self):
-        return f"{self.name} for {self.kid_attending}"
+        kids_str = ", ".join([k.first_name for k in self.kids.all()[:3]])
+        return f"{self.name} for {kids_str or 'no kids'}"
     
     class Meta:
         ordering = ['start_time']
@@ -49,6 +58,7 @@ class Kid(models.Model):
     gender = models.CharField(choices = GENDER_CHOICES, max_length=1)
     family = models.ForeignKey("Family", on_delete=models.CASCADE, related_name='kids', null=True, blank=True)
     parent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name= 'kids')
+    color = models.CharField(max_length=9, default='#3b82f6', help_text='Hex color for timeline and badges (e.g. #3b82f6)')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -60,6 +70,13 @@ class Profile(models.Model):
     ROLE_CHOICES = [('parent', 'Parent / Family'),('owner', 'Team Owner / Organization'),]
     role = models.CharField( max_length=20, choices=ROLE_CHOICES, default='parent')
     timezone = models.CharField(max_length=50, default='America/Chicago')
+    family = models.ForeignKey(
+        'Family',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='parent_profiles'
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
@@ -137,9 +154,10 @@ class TeamEventAttendance(models.Model):
     status = models.CharField(
         max_length=20,
         choices=[('accepted', 'Accepted'), ('declined', 'Declined')],
-        default='accepted'
-    )
+        default='accepted')
     created_at = models.DateTimeField(auto_now_add=True)
+    needs_review = models.BooleanField(default=False)   
+
 
     class Meta:
         unique_together = ('team_event', 'kid')
@@ -165,13 +183,39 @@ class Invite(models.Model):
     ('team_join_request', 'Team_Join_Request'),
     ('team_sent_invite', 'Team_Sent_Invite')
 ], default='family_join_request')
+    extra_data = models.JSONField(null=True, blank=True, default=dict)
     
 
 class Meta:
-        unique_together = [
-            ('family', 'receiver'),   #PREVENTS DUPLICATE PARENT INVITES 
-            ('team', 'receiver'),      # Prevent duplicate team invites
-        ]
+    # We deliberately do NOT enforce uniqueness on (team, receiver) anymore.
+    # 
+    # Reason: A parent must be able to send multiple roster requests over time
+    # (e.g. add Kid A now, add Kid B later) and an owner must be able to send
+    # multiple invites to the same parent for additional kids.
+    #
+    # The two directions (team_join_request vs team_sent_invite) and the
+    # "add another kid later" use case made ('team', 'receiver') too restrictive.
+    #
+    # Duplicate *pending* protection is still enforced in the views with
+    # direction-aware checks (per sender for join requests, per receiver for sent invites)
+    # plus .exclude(status="declined").
+    unique_together = [
+        ('family', 'receiver'),   # Still kept for family join/sent invites
+    ]
+
+
+class RosterRequestKid(models.Model):
+    """Links a team_join_request Invite to the specific kids the parent is requesting to add."""
+    invite = models.ForeignKey('Invite', on_delete=models.CASCADE, related_name='requested_kids')
+    kid = models.ForeignKey('Kid', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('invite', 'kid')
+
+    def __str__(self):
+        return f"{self.kid} requested for invite #{self.invite_id}"
+
 
 #------------------------------------------------------------------------------------------------------------------------------
 class Organization(models.Model):
@@ -232,10 +276,15 @@ class Notification(models.Model):
         ('team_event_updated', 'Team Event Updated'),
         ('team_event_canceled', 'Team Event Canceled'),
         ('team_event_reminder', 'Team Event Reminder'),
-        ('invitation', 'New Invitation'),
+        ('team_event_invitation', 'Team Event Invitation'),   # ← Add this
+        ('family_invitation', 'Family Invitation'),
+        ('family_join_request', 'Family Join Request'),
         ('personal_event_conflict', 'Personal Event Conflict'),
         ('account', 'Account Update'),
         ('family', 'Family Update'),
+        ('roster_request', 'Roster Request'),
+        ('team_invite', 'Team Invite'),
+        ('parent_invite', 'Parent Invite'),
     ]
     
     notification_type = models.CharField(
@@ -249,14 +298,3 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-
-#------------------------------------------------------------------------------------------------------------------------------
-class GoogleToken(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='google_token')
-    access_token = models.TextField()
-    refresh_token = models.TextField(blank=True, null=True)
-    expires_at = models.DateTimeField()
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Google Token for {self.user.username}"
