@@ -1,0 +1,77 @@
+{% extends 'core/base.html' %}
+{% block title %}Select Kids for {{ team.name }} - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-8">
+    <div class="bg-white rounded-2xl border border-zinc-200 p-6">
+
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-2xl text-4xl mb-4">
+                👥
+            </div>
+            <h1 class="text-3xl font-bold text-gray-900">Request to Join Team</h1>
+            <p class="text-gray-600 mt-2">
+                <strong>{{ team.name }}</strong>
+            </p>
+            {% if team.organization %}
+                <p class="text-sm text-gray-500">{{ team.organization.name }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Instructions -->
+        <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-8">
+            <p class="text-blue-800 text-sm">
+                Select the kids you would like to add to this team. 
+                The team owner will review your request and decide whether to approve each child.
+                You can use this to add additional kids even if you already have children on the team.
+            </p>
+        </div>
+
+        <!-- Kid Selection Form -->
+        <!-- This form posts directly to parent_to_team_request so it handles the actual invite creation -->
+        <form method="POST" action="{% url 'parent_to_team_request' team.id %}">
+            {% csrf_token %}
+
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">Which of your kids are you requesting?</h2>
+
+            {% if kids %}
+            <div class="space-y-3 mb-8">
+                {% for kid in kids %}
+                <label class="flex items-center gap-4 p-4 border border-gray-200 rounded-2xl hover:bg-gray-50 cursor-pointer transition">
+                    <input type="checkbox" 
+                           name="kids" 
+                           value="{{ kid.id }}"
+                           class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                    <div class="flex-1">
+                        <div class="font-medium text-gray-900">{{ kid.first_name }} {{ kid.last_name }}</div>
+                        <div class="text-xs text-gray-500">{{ kid.get_gender_display }} • Born {{ kid.date_of_birth|date:"M Y" }}</div>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 py-8 text-center">No kids found in your profile.</p>
+            {% endif %}
+
+            <!-- Actions -->
+            <div class="flex flex-col sm:flex-row gap-4">
+                <button type="submit"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl text-lg transition">
+                    Send Roster Request
+                </button>
+
+                <a href="{% url 'find_teams' %}"
+                   class="flex-1 text-center bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-4 rounded-2xl text-lg transition">
+                    Cancel
+                </a>
+            </div>
+
+            <p class="text-center text-xs text-gray-500 mt-6">
+                You can only have one pending request per team at a time.
+            </p>
+        </form>
+
+    </div>
+</div>
+{% endblock %}

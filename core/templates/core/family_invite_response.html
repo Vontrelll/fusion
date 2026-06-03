@@ -1,0 +1,90 @@
+{% extends 'core/base.html' %}
+
+{% block title %}
+    {% if is_join_request %}
+        Join Request - {{ family.family_name }} - Fusion
+    {% else %}
+        Family Invite - {{ family.family_name }} - Fusion
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-8">
+    <div class="bg-white rounded-2xl border border-zinc-200 p-6">
+
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-14 h-14 bg-emerald-100 rounded-2xl text-3xl mb-3">
+                👨‍👩‍👧‍👦
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight">
+                {% if is_join_request %}Join Request{% else %}Family Invitation{% endif %}
+            </h1>
+            <p class="text-sm text-zinc-500 mt-1">
+                {% if is_join_request %}
+                    <strong>{{ invite.sender.get_full_name|default:invite.sender.username }}</strong> would like to join your family
+                {% else %}
+                    You've been invited to join <strong>{{ family.family_name }}</strong>
+                {% endif %}
+            </p>
+        </div>
+
+        <!-- Family Info -->
+        <div class="bg-gray-50 rounded-2xl p-6 mb-6">
+            <h2 class="font-semibold text-xl text-gray-900">{{ family.family_name }}</h2>
+            <p class="text-gray-600 mt-1">
+                {% if is_join_request %}
+                    Requested by <strong>{{ invite.sender.get_full_name|default:invite.sender.username }}</strong>
+                {% else %}
+                    Invited by <strong>{{ invite.sender.get_full_name|default:invite.sender.username }}</strong>
+                {% endif %}
+            </p>
+
+            <div class="flex gap-8 mt-5 text-sm">
+                <div>
+                    <div class="text-gray-500 text-xs tracking-wide">PARENTS</div>
+                    <div class="font-semibold text-3xl mt-0.5">{{ family.parents.count }}</div>
+                </div>
+                <div>
+                    <div class="text-gray-500 text-xs tracking-wide">KIDS</div>
+                    <div class="font-semibold text-3xl mt-0.5">{{ family.kids.count }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <p class="text-sm text-gray-600 leading-relaxed">
+                {% if is_join_request %}
+                    Accepting this request will give <strong>{{ invite.sender.get_full_name|default:invite.sender.username }}</strong> full access to this family's events, shared calendar, and kid management tools.
+                {% else %}
+                    Accepting this invite will give you full access to this family's events, shared calendar, and kid management tools.
+                {% endif %}
+            </p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="space-y-3">
+            <a href="{% url 'accept_family_invite' invite.id %}" 
+               class="block w-full text-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 rounded-2xl transition text-lg active:scale-[0.985]">
+                {% if is_join_request %}Accept Request{% else %}Accept Invitation{% endif %}
+            </a>
+
+            <form method="post" action="{% url 'decline_invite' invite.id %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="w-full text-center bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 font-semibold py-4 rounded-2xl transition text-lg active:scale-[0.985]">
+                    Decline
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center text-xs text-gray-400 mt-8">
+            {% if is_join_request %}
+                The parent will be notified of your decision.
+            {% else %}
+                You can accept this later if you change your mind.
+            {% endif %}
+        </p>
+    </div>
+</div>
+{% endblock %}

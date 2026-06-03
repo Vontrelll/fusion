@@ -1,0 +1,32 @@
+{% extends 'core/base.html' %}
+{% block title %}Get Started - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto py-8 px-4">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-semibold tracking-tight">Welcome, {{ user.first_name }}!</h1>
+        <p class="text-zinc-500 mt-2">Let's set up your family</p>
+    </div>
+
+    <div class="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8 space-y-4">
+        <a href="{% url 'create_first_family' %}" 
+           class="block w-full p-5 border border-zinc-200 rounded-2xl hover:border-[#1877f2] hover:bg-blue-50 transition group">
+            <div class="font-semibold group-hover:text-[#1877f2]">Create a new family</div>
+            <p class="text-sm text-zinc-500 mt-1">Start fresh with your own family profile</p>
+        </a>
+
+        <a href="{% url 'join_family' %}" 
+           class="block w-full p-5 border border-zinc-200 rounded-2xl hover:border-[#1877f2] hover:bg-blue-50 transition group">
+            <div class="font-semibold group-hover:text-[#1877f2]">Join an existing family</div>
+            <p class="text-sm text-zinc-500 mt-1">Connect with a family that already exists</p>
+        </a>
+
+        <div class="pt-2">
+            <a href="{% url 'dashboard' %}" 
+               class="block text-center text-sm text-zinc-500 hover:text-zinc-700 py-3">
+                Skip for now →
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ team_event.name }} - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+    <div class="bg-white rounded-3xl border border-zinc-200 p-8">
+        <div class="flex items-start justify-between mb-6">
+            <div>
+                <div class="flex items-center gap-3">
+                    <span class="text-4xl">🏟️</span>
+                    <h1 class="text-3xl font-bold tracking-tight">{{ team_event.name }}</h1>
+                </div>
+                <div class="mt-1">
+                    <span class="inline-block text-xs font-medium bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">
+                        Team Event • {{ team_event.team.name }}
+                    </span>
+                </div>
+            </div>
+
+            {% if request.user == team_event.team.organization.owner %}
+            <div class="flex gap-3">
+                <a href="{% url 'edit_team_event' team_event.id %}" 
+                   class="px-5 py-2.5 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-2xl transition">
+                    Edit
+                </a>
+                <a href="{% url 'delete_team_event' team_event.id %}" 
+                   class="px-5 py-2.5 text-sm font-medium text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-2xl transition">
+                    Delete
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Time & Location -->
+        <div class="bg-zinc-50 rounded-2xl p-5 mb-6">
+            <div class="flex flex-col md:flex-row gap-y-4 gap-x-10">
+                <div>
+                    <div class="text-xs text-zinc-500 font-medium tracking-wider">WHEN</div>
+                    <div class="font-semibold text-lg mt-0.5">{{ team_event.start_time|date:"l, F j" }}</div>
+                    <div class="text-zinc-700">{{ team_event.start_time|time:"g:i A" }} — {{ team_event.end_time|time:"g:i A" }}</div>
+                </div>
+
+                {% if team_event.location %}
+                <div>
+                    <div class="text-xs text-zinc-500 font-medium tracking-wider">WHERE</div>
+                    <div class="font-medium text-lg mt-0.5">{{ team_event.location }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Description -->
+        {% if team_event.description %}
+        <div class="mb-6">
+            <div class="text-xs text-zinc-500 font-medium tracking-wider mb-2">DESCRIPTION</div>
+            <div class="text-zinc-700 whitespace-pre-line">{{ team_event.description }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Kids Attending -->
+        <div>
+            <div class="text-xs text-zinc-500 font-medium tracking-wider mb-3">KIDS ATTENDING ({{ attendances|length }})</div>
+            
+            {% if attendances %}
+            <div class="space-y-2">
+                {% for att in attendances %}
+                <div class="flex items-center justify-between bg-zinc-50 px-4 py-3 rounded-2xl">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xl">{% if att.kid.gender == 'M' %}👦{% else %}👧{% endif %}</span>
+                        <span class="font-medium">{{ att.kid.first_name }} {{ att.kid.last_name }}</span>
+                    </div>
+                    <span class="text-xs px-3 py-1 rounded-full 
+                        {% if att.status == 'accepted' %}bg-emerald-100 text-emerald-700{% else %}bg-red-100 text-red-700{% endif %}">
+                        {{ att.get_status_display }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-zinc-500">No kids registered yet.</p>
+            {% endif %}
+        </div>
+
+        <div class="text-xs text-zinc-400 mt-8 pt-6 border-t">
+            Created by {{ team_event.created_by.get_full_name|default:team_event.created_by.username }} on {{ team_event.created_at|date:"M j, Y" }}
+        </div>
+    </div>
+
+    <div class="mt-6 text-center">
+        <a href="{% url 'event_list' %}" class="text-sm text-zinc-500 hover:text-zinc-700">
+            ← Back to all events
+        </a>
+    </div>
+
+</div>
+{% endblock %}

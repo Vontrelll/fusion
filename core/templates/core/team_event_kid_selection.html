@@ -2,10 +2,10 @@
 {% block title %}Select Kids for Event - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-6 py-8">
-    <h1 class="text-3xl font-bold mb-6">Which kid(s) is this event for?</h1>
+<div class="max-w-lg mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold tracking-tight mb-6">Select kids for this event</h1>
     
-    <div class="bg-white rounded-3xl shadow p-8 mb-8">
+    <div class="bg-white rounded-2xl border border-zinc-200 p-6 mb-6">
         <p class="text-xl font-medium mb-2">{{ team_event.name }}</p>
         <p class="text-gray-600">
             {{ team_event.start_time|date:"D, M d - g:i A" }} — 

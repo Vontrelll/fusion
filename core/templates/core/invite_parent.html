@@ -2,9 +2,9 @@
 {% block title %}Invite Parent - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8">
-    <h1 class="text-3xl font-bold text-center mb-2">Add Parent to Family</h1>
-    <p class="text-gray-600 text-center mb-8">Enter the username of the parent you want to add</p>
+<div class="max-w-md mx-auto bg-white rounded-2xl border border-zinc-200 p-6">
+    <h1 class="text-2xl font-bold tracking-tight text-center mb-1">Add Parent to Family</h1>
+    <p class="text-sm text-zinc-500 text-center mb-6">Enter the username of the parent you want to add</p>
     
     <form method="POST" class="space-y-6">
         {% csrf_token %}

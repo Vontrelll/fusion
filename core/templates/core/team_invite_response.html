@@ -1,0 +1,68 @@
+{% extends 'core/base.html' %}
+{% block title %}Team Invite - {{ team.name }} - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-8">
+    <div class="bg-white rounded-2xl border border-zinc-200 p-6">
+
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-14 h-14 bg-blue-100 rounded-2xl text-3xl mb-3">
+                👥
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight">Team Invitation</h1>
+            <p class="text-sm text-zinc-500 mt-1">You've been invited to join <strong>{{ team.name }}</strong></p>
+        </div>
+
+        <!-- Team Info -->
+        <div class="bg-gray-50 rounded-2xl p-6 mb-8">
+            <h2 class="font-semibold text-xl text-gray-900">{{ team.name }}</h2>
+            {% if team.coach %}
+                <p class="text-gray-600">Coach: {{ team.coach.get_full_name|default:team.coach.username }}</p>
+            {% endif %}
+            {% if team.description %}
+                <p class="text-gray-600 mt-3">{{ team.description }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Kids Status -->
+        <div class="bg-blue-50 border border-blue-100 rounded-2xl p-6 mb-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="text-sm text-blue-600 font-medium">YOUR KIDS ON THIS TEAM</p>
+                    <p class="text-4xl font-bold text-blue-700">{{ kids_on_team }} / {{ total_kids }}</p>
+                </div>
+                <div class="text-right">
+                    {% if remaining_kids > 0 %}
+                        <p class="text-green-600 font-semibold">{{ remaining_kids }} more kid{{ remaining_kids|pluralize }} can join</p>
+                    {% else %}
+                        <p class="text-gray-500">No more kids available to add</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="space-y-4">
+            <!-- Accept Button -->
+            <a href="{% url 'accept_team_invite' invite.id %}" 
+               class="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl transition text-lg">
+                ✅ Accept Invite & Select Kids
+            </a>
+
+            <!-- Decline Button -->
+            <form method="post" action="{% url 'decline_invite' invite.id %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="w-full text-center bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 font-semibold py-4 rounded-2xl transition text-lg">
+                    ❌ Decline Invitation
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center text-xs text-gray-500 mt-8">
+            You can accept this invite later to add more kids if needed.
+        </p>
+    </div>
+</div>
+{% endblock %}

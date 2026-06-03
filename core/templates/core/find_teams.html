@@ -20,36 +20,39 @@
         </div>
     </form>
 
-    <!-- Results -->
-    <div class="space-y-4">
+    <!-- Results - Instagram/Facebook discovery style -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {% for team in teams %}
-        <div class="bg-white rounded-3xl shadow p-6 flex justify-between items-center">
-            <div>
-                <h3 class="text-xl font-semibold">{{ team.name }}</h3>
-                <p class="text-gray-500">{{ team.get_sport_type_display|default:"Unknown Sport" }}</p>
-                <p class="text-sm text-gray-400">{{ team.organization.name }}</p>
+        <div class="bg-white rounded-2xl border border-zinc-200 p-5 flex flex-col">
+            <div class="flex items-start gap-4 flex-1">
+                <div class="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0">
+                    🏟️
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h3 class="font-semibold text-lg leading-tight">{{ team.name }}</h3>
+                    <p class="text-sm text-zinc-500">{{ team.get_sport_type_display }}</p>
+                    <p class="text-xs text-zinc-400 mt-0.5">{{ team.organization.name }}</p>
+                </div>
             </div>
 
-            {% if team.user_is_member %}
-                <button disabled
-                        class="inline-flex items-center gap-2 bg-green-100 text-green-700 px-6 py-3 rounded-2xl font-medium cursor-not-allowed">
-                    ✅ Member
-                </button>
-            {% elif team.user_has_pending_request %}
-                <button disabled
-                        class="bg-yellow-100 text-yellow-700 px-6 py-3 rounded-2xl font-medium cursor-not-allowed">
-                    ⏳ Request Pending
-                </button>
-            {% else %}
-                <a href="{% url 'parent_to_team_request' team.id %}"
-                   class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-medium">
-                    Request to Join
-                </a>
-            {% endif %}
+            <div class="mt-4 pt-4 border-t flex items-center justify-between">
+                {% if team.is_owned_by_user %}
+                    <span class="text-xs font-medium bg-zinc-100 text-zinc-600 px-3 py-1 rounded-2xl">Your Team</span>
+                {% elif team.user_is_member and not team.can_add_more_kids %}
+                    <span class="text-xs font-medium bg-emerald-100 text-emerald-700 px-3 py-1 rounded-2xl">✓ Member</span>
+                {% elif team.user_has_pending_request %}
+                    <span class="text-xs font-medium bg-amber-100 text-amber-700 px-3 py-1 rounded-2xl">Request Pending</span>
+                {% else %}
+                    <a href="{% url 'select_kids_for_team_join_request' team.id %}"
+                       class="text-sm font-semibold bg-[#1877f2] hover:bg-[#166fe0] text-white px-4 py-2 rounded-2xl transition">
+                        {% if team.user_is_member %}Add Kid{% else %}Request to Join{% endif %}
+                    </a>
+                {% endif %}
+            </div>
         </div>
         {% empty %}
-        <div class="text-center py-20 text-gray-500">
-            <p class="text-xl">No teams found.</p>
+        <div class="col-span-full py-16 text-center bg-white rounded-2xl border border-zinc-200">
+            <p class="text-zinc-500">No teams found.</p>
         </div>
         {% endfor %}
     </div>

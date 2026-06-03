@@ -1,115 +1,80 @@
 {% extends 'core/base.html' %}
 {% block title %}My Families - Fusion{% endblock %}
+
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 py-6 flex gap-6">
-    <!-- LEFT SIDEBAR -->
-    <div class="w-64 hidden lg:block">
-        <div class="sticky top-6 bg-white rounded-2xl shadow p-5">
-            <h3 class="font-semibold mb-4 flex items-center gap-2">
-                <span class="text-2xl">👨‍👩‍👧‍👦</span> Families
-            </h3>
-            <div class="space-y-1">
-                <a href="{% url 'family_list' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 text-blue-600 font-semibold">
-                    All Families
-                </a>
-                <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
-                    Shared with Me
-                </a>
-                <a href="{% url 'notifications' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
-                    🛎️ Notifications
-                </a>
-            </div>
-            <div class="border-t border-gray-200 my-6"></div>
-            <a href="{% url 'add_family' %}" class="block w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-3 rounded-xl font-semibold">
-                + Create New Family
-            </a>
+<div class="max-w-[1000px] mx-auto px-4 py-6">
+
+    <!-- Header - FB style -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight">My Families</h1>
+            <p class="text-sm text-zinc-500">Families you're part of</p>
         </div>
+        
+        <a href="{% url 'add_family' %}" 
+           class="bg-[#1877f2] hover:bg-[#166fe0] text-white px-5 py-2.5 rounded-2xl font-semibold text-sm flex items-center gap-2 transition">
+            + Create Family
+        </a>
     </div>
 
-    <!-- MAIN CONTENT -->
-    <div class="flex-1 max-w-2xl">
-        <div class="flex justify-between items-center mb-8">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-900">My Families</h1>
-                <p class="text-gray-600 mt-1">Manage your family groups and shared access</p>
-            </div>
-            <a href="{% url 'add_family' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 shadow">
-                <span class="text-2xl leading-none">+</span> New Family
-            </a>
-        </div>
-
-        {% if families %}
-        <div class="space-y-6">
-            {% for family in families %}
-            <div class="bg-white rounded-3xl shadow p-7 hover:shadow-md transition-all">
-                <div class="flex items-start gap-6">
-                    <!-- Family Icon -->
-                    <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl flex items-center justify-center text-4xl flex-shrink-0 shadow-inner">
-                        👨‍👩‍👧‍👦
-                    </div>
-                    <!-- Family Info -->
-                    <div class="flex-1">
-                        <h2 class="font-semibold text-2xl text-gray-900">{{ family.family_name }}</h2>
-                        <p class="text-gray-500 text-sm mt-1">
-                            Created {{ family.created_at|date:"M j, Y" }}
-                        </p>
-                        <div class="flex gap-8 mt-6 text-sm">
-                            <div>
-                                <span class="block text-gray-500">Parents</span>
-                                <span class="text-3xl font-semibold text-blue-600">{{ family.parents.count }}</span>
-                            </div>
-                            <div>
-                                <span class="block text-gray-500">Kids</span>
-                                <span class="text-3xl font-semibold text-blue-600">{{ family.kids.count }}</span>
-                            </div>
+    {% if families %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for family in families %}
+        <div class="bg-white rounded-2xl border border-zinc-200 p-5 hover:shadow-sm transition-all group">
+            <div class="flex items-start gap-6">
+                <!-- Family Icon -->
+                <div class="w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-3xl flex items-center justify-center text-5xl flex-shrink-0 shadow-inner">
+                    👨‍👩‍👧‍👦
+                </div>
+                
+                <!-- Family Info -->
+                <div class="flex-1 min-w-0">
+                    <h2 class="font-semibold text-2xl text-zinc-900">{{ family.family_name }}</h2>
+                    <p class="text-zinc-500 text-sm mt-1">
+                        Created {{ family.created_at|date:"M j, Y" }}
+                    </p>
+                    
+                    <div class="mt-8 grid grid-cols-2 gap-6">
+                        <div>
+                            <span class="block text-xs text-zinc-500 font-medium">PARENTS</span>
+                            <span class="text-4xl font-semibold text-zinc-900">{{ family.parents.count }}</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs text-zinc-500 font-medium">KIDS</span>
+                            <span class="text-4xl font-semibold text-zinc-900">{{ family.kids.count }}</span>
                         </div>
                     </div>
-                    <!-- Actions -->
-                    <div class="flex flex-col gap-3">
-                        <a href="{% url 'invite_parent' family.id %}" 
-                           class="px-6 py-2.5 text-center bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl font-medium transition text-sm">
-                            Invite Parent
-                        </a>
-                        <a href="{% url 'family_detail' family.id %}" 
-                           class="px-6 py-2.5 text-center bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-2xl font-medium transition text-sm">
-                            View Details
-                        </a>
-                    </div>
                 </div>
             </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="bg-white rounded-3xl p-16 text-center shadow">
-            <div class="text-7xl mb-6">👨‍👩‍👧‍👦</div>
-            <p class="text-2xl font-medium text-gray-700">No families yet</p>
-            <p class="text-gray-500 mt-3 max-w-md mx-auto">
-                Create a family to start sharing schedules, events, and rides with other parents.
-            </p>
-            <a href="{% url 'add_family' %}" class="inline-block mt-8 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-semibold">
-                + Create Your First Family
-            </a>
-        </div>
-        {% endif %}
-    </div>
 
-    <!-- RIGHT SIDEBAR -->
-    <div class="w-80 hidden xl:block">
-        <div class="sticky top-6 space-y-6">
-            <div class="bg-white rounded-2xl shadow p-6">
-                <h3 class="font-semibold mb-4">Your Families</h3>
-                <div class="text-6xl font-bold text-blue-600 text-center">
-                    {{ families|length }}
-                </div>
-                <p class="text-center text-gray-500 mt-1">Active Families</p>
-            </div>
-            <div class="bg-white rounded-2xl shadow p-6 text-sm">
-                <h3 class="font-semibold mb-3">💡 Next Step</h3>
-                <p class="text-gray-600 leading-relaxed">
-                    Once you have multiple parents in a family, you'll be able to share events and coordinate carpools seamlessly.
-                </p>
+            <!-- Actions -->
+            <div class="mt-10 flex gap-3">
+                <a href="{% url 'invite_parent' family.id %}" 
+                   class="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-700 py-4 text-center rounded-2xl font-medium transition">
+                    Invite Parent
+                </a>
+                <a href="{% url 'family_detail' family.id %}" 
+                   class="flex-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 py-4 text-center rounded-2xl font-medium transition">
+                    View Details
+                </a>
             </div>
         </div>
+        {% endfor %}
     </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-white rounded-3xl shadow-sm border border-dashed border-zinc-200 p-20 text-center">
+        <div class="text-7xl mb-6">👨‍👩‍👧‍👦</div>
+        <h3 class="text-3xl font-semibold text-zinc-800">No families yet</h3>
+        <p class="text-zinc-500 mt-4 max-w-md mx-auto">
+            Create a family to start sharing schedules, events, and rides with other parents.
+        </p>
+        <a href="{% url 'add_family' %}" 
+           class="mt-10 inline-block bg-zinc-900 text-white px-10 py-5 rounded-3xl font-semibold">
+            + Create Your First Family
+        </a>
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}

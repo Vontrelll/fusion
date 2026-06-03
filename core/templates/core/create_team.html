@@ -2,10 +2,17 @@
 {% block title %}Create New Team - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-6 py-12">
-    <div class="bg-white rounded-3xl shadow-xl p-10">
-        <h1 class="text-3xl font-bold text-center mb-2">Create New Team</h1>
-        <p class="text-gray-600 text-center mb-8">Build your team and start managing your players & schedule</p>
+<div class="max-w-lg mx-auto px-4 py-8">
+    <!-- Social header -->
+    <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-14 h-14 bg-emerald-100 text-4xl rounded-2xl mb-4">
+            🏟️
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight">Create New Team</h1>
+        <p class="text-sm text-zinc-500 mt-1">Build your team and manage players</p>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-zinc-200 p-6">
 
         <form method="POST" class="space-y-6">
             {% csrf_token %}

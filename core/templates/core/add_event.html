@@ -1,81 +1,140 @@
 {% extends 'core/base.html' %}
-{% block title %}Add New Event - Fusion{% endblock %}
+{% block title %}Add Event - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 py-8 flex justify-center">
-  <div class="w-full max-w-md">
-    
-    <!-- Card -->
-    <div class="bg-white rounded-3xl shadow-xl p-10">
-      
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl text-4xl mb-4">
-          📅
+<div class="max-w-lg mx-auto px-4 py-8">
+    <div class="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
+        <div class="bg-[#1877f2] text-white p-6 text-center">
+            <h1 class="text-2xl font-semibold">Add New Event</h1>
         </div>
-        <h1 class="text-3xl font-bold text-gray-900">Add New Event</h1>
-        <p class="text-gray-600 mt-2">Create a new activity or appointment for your kid</p>
-      </div>
+        
+        <div class="p-8">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <div class="space-y-6">
+                    <!-- Event Name -->
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Event Name</label>
+                        <input type="text" name="name" value="{{ submitted.name|default:'' }}" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
 
-      <form method="POST" class="space-y-6">
-        {% csrf_token %}
+                    <!-- Time Fields -->
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Start Time</label>
+                            <input type="datetime-local" name="start_time" id="start_time"
+                                   value="{{ submitted.start_time|default:'' }}" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">End Time</label>
+                            <input type="datetime-local" name="end_time" id="end_time"
+                                   value="{{ submitted.end_time|default:'' }}" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-500 mt-1">End time auto-adjusts 1 hour after start</p>
+                        </div>
+                    </div>
 
-        <!-- Event Name -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Event Name</label>
-          <input type="text" name="name" required
-                 class="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    <!-- Location -->
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Location</label>
+                        <input type="text" name="location" value="{{ submitted.location|default:'' }}"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <!-- Kids Selection -->
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Kids attending this event</label>
+                        <div class="border border-gray-300 rounded-2xl p-2 max-h-44 overflow-auto space-y-1 bg-white">
+                            {% for kid in kids %}
+                            <label class="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 rounded-xl cursor-pointer">
+                                <input type="checkbox" name="kids" value="{{ kid.id }}"
+                                       {% if kid.id|stringformat:"s" in submitted.getlist.kids %}checked{% endif %}
+                                       class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <span class="text-sm">{{ kid.first_name }} {{ kid.last_name }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Select all kids who will attend (optional)</p>
+                    </div>
+
+                    <!-- Attending Parents -->
+                    {% if family_parents %}
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">
+                            Parent(s) attending this event
+                        </label>
+                        <div class="border border-gray-300 rounded-2xl p-2 max-h-32 overflow-auto space-y-1 bg-white">
+                            {% for p in family_parents %}
+                            <label class="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 rounded-xl cursor-pointer">
+                                <input type="checkbox" name="attending_parents" value="{{ p.id }}"
+                                       {% if p.id|stringformat:"s" in submitted.getlist.attending_parents %}checked{% endif %}
+                                       class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <span class="text-sm">{{ p.get_full_name|default:p.username }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Use this to note which parents are going with the kids <strong>or</strong> 
+                            to schedule a personal event for yourself.
+                        </p>
+                    </div>
+                    {% endif %}
+
+                    <button type="submit"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl text-lg transition">
+                        Create Event
+                    </button>
+                </div>
+            </form>
         </div>
-
-        <!-- Start Time -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
-          <input type="datetime-local" name="start_time" required
-                 class="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-        </div>
-
-        <!-- End Time -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">End Time</label>
-          <input type="datetime-local" name="end_time" required
-                 class="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-        </div>
-
-        <!-- Location -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Location</label>
-          <input type="text" name="location"
-                 class="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-        </div>
-
-        <!-- Kid Selection -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">For which kid?</label>
-          <select name="kid" required
-                  class="w-full px-5 py-4 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-            <option value="">-- Choose Kid --</option>
-            {% for kid in kids %}
-            <option value="{{ kid.id }}">{{ kid.first_name }} {{ kid.last_name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <!-- Submit -->
-        <button type="submit"
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl text-lg transition shadow">
-          + Add Event
-        </button>
-      </form>
-
     </div>
-
-    <!-- Back link -->
-    <div class="text-center mt-6">
-      <a href="{% url 'event_list' %}" 
-         class="text-gray-500 hover:text-gray-700 text-sm flex items-center justify-center gap-2">
-        ← Back to My Events
-      </a>
-    </div>
-
-  </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const startInput = document.getElementById('start_time');
+    const endInput = document.getElementById('end_time');
+
+    if (!startInput || !endInput) return;
+
+    function setEndTimeToOneHourLater() {
+        const val = startInput.value;
+        if (!val) return;
+
+        // val is "YYYY-MM-DDTHH:MM"
+        const [datePart, timePart] = val.split('T');
+        if (!timePart) return;
+
+        let [hour, minute] = timePart.split(':').map(Number);
+        let newHour = hour + 1;
+        let newDatePart = datePart;
+
+        if (newHour >= 24) {
+            newHour -= 24;
+            // increment date manually (preserves the wall time/date user picked)
+            const [y, m, d] = datePart.split('-').map(Number);
+            const dt = new Date(y, m - 1, d);
+            dt.setDate(dt.getDate() + 1);
+            const ny = dt.getFullYear();
+            const nm = String(dt.getMonth() + 1).padStart(2, '0');
+            const nd = String(dt.getDate()).padStart(2, '0');
+            newDatePart = `${ny}-${nm}-${nd}`;
+        }
+
+        const newTime = String(newHour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
+        endInput.value = newDatePart + 'T' + newTime;
+    }
+
+    startInput.addEventListener('change', setEndTimeToOneHourLater);
+    startInput.addEventListener('input', setEndTimeToOneHourLater);
+
+    // If start already has value (e.g. validation error), auto-set end
+    if (startInput.value) {
+        setEndTimeToOneHourLater();
+    }
+});
+</script>
 {% endblock %}

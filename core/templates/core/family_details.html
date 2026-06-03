@@ -1,112 +1,132 @@
 {% extends 'core/base.html' %}
-
 {% block title %}{{ family.family_name }} - Fusion{% endblock %}
 
 {% block content %}
+<div class="max-w-[1000px] mx-auto px-4 py-6">
 
-<div class="max-w-7xl mx-auto px-4 py-6 flex gap-6">
+    <!-- Header - FB style -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold tracking-tight">{{ family.family_name }}</h1>
+        <p class="text-sm text-zinc-500 mt-1">Created {{ family.created_at|date:"F j, Y" }}</p>
+    </div>
 
-    <!-- LEFT SIDEBAR -->
-    <div class="w-64 hidden lg:block">
-        <div class="sticky top-6 bg-white rounded-2xl shadow p-5">
-            <h3 class="font-semibold mb-4 flex items-center gap-2">
-                <span class="text-2xl">👨‍👩‍👧‍👦</span> Families
-            </h3>
-            <div class="space-y-1">
-                <a href="{% url 'family_detail' family.id %}" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 text-blue-600 font-semibold">
-                    Overview
-                </a>
-                <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
-                    Events
-                </a>
-                <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
-                    Calendar
-                </a>
-                <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 transition">
-                    Members
-                </a>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- Main Content -->
+        <div class="lg:col-span-8 space-y-12">
+
+            <!-- Parents Section -->
+            <div>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-semibold">Parents ({{ family.parents.count }})</h2>
+                    <a href="{% url 'invite_parent' family.id %}" 
+                       class="bg-[#1877f2] hover:bg-[#166fe0] text-white px-4 py-2 rounded-2xl text-sm font-semibold flex items-center gap-2 transition">
+                        + Invite Parent
+                    </a>
+                </div>
+                
+                <div class="space-y-3">
+                    {% for parent in family.parents %}
+                    <div class="bg-white rounded-2xl border border-zinc-200 p-4 flex items-center justify-between hover:bg-zinc-50 transition">
+                        <div class="flex items-center gap-5">
+                            <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-2xl flex items-center justify-center text-3xl">
+                                👤
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-lg">{{ parent.first_name }} {{ parent.last_name }}</h3>
+                                <p class="text-zinc-500 text-sm">@{{ parent.username }}</p>
+                            </div>
+                        </div>
+                        <a href="{% url 'remove_parent' family.id parent.id %}" 
+                           class="text-red-600 hover:text-red-700 font-medium px-5 py-2 rounded-2xl hover:bg-red-50 transition">
+                            Remove
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Kids Section -->
+            <div>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-semibold">Kids ({{ family.kids.count }})</h2>
+                    <a href="{% url 'add_kid' %}" 
+                       class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-3xl font-semibold flex items-center gap-2 transition">
+                        + Add Kid
+                    </a>
+                </div>
+                
+                <div class="space-y-4">
+                    {% for kid in family.kids.all %}
+                    <div class="bg-white rounded-2xl border border-zinc-200 p-4 flex items-center justify-between hover:bg-zinc-50 transition">
+                        <div class="flex items-center gap-5">
+                            <div class="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-2xl flex items-center justify-center text-3xl">
+                                {% if kid.gender == 'M' %}👦{% else %}👧{% endif %}
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-lg">{{ kid.first_name }} {{ kid.last_name }}</h3>
+                                <p class="text-zinc-500">{{ kid.get_gender_display }} • Born {{ kid.date_of_birth }}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <a href="{% url 'edit_kid' kid.id %}" class="text-zinc-600 hover:text-zinc-800 font-medium px-4 py-2 rounded-2xl hover:bg-zinc-100 transition">Edit</a>
+                            <a href="{% url 'delete_kid' kid.id %}" class="text-red-600 hover:text-red-700 font-medium px-4 py-2 rounded-2xl hover:bg-red-50 transition">Delete</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="lg:col-span-4">
+            <div class="sticky top-8 space-y-6">
+                <div class="bg-white rounded-2xl border border-zinc-200 p-6 text-center">
+                    <h3 class="font-semibold text-zinc-500 mb-2">Total Members</h3>
+                    <div class="text-7xl font-semibold text-zinc-900">
+                        {{ family.parents.count|add:family.kids.count }}
+                    </div>
+                    <p class="text-sm text-zinc-500 mt-1">in this family</p>
+                </div>
+
+                {% if pending_invites %}
+                <div class="bg-white rounded-2xl border border-amber-200 p-6">
+                    <h3 class="font-semibold text-amber-700 mb-3 flex items-center gap-2">
+                        <span>Pending Invites</span>
+                        <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{{ pending_invites|length }}</span>
+                    </h3>
+                    <div class="space-y-3">
+                        {% for inv in pending_invites %}
+                            <div class="text-sm border border-amber-100 rounded-xl p-3">
+                                {% if inv.invite_type == "sent_invite" %}
+                                    <div class="text-gray-600">You invited <strong>{{ inv.receiver.username }}</strong></div>
+                                {% else %}
+                                    <div class="text-gray-600"><strong>{{ inv.sender.username }}</strong> wants to join</div>
+                                {% endif %}
+                                <div class="text-[11px] text-gray-400 mt-1">{{ inv.created_at|timesince }} ago</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="bg-white rounded-3xl shadow-sm border border-zinc-100 p-8">
+                    <h3 class="font-semibold mb-4">Quick Actions</h3>
+                    <div class="space-y-3">
+                        <a href="{% url 'invite_parent' family.id %}" 
+                           class="block w-full text-center py-4 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl font-medium transition">
+                            Invite Another Parent
+                        </a>
+                        <a href="#" 
+                           class="block w-full text-center py-4 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-2xl font-medium transition">
+                            Share Calendar
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- MAIN CONTENT -->
-    <div class="flex-1 max-w-3xl">
-        <div class="mb-10">
-            <h1 class="text-4xl font-bold text-gray-900">{{ family.family_name }}</h1>
-            <p class="text-gray-500">Created {{ family.created_at|date:"F j, Y" }}</p>
-        </div>
-
-        <!-- Parents -->
-        <div class="mb-12">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-semibold">Parents ({{ family.parents.count }})</h2>
-                <a href="{% url 'invite_parent' family.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-2xl font-semibold flex items-center gap-2">
-                    + Invite Parent
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4">
-                {% for parent in family.parents.all %}
-                <div class="bg-white rounded-2xl shadow p-6 flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-2xl flex items-center justify-center text-3xl">
-                            👤
-                        </div>
-                        <div>
-                            <h3 class="font-semibold">{{ parent.username }}</h3>
-                            <p class="text-sm text-gray-500">{{ parent.first_name }} {{ parent.last_name }}</p>
-                        </div>
-                    </div>
-                    <a href="{% url 'remove_parent' family.id parent.id %}" 
-                       class="text-red-600 hover:text-red-700 font-medium">Remove</a>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- Kids -->
-        <div>
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-semibold">Kids ({{ family.kids.count }})</h2>
-                <a href="{% url 'add_kid' %}" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-2xl font-semibold flex items-center gap-2">
-                    + Add Kid
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4">
-                {% for kid in family.kids.all %}
-                <div class="bg-white rounded-2xl shadow p-6 flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-2xl flex items-center justify-center text-3xl">
-                            {% if kid.gender == 'M' %}👦{% else %}👧{% endif %}
-                        </div>
-                        <div>
-                            <h3 class="font-semibold">{{ kid.first_name }} {{ kid.last_name }}</h3>
-                            <p class="text-gray-500">{{ kid.get_gender_display }} • Born {{ kid.date_of_birth }}</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-4">
-                        <a href="#" class="text-gray-600 hover:text-gray-800">Edit</a>
-                        <a href="#" class="text-red-600 hover:text-red-700">Delete</a>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-
-    <!-- RIGHT SIDEBAR -->
-    <div class="w-80 hidden xl:block">
-        <div class="sticky top-6 space-y-6">
-            <div class="bg-white rounded-2xl shadow p-6 text-center">
-                <h3 class="font-semibold mb-4">Family Members</h3>
-                <div class="text-6xl font-bold text-blue-600">
-                    {{ family.parents.count|add:family.kids.count }}
-                </div>
-                <p class="text-gray-500 mt-1">Total Members</p>
-            </div>
-        </div>
-    </div>
 </div>
-
 {% endblock %}

@@ -1,0 +1,42 @@
+{% extends 'core/base.html' %}
+{% block title %}My Teams - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-[1000px] mx-auto px-4 py-6">
+
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight">My Teams</h1>
+            <p class="text-sm text-zinc-500">Teams you're registered with</p>
+        </div>
+    </div>
+
+    {% if teams %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for team in teams %}
+        <div class="bg-white rounded-3xl shadow-sm border border-zinc-100 p-8 hover:shadow-md transition-all">
+            <div>
+                <h3 class="text-2xl font-semibold text-zinc-900">{{ team.name }}</h3>
+                <p class="text-zinc-500 mt-1">{{ team.get_sport_type_display }}</p>
+                <p class="text-sm text-zinc-400 mt-1">{{ team.organization.name }}</p>
+            </div>
+
+            <div class="mt-10">
+                <a href="{% url 'team_detail' team.id %}" 
+                   class="block w-full text-center py-4 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-2xl font-medium transition">
+                    View Team Details
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-3xl shadow-sm border border-dashed border-zinc-200 p-20 text-center">
+        <div class="text-7xl mb-6">🏟️</div>
+        <h3 class="text-3xl font-semibold text-zinc-800">You're not on any teams yet</h3>
+        <p class="text-zinc-500 mt-4">Ask your team owner to invite you, or search for teams to join.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

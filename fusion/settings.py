@@ -1,12 +1,3 @@
-import os
-from dotenv import load_dotenv
-
-load_dotenv()   # Load the .env file
-
-# === Google Calendar OAuth ===
-GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID')
-GOOGLE_OAUTH_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET')
-
 """
 Django settings for fusion project.
 

@@ -2,94 +2,69 @@
 {% block title %}Notifications - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-8">
-    <h1 class="text-3xl font-bold mb-8">Notifications</h1>
-
-    <!-- Updated Team Events -->
-    {% if updated_notifications %}
-    <h2 class="text-xl font-semibold mb-4 text-blue-600">Updated Team Events</h2>
-    <div class="space-y-4 mb-10">
-        {% for notif in updated_notifications %}
-        {% if notif.extra_data and notif.extra_data.team_event_id %}
-        <a href="{% url 'review_team_event_update' notif.extra_data.team_event_id %}" 
-           class="block bg-white rounded-3xl shadow p-6 border-l-4 border-blue-500 hover:shadow-md transition">
-        {% else %}
-        <div class="block bg-white rounded-3xl shadow p-6 border-l-4 border-blue-500 opacity-75">
+<div class="max-w-[1000px] mx-auto px-4 py-6">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight">Notifications</h1>
+            {% if unread_count > 0 %}
+            <p class="text-sm text-gray-500 mt-1">{{ unread_count }} unread</p>
+            {% endif %}
+        </div>
+        {% if unread_count > 0 %}
+        <form method="POST" action="{% url 'notifications' %}">
+            {% csrf_token %}
+            <button type="submit" class="text-sm font-medium text-blue-600 hover:text-blue-700 transition px-4 py-2 rounded-2xl hover:bg-blue-50">
+                Mark all as read
+            </button>
+        </form>
         {% endif %}
-            <div class="flex items-start gap-4">
-                <span class="text-3xl">📝</span>
-                <div class="flex-1">
-                    <h3 class="font-semibold text-blue-600">{{ notif.title }}</h3>
-                    <p class="text-gray-600 mt-1">{{ notif.message }}</p>
-                    <p class="text-xs text-gray-500 mt-3">{{ notif.created_at|timesince }} ago</p>
+    </div>
+
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        {% if notifications %}
+            {% for notif in notifications %}
+            <a href="{{ notif.url }}" 
+               class="block px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-none group
+                      {% if not notif.is_read %}bg-blue-50/40{% else %}opacity-75{% endif %}">
+                <div class="flex gap-4">
+                    <div class="flex-shrink-0 mt-0.5">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl 
+                                    {% if not notif.is_read %}bg-blue-100{% else %}bg-gray-200{% endif %}">
+                            {{ notif.icon|default:'🔔' }}
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-start justify-between gap-x-4">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2">
+                                    <p class="{% if not notif.is_read %}font-semibold text-gray-900{% else %}font-medium text-gray-500{% endif %} group-hover:text-blue-700 transition">
+                                        {{ notif.title }}
+                                    </p>
+                                    {% if not notif.is_read %}
+                                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-blue-600 text-white rounded-full">NEW</span>
+                                    {% endif %}
+                                </div>
+                                <p class="{% if not notif.is_read %}text-gray-600{% else %}text-gray-400{% endif %} text-sm mt-0.5 leading-snug line-clamp-2">
+                                    {{ notif.message }}
+                                </p>
+                            </div>
+                            <div class="flex flex-col items-end gap-y-1 flex-shrink-0 text-right">
+                                <span class="text-xs text-gray-500 whitespace-nowrap">
+                                    {{ notif.created_at|timesince }} ago
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        {% if notif.extra_data and notif.extra_data.team_event_id %}
-        </a>
+            </a>
+            {% endfor %}
         {% else %}
-        </div>
+            <div class="px-8 py-16 text-center">
+                <div class="text-5xl mb-4">🔔</div>
+                <h3 class="text-lg font-semibold text-gray-700">You're all caught up</h3>
+                <p class="text-gray-500 mt-1 text-sm">No notifications yet.</p>
+            </div>
         {% endif %}
-        {% endfor %}
     </div>
-    {% endif %}
-
-    <!-- Canceled Team Events -->
-    {% if canceled_notifications %}
-    <h2 class="text-xl font-semibold mb-4 text-red-600">Canceled Team Events</h2>
-    <div class="space-y-4 mb-10">
-        {% for notif in canceled_notifications %}
-        <div class="bg-white rounded-3xl shadow p-6 border-l-4 border-red-500">
-            <div class="flex items-start gap-4">
-                <span class="text-3xl">❌</span>
-                <div class="flex-1">
-                    <h3 class="font-semibold text-red-600">{{ notif.title }}</h3>
-                    <p class="text-gray-600 mt-1">{{ notif.message }}</p>
-                    <p class="text-xs text-gray-500 mt-3">{{ notif.created_at|timesince }} ago</p>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Team Event Invitations -->
-    {% if team_event_invitations %}
-    <h2 class="text-xl font-semibold mb-4">Team Event Invitations</h2>
-    <div class="space-y-4">
-        {% for invitation in team_event_invitations %}
-        <div class="bg-white rounded-3xl shadow p-6 flex items-center justify-between">
-            <div>
-                <h3 class="font-semibold">{{ invitation.team_event.name }}</h3>
-                <p class="text-gray-600">
-                    {{ invitation.team_event.team.name }} • 
-                    {{ invitation.team_event.start_time|date:"M j, Y g:i A" }}
-                </p>
-            </div>
-            <div class="flex gap-3">
-                <a href="{% url 'team_event_kid_selection' invitation.id %}"
-                   class="px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 font-medium">
-                    Accept
-                </a>
-                <a href="{% url 'decline_team_event_invite' invitation.id %}"
-                   class="px-6 py-3 bg-gray-200 text-gray-800 rounded-2xl hover:bg-gray-300 font-medium">
-                    Decline
-                </a>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Other pending requests -->
-    {% if pending_requests %}
-    <h2 class="text-xl font-semibold mt-10 mb-4">Other Requests</h2>
-    <!-- Your existing pending requests code goes here -->
-    {% endif %}
-
-    {% if not updated_notifications and not canceled_notifications and not team_event_invitations and not pending_requests %}
-    <div class="bg-white rounded-3xl p-16 text-center">
-        <p class="text-gray-500 text-xl">No new notifications</p>
-    </div>
-    {% endif %}
 </div>
 {% endblock %}

@@ -1,29 +1,60 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Create Your First Family - Fusion</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center">
-    <div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
-        <h1 class="text-3xl font-bold text-center mb-2">Let's create your family</h1>
-        <p class="text-gray-600 text-center mb-8">Give your family a name to get started</p>
+{% extends 'core/base.html' %}
+{% block title %}Create Your Family - Fusion{% endblock %}
 
+{% block content %}
+<div class="max-w-md mx-auto py-8 px-4">
+    <!-- Header with icon -->
+    <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 text-blue-600 rounded-3xl text-5xl mb-4 shadow-inner">
+            👨‍👩‍👧‍👦
+        </div>
+        <h1 class="text-3xl font-semibold tracking-tight text-zinc-900">Create your family</h1>
+        <p class="text-zinc-500 mt-2">Give your family a name to get started</p>
+    </div>
+
+    <div class="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
         <form method="POST" class="space-y-6">
             {% csrf_token %}
             
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Family Name</label>
+                <label class="block text-sm font-medium text-zinc-700 mb-2">Family Name</label>
                 <input type="text" name="family_name" required placeholder="e.g. The Robinson Family"
-                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                       class="w-full px-4 py-3.5 border border-zinc-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#1877f2] text-sm">
             </div>
 
             <button type="submit"
-                    class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3.5 rounded-lg transition">
+                    class="w-full bg-[#1877f2] hover:bg-[#166fe0] text-white font-semibold py-3.5 rounded-2xl transition shadow-sm">
                 Create Family
             </button>
         </form>
     </div>
-</body>
-</html>
+
+    <!-- Join family section underneath (leads to search for family parent) -->
+    <div class="mt-8">
+        <div class="relative py-2">
+            <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-zinc-200"></div>
+            </div>
+            <div class="relative flex justify-center">
+                <span class="bg-[#f0f2f5] px-3 text-xs text-zinc-500">or</span>
+            </div>
+        </div>
+
+        <div class="text-center mt-2">
+            <a href="{% url 'join_family' %}" 
+               class="inline-flex items-center justify-center gap-2 w-full max-w-[260px] mx-auto px-6 py-3 bg-white border border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50 rounded-2xl text-sm font-medium text-zinc-700 transition">
+                <i class="fa-solid fa-search text-[#1877f2]"></i>
+                <span>Join an existing family</span>
+            </a>
+            <p class="text-[11px] text-zinc-400 mt-2">Search for the parent who created the family</p>
+        </div>
+    </div>
+
+    <div class="text-center mt-8">
+        <a href="{% url 'dashboard' %}" 
+           class="text-sm text-zinc-500 hover:text-zinc-700 transition inline-flex items-center gap-1">
+            Skip for now <span aria-hidden="true">→</span>
+        </a>
+    </div>
+</div>
+{% endblock %}

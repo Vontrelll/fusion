@@ -1,103 +1,214 @@
 {% extends 'core/base.html' %}
 {% block title %}Owner Dashboard - Fusion{% endblock %}
+
 {% block content %}
+<div class="max-w-[1100px] mx-auto px-4 py-6">
 
-<!-- Temporary Owner Navigation -->
-<div class="bg-white border-b shadow-sm sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex gap-8 text-sm font-medium">
-        <a href="{% url 'owner_dashboard' %}" class="text-blue-600 font-semibold">Owner Dashboard</a>
-        <a href="{% url 'create_team' %}" class="hover:text-blue-600">Create Team</a>
-        <a href="#" class="hover:text-blue-600">Organizations</a>
-        <a href="#" class="hover:text-blue-600">Announcements</a>
-        <a href="#" class="hover:text-blue-600">Manage Teams</a>
-    </div>
-</div>
-
-<div class="max-w-7xl mx-auto px-4 py-8">
-    <!-- Header -->
-    <div class="flex justify-between items-start mb-10">
-        <div>
-            <h1 class="text-4xl font-bold text-gray-900">
-                Welcome back, {{ request.user.first_name|default:request.user.username }} 👋
-            </h1>
-            <p class="text-gray-600 mt-1">Manage your organization and teams</p>
-        </div>
-        <a href="{% url 'create_team' %}"
-           class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 text-lg">
-            <span class="text-xl">+</span> Create New Team
-        </a>
-    </div>
-
-    <!-- Organization Card - Now Clickable -->
-    {% if user_organization %}
-    <a href="{% url 'organization_details' user_organization.id %}" 
-       class="block bg-white rounded-3xl shadow p-8 mb-10 hover:shadow-xl transition-all duration-200">
-        <div class="flex items-center gap-4">
-            <div class="text-5xl">🏢</div>
+    <!-- Facebook-style Top Header -->
+    <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-3">
+            <div class="w-11 h-11 bg-zinc-900 text-white rounded-full flex items-center justify-center text-xl font-semibold">
+                {{ request.user.first_name|default:request.user.username|slice:":1" }}
+            </div>
             <div>
-                <h2 class="text-3xl font-bold text-gray-900">{{ user_organization.name }}</h2>
-                <p class="text-gray-500">Your Organization</p>
+                <h1 class="text-3xl font-bold text-zinc-900">Welcome back, {{ request.user.first_name|default:request.user.username }}</h1>
+                <p class="text-sm text-zinc-500">Here's what's happening with your teams</p>
             </div>
         </div>
-    </a>
-    {% endif %}
-
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <a href="{% url 'team_list' %}" 
-           class="bg-white rounded-3xl shadow p-6 hover:shadow-lg transition">
-            <p class="text-sm text-gray-500">Total Teams</p>
-            <p class="text-5xl font-bold text-blue-600 mt-2">{{ total_teams|default:0 }}</p>
-        </a>
-
-        <a href="#" class="bg-white rounded-3xl shadow p-6 hover:shadow-lg transition">
-            <p class="text-sm text-gray-500">Total Players</p>
-            <p class="text-5xl font-bold text-emerald-600 mt-2">{{ total_players|default:0 }}</p>
-        </a>
-
-        <a href="{% url 'notifications' %}" 
-           class="bg-white rounded-3xl shadow p-6 hover:shadow-lg transition">
-            <p class="text-sm text-gray-500">Pending Requests</p>
-            <p class="text-5xl font-bold text-orange-600 mt-2">{{ pending_requests|default:0 }}</p>
+        
+        <a href="{% url 'create_team' %}" 
+           class="bg-[#1877f2] hover:bg-[#166fe0] text-white px-6 py-2.5 rounded-2xl font-semibold text-sm flex items-center gap-2 transition">
+            + Create Team
         </a>
     </div>
 
-    <!-- Quick Action Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <a href="#" class="bg-white border border-gray-200 hover:border-purple-300 rounded-3xl p-8 transition text-center">
-            <div class="text-4xl mb-4">📢</div>
-            <h3 class="font-semibold text-xl">Create Post</h3>
-            <p class="text-gray-500">Announce to parents</p>
-        </a>
-
-        <a href="{% url 'team_list' %}?from=invite_parent"
-           class="bg-white border border-gray-200 hover:border-blue-300 rounded-3xl p-8 transition text-center">
-            <div class="text-4xl mb-4">👨‍👩‍👧</div>
-            <h3 class="font-semibold text-xl">Invite Parent</h3>
-            <p class="text-gray-500">Add to your organization</p>
-        </a>
-
-        <a href="{% url 'create_team' %}" class="bg-white border border-gray-200 hover:border-blue-300 rounded-3xl p-8 transition text-center">
-            <div class="text-4xl mb-4">🏟️</div>
-            <h3 class="font-semibold text-xl">New Team</h3>
-            <p class="text-gray-500">Create a new team</p>
-        </a>
-
-        {% if user_organization %}
-        <a href="{% url 'organization_details' user_organization.id %}" 
-           class="bg-white border border-gray-200 hover:border-emerald-300 rounded-3xl p-8 transition text-center">
-            <div class="text-4xl mb-4">⚙️</div>
-            <h3 class="font-semibold text-xl">Manage Org</h3>
-            <p class="text-gray-500">Settings & Details</p>
-        </a>
-        {% endif %}
+    <!-- Facebook-style "What's on your mind?" Composer -->
+    <div class="bg-white rounded-2xl shadow-sm border border-zinc-200 p-4 mb-5">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-zinc-800 text-white rounded-full flex items-center justify-center text-lg font-medium flex-shrink-0">
+                {{ request.user.first_name|default:request.user.username|slice:":1" }}
+            </div>
+            <div class="flex-1 bg-zinc-100 hover:bg-zinc-200 transition rounded-3xl px-4 py-3 text-zinc-500 text-sm cursor-pointer">
+                What's happening with your teams today?
+            </div>
+        </div>
+        
+        <!-- Quick create row (Facebook style) -->
+        <div class="flex justify-between border-t border-zinc-100 pt-3 mt-3">
+            <a href="{% url 'create_team' %}" 
+               class="flex-1 flex items-center justify-center gap-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 py-2 rounded-xl transition">
+                <span class="text-lg">🏟️</span> 
+                <span>Create Team</span>
+            </a>
+            <a href="{% url 'team_list' %}?from=invite_parent" 
+               class="flex-1 flex items-center justify-center gap-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 py-2 rounded-xl transition">
+                <span class="text-lg">👥</span> 
+                <span>Invite Parents</span>
+            </a>
+            <a href="#" 
+               class="flex-1 flex items-center justify-center gap-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 py-2 rounded-xl transition">
+                <span class="text-lg">📢</span> 
+                <span>Make Announcement</span>
+            </a>
+            <a href="{% url 'notifications' %}" 
+               class="flex-1 flex items-center justify-center gap-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 py-2 rounded-xl transition">
+                <span class="text-lg">🔔</span> 
+                <span>View Requests</span>
+            </a>
+        </div>
     </div>
 
-    <!-- Recent Announcements -->
-    <h2 class="text-2xl font-semibold mb-6">Recent Announcements</h2>
-    <div class="space-y-6">
-        <!-- Your placeholder posts go here -->
+    <!-- Main Facebook-style Layout -->
+    <div class="flex gap-5">
+        
+        <!-- Left Sidebar (Your Teams) -->
+        <div class="w-72 flex-shrink-0 hidden lg:block">
+            <div class="bg-white rounded-2xl shadow-sm border border-zinc-200 p-4 sticky top-4">
+                <h3 class="font-semibold text-sm text-zinc-500 px-2 mb-3">YOUR TEAMS</h3>
+                
+                {% if my_teams %}
+                    {% for team in my_teams %}
+                    <a href="#" class="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-zinc-100 transition mb-1 group">
+                        <div class="w-9 h-9 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-lg flex-shrink-0">
+                            🏟️
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-medium text-sm text-zinc-900 group-hover:text-[#1877f2] truncate">{{ team.name }}</div>
+                            <div class="text-xs text-zinc-500">{{ team.organization.name }}</div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="px-2 py-3 text-sm text-zinc-500">No teams yet</div>
+                {% endif %}
+                
+                <a href="{% url 'create_team' %}" 
+                   class="mt-3 flex items-center justify-center gap-2 text-sm font-semibold text-[#1877f2] hover:bg-blue-50 py-2 rounded-xl transition">
+                    + Create New Team
+                </a>
+            </div>
+        </div>
+
+        <!-- Center Feed (Main Content) -->
+        <div class="flex-1 max-w-2xl">
+            
+            <!-- At a Glance Stats (Facebook card style) -->
+            <div class="bg-white rounded-2xl shadow-sm border border-zinc-200 p-5 mb-5">
+                <h3 class="font-semibold text-sm text-zinc-500 mb-4 px-1">At a Glance</h3>
+                <div class="grid grid-cols-3 gap-4">
+                    <a href="{% url 'team_list' %}" class="text-center p-3 rounded-xl hover:bg-zinc-50 transition">
+                        <div class="text-3xl font-bold text-zinc-900">{{ total_teams|default:0 }}</div>
+                        <div class="text-xs text-zinc-500 mt-1 tracking-wide">TEAMS</div>
+                    </a>
+                    <a href="#" class="text-center p-3 rounded-xl hover:bg-zinc-50 transition">
+                        <div class="text-3xl font-bold text-emerald-600">{{ total_players|default:0 }}</div>
+                        <div class="text-xs text-zinc-500 mt-1 tracking-wide">PLAYERS</div>
+                    </a>
+                    <a href="{% url 'notifications' %}" class="text-center p-3 rounded-xl hover:bg-zinc-50 transition">
+                        <div class="text-3xl font-bold text-orange-600">{{ pending_requests|default:0 }}</div>
+                        <div class="text-xs text-zinc-500 mt-1 tracking-wide">PENDING REQUESTS</div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Activity Feed (Facebook Post Style) -->
+            <div class="mb-4">
+                <div class="flex items-center justify-between px-1 mb-3">
+                    <h3 class="font-semibold text-sm text-zinc-500">TEAM FEED</h3>
+                    <a href="{% url 'notifications' %}" class="text-xs text-[#1877f2] hover:underline">See all activity</a>
+                </div>
+
+                <!-- Post 1 -->
+                <div class="bg-white rounded-2xl shadow-sm border border-zinc-200 mb-4 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 pt-4 pb-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 bg-zinc-800 text-white rounded-full flex items-center justify-center text-sm font-semibold">
+                                {{ request.user.first_name|default:request.user.username|slice:":1" }}
+                            </div>
+                            <div>
+                                <div class="font-semibold text-sm">{{ request.user.get_full_name|default:request.user.username }}</div>
+                                <div class="text-xs text-zinc-500">2h ago · <span class="text-emerald-600">Public</span></div>
+                            </div>
+                        </div>
+                        <div class="text-zinc-400 hover:text-zinc-600 cursor-pointer">⋯</div>
+                    </div>
+                    
+                    <div class="px-4 pb-3">
+                        <p class="text-sm text-zinc-700">Just approved 3 new players for the Elite team. Welcome to the squad! 🔥</p>
+                    </div>
+                    
+                    <div class="px-4 py-2 text-xs text-zinc-500 flex items-center gap-1 border-t">
+                        <span>18 parents liked this</span>
+                        <span class="mx-1">·</span>
+                        <span>7 comments</span>
+                    </div>
+                </div>
+
+                <!-- Post 2 -->
+                <div class="bg-white rounded-2xl shadow-sm border border-zinc-200 mb-4 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 pt-4 pb-2">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 bg-emerald-600 text-white rounded-full flex items-center justify-center text-sm font-semibold">
+                                🏟️
+                            </div>
+                            <div>
+                                <div class="font-semibold text-sm">Fusion • {{ user_organization.name|default:"Your Org" }}</div>
+                                <div class="text-xs text-zinc-500">Yesterday at 4:12 PM</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="px-4 pb-3">
+                        <p class="text-sm text-zinc-700">Reminder: Practice schedules for this week have been updated. Check the calendar!</p>
+                    </div>
+                    
+                    <div class="px-4 py-2 text-xs text-zinc-500 flex items-center gap-1 border-t">
+                        <span>42 parents liked this</span>
+                        <span class="mx-1">·</span>
+                        <span>12 comments</span>
+                    </div>
+                </div>
+
+                <!-- Placeholder when no real activity -->
+                <div class="bg-white rounded-2xl shadow-sm border border-zinc-200 p-6 text-center">
+                    <p class="text-sm text-zinc-500">Activity from your teams will appear here (likes, comments, new players, etc.)</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="w-72 flex-shrink-0 hidden xl:block">
+            <div class="bg-white rounded-2xl shadow-sm border border-zinc-200 p-4 sticky top-4">
+                <h3 class="font-semibold text-sm text-zinc-500 px-2 mb-3">INSIGHTS</h3>
+                
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center px-2 py-1">
+                        <span class="text-sm">Total Teams</span>
+                        <span class="font-semibold text-lg">{{ total_teams|default:0 }}</span>
+                    </div>
+                    <div class="flex justify-between items-center px-2 py-1">
+                        <span class="text-sm">Active Players</span>
+                        <span class="font-semibold text-lg text-emerald-600">{{ total_players|default:0 }}</span>
+                    </div>
+                    <div class="flex justify-between items-center px-2 py-1">
+                        <span class="text-sm">Pending Requests</span>
+                        <span class="font-semibold text-lg text-orange-600">{{ pending_requests|default:0 }}</span>
+                    </div>
+                </div>
+
+                <div class="border-t my-4"></div>
+
+                {% if user_organization %}
+                <a href="{% url 'organization_details' user_organization.id %}" 
+                   class="block text-center text-sm font-semibold text-[#1877f2] hover:bg-blue-50 py-2 rounded-xl transition">
+                    Manage {{ user_organization.name }}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
     </div>
+
 </div>
-
 {% endblock %}

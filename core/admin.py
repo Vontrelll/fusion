@@ -1,8 +1,20 @@
 from django.contrib import admin
-# Register your models here.
-from .models import Event, Family, Kid, Invite, Organization, PlayerRegistration, Profile, Team, TeamEvent, TeamEventAttendance, TeamEventInvitation, TeamMembership, PlayerRegistration
-Organization, Profile,
-
+from .models import (
+    Event,
+    Family,
+    Kid,
+    Invite,
+    Notification,
+    Organization,
+    PlayerRegistration,
+    Profile,
+    Team,
+    TeamEvent,
+    TeamEventAttendance,
+    TeamEventInvitation,
+    TeamMembership,
+    RosterRequestKid,
+)
 
 admin.site.register(Event)
 admin.site.register(Kid)
@@ -16,3 +28,6 @@ admin.site.register(Profile)
 admin.site.register(TeamEventInvitation)
 admin.site.register(TeamEvent)
 admin.site.register(TeamEventAttendance)
+admin.site.register(Notification)
+admin.site.register(RosterRequestKid)
+

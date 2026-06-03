@@ -1,56 +1,106 @@
-{% extends 'core/base.html' %}
-{% block title %}Resolve Event Conflict - Fusion{% endblock %}
-{% block content %}
-<div class="max-w-2xl mx-auto px-6 py-8">
-    <h1 class="text-3xl font-bold mb-8 text-red-600">Event Conflict Detected</h1>
-    
-    <div class="bg-white rounded-3xl shadow p-8">
-        <p class="text-lg mb-6">
-            You already have a conflicting event scheduled at this time.
-        </p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resolve Conflict - {{ team_event.name }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+</head>
+<body class="bg-[#f0f2f5]">
 
-        <!-- Conflicting Event -->
-        <div class="mb-8 p-6 bg-red-50 rounded-2xl">
-            <h3 class="font-semibold text-red-700 mb-2">Your Current Event:</h3>
-            <p class="text-xl font-medium">{{ conflicting_event.name }}</p>
-            <p class="text-gray-600">
-                {{ conflicting_event.start_time|date:"D, M d - g:i A" }} to 
-                {{ conflicting_event.end_time|date:"g:i A" }}
-            </p>
-            {% if conflicting_event.location %}
-                <p class="text-gray-500">📍 {{ conflicting_event.location }}</p>
+<div class="max-w-4xl mx-auto px-6 py-10">
+    <h1 class="text-3xl font-bold text-gray-800 mb-2">Review Selected Kids</h1>
+    <p class="text-gray-600 mb-8">
+        For <strong>{{ team_event.name }}</strong>
+        ({{ team_event.start_time|date:"g:i A" }} - {{ team_event.end_time|date:"g:i A" }})
+        — non-conflicting kids were auto-added. Decide per conflicting kid below.
+    </p>
+
+    <div class="bg-white rounded-3xl shadow-sm p-8">
+        {% for data in kids_data %}
+        {% with kid=data.kid conf_list=data.conflicts has_c=data.has_conflict att_status=data.att_status %}
+        <div class="border border-gray-200 rounded-2xl p-6 mb-6">
+            <div class="flex justify-between items-start mb-5">
+                <div class="flex items-center gap-4">
+                    <div class="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-xl"
+                         style="background-color: {{ kid.color|default:'#3b82f6' }}">
+                        {{ kid.first_name|slice:":1" }}
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-xl">{{ kid.first_name }} {{ kid.last_name }}</h3>
+                    </div>
+                </div>
+
+                {% if att_status %}
+                    <span class="px-4 py-1.5 text-sm font-medium rounded-full
+                        {% if att_status == 'accepted' %}bg-emerald-100 text-emerald-700{% else %}bg-gray-200 text-gray-700{% endif %}">
+                        {% if att_status == 'accepted' %}Attending{% else %}Skipped{% endif %}
+                    </span>
+                {% else %}
+                    <span class="px-4 py-1.5 text-sm font-medium rounded-full
+                        {% if has_c %}bg-amber-100 text-amber-700{% else %}bg-emerald-100 text-emerald-700{% endif %}">
+                        {% if has_c %}Conflict{% else %}Clear{% endif %}
+                    </span>
+                {% endif %}
+            </div>
+
+            {% if att_status %}
+                {# Already decided (auto-accepted clear, or previous Replace/Skip) #}
+                <p class="text-sm {% if att_status == 'accepted' %}text-emerald-700{% else %}text-gray-600{% endif %} font-medium py-2">
+                    {% if att_status == 'accepted' %}
+                        This kid is confirmed to attend the team event.
+                    {% else %}
+                        This kid was skipped (original family event is kept).
+                    {% endif %}
+                </p>
+            {% else %}
+                {# Still needs a decision from the parent #}
+                {% if has_c %}
+                    {% for conflict in conf_list %}
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-4">
+                        <p class="font-medium">{{ conflict.event.name }}</p>
+                        <p class="text-sm text-gray-600">
+                            {{ conflict.event.start_time|date:"g:i A" }} - {{ conflict.event.end_time|date:"g:i A" }}
+                        </p>
+                        <p class="text-xs text-amber-600 mt-1">{{ conflict.reason }}</p>
+                    </div>
+                    {% endfor %}
+
+                    <div class="flex gap-4 mt-6">
+                        <form method="post" action="{% url 'replace_with_team_event' invitation.id kid.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="px-7 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-medium">
+                                ✅ Replace & Attend Team Event
+                            </button>
+                        </form>
+
+                        <form method="post" action="{% url 'decline_team_event_invite' invitation.id kid.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="px-7 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-2xl font-medium">
+                                Skip This Kid
+                            </button>
+                        </form>
+                    </div>
+                {% else %}
+                    <p class="text-emerald-700 font-medium py-4">No conflicts — this kid can attend.</p>
+                {% endif %}
             {% endif %}
         </div>
+        {% endwith %}
+        {% empty %}
+            <p class="text-gray-500">No kids to review.</p>
+        {% endfor %}
+    </div>
 
-        <!-- New Team Event -->
-        <div class="mb-8 p-6 bg-blue-50 rounded-2xl">
-            <h3 class="font-semibold text-blue-700 mb-2">New Team Event:</h3>
-            <p class="text-xl font-medium">{{ team_event.name }}</p>
-            <p class="text-gray-600">
-                {{ team_event.start_time|date:"D, M d - g:i A" }} to 
-                {{ team_event.end_time|date:"g:i A" }}
-            </p>
-            {% if team_event.location %}
-                <p class="text-gray-500">📍 {{ team_event.location }}</p>
-            {% endif %}
-            <p class="text-sm text-gray-500 mt-2">
-                From: <strong>{{ team_event.team.name }}</strong> team
-            </p>
-        </div>
-
-        <div class="flex gap-4">
-            <!-- Replace Button - Updated -->
-            <a href="{% url 'replace_with_team_event' invitation.id %}"
-               class="flex-1 bg-green-600 hover:bg-green-700 text-white text-center py-4 rounded-2xl font-semibold text-lg">
-                ✅ Replace with Team Event
-            </a>
-
-            <!-- Keep Current Event -->
-            <a href="{% url 'decline_team_event_invite' invitation.id %}"
-               class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 text-center py-4 rounded-2xl font-semibold text-lg">
-                Keep My Current Event
-            </a>
-        </div>
+    <div class="text-center mt-10 flex flex-col items-center gap-3">
+        {% if not has_pending %}
+            <p class="text-sm text-gray-600">All decisions for this invitation have been recorded.</p>
+            <a href="{% url 'event_list' %}" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-2xl text-sm font-medium">Go to Events List</a>
+        {% endif %}
+        <a href="{% url 'notifications' %}" class="text-gray-500 hover:underline">← Back to Notifications</a>
     </div>
 </div>
-{% endblock %}
+
+</body>
+</html>
