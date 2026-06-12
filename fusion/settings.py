@@ -138,7 +138,7 @@ AUTHENTICATION_BACKENDS = [
     'axes.backends.AxesStandaloneBackend',
 ]
 
-# ==================== LOGGING (Fixed for Railway) ====================
+# ==================== LOGGING (Console Only - Safe for Railway) ====================
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -171,6 +171,5 @@ LOGGING = {
         },
     },
 }
-
 # ==================== EMAIL ====================
 # Keep your existing email block (console in dev, SMTP in prod)
