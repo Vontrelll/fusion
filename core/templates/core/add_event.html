@@ -1,140 +1,139 @@
 {% extends 'core/base.html' %}
-{% block title %}Add Event - Fusion{% endblock %}
+{% block title %}Add New Event - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-lg mx-auto px-4 py-8">
-    <div class="bg-white rounded-2xl border border-zinc-200 overflow-hidden">
-        <div class="bg-[#1877f2] text-white p-6 text-center">
-            <h1 class="text-2xl font-semibold">Add New Event</h1>
-        </div>
-        
-        <div class="p-8">
-            <form method="POST">
-                {% csrf_token %}
-                
-                <div class="space-y-6">
-                    <!-- Event Name -->
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-2">Event Name</label>
-                        <input type="text" name="name" value="{{ submitted.name|default:'' }}" required
-                               class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-
-                    <!-- Time Fields -->
-                    <div class="grid grid-cols-2 gap-6">
-                        <div>
-                            <label class="block text-gray-700 font-medium mb-2">Start Time</label>
-                            <input type="datetime-local" name="start_time" id="start_time"
-                                   value="{{ submitted.start_time|default:'' }}" required
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-gray-700 font-medium mb-2">End Time</label>
-                            <input type="datetime-local" name="end_time" id="end_time"
-                                   value="{{ submitted.end_time|default:'' }}" required
-                                   class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-gray-500 mt-1">End time auto-adjusts 1 hour after start</p>
-                        </div>
-                    </div>
-
-                    <!-- Location -->
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-2">Location</label>
-                        <input type="text" name="location" value="{{ submitted.location|default:'' }}"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-
-                    <!-- Kids Selection -->
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-2">Kids attending this event</label>
-                        <div class="border border-gray-300 rounded-2xl p-2 max-h-44 overflow-auto space-y-1 bg-white">
-                            {% for kid in kids %}
-                            <label class="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 rounded-xl cursor-pointer">
-                                <input type="checkbox" name="kids" value="{{ kid.id }}"
-                                       {% if kid.id|stringformat:"s" in submitted.getlist.kids %}checked{% endif %}
-                                       class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                                <span class="text-sm">{{ kid.first_name }} {{ kid.last_name }}</span>
-                            </label>
-                            {% endfor %}
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">Select all kids who will attend (optional)</p>
-                    </div>
-
-                    <!-- Attending Parents -->
-                    {% if family_parents %}
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-2">
-                            Parent(s) attending this event
-                        </label>
-                        <div class="border border-gray-300 rounded-2xl p-2 max-h-32 overflow-auto space-y-1 bg-white">
-                            {% for p in family_parents %}
-                            <label class="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 rounded-xl cursor-pointer">
-                                <input type="checkbox" name="attending_parents" value="{{ p.id }}"
-                                       {% if p.id|stringformat:"s" in submitted.getlist.attending_parents %}checked{% endif %}
-                                       class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                                <span class="text-sm">{{ p.get_full_name|default:p.username }}</span>
-                            </label>
-                            {% endfor %}
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">
-                            Use this to note which parents are going with the kids <strong>or</strong> 
-                            to schedule a personal event for yourself.
-                        </p>
-                    </div>
-                    {% endif %}
-
-                    <button type="submit"
-                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl text-lg transition">
-                        Create Event
-                    </button>
-                </div>
-            </form>
-        </div>
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <div class="max-w-xl mx-auto">
+    <!-- Page Header (consistent style) -->
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold text-gray-900 flex items-center gap-3">
+        <span>📅</span> New Event
+      </h1>
+      <p class="text-gray-600 mt-1">Schedule something for one or more of your kids</p>
     </div>
+
+    <!-- Main Card -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+      <form method="POST" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Event Name -->
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Event Name</label>
+          <input type="text" name="name" required placeholder="e.g. Soccer practice, Dentist appointment"
+                 class="w-full px-4 py-3.5 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Start Time -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Start Time</label>
+            <input type="datetime-local" name="start_time" id="start_time" required
+                   class="w-full px-4 py-3.5 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+          </div>
+
+          <!-- End Time -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1.5">End Time</label>
+            <input type="datetime-local" name="end_time" id="end_time" required
+                   class="w-full px-4 py-3.5 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+            <p class="text-[10px] text-gray-500 mt-1">Auto +1 hour</p>
+          </div>
+        </div>
+
+        <!-- Location -->
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Location</label>
+          <input type="text" name="location" placeholder="Field, school, home..."
+                 class="w-full px-4 py-3.5 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+        </div>
+
+        <!-- Multi Kid Selection - color coded obviously -->
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Which kids is this for?</label>
+          {% if kids %}
+            <div class="border border-gray-200 rounded-2xl p-2 max-h-64 overflow-auto space-y-1 bg-gray-50/50">
+              {% for kid in kids %}
+              <label class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white cursor-pointer transition group">
+                <input type="checkbox" name="kids" value="{{ kid.id }}"
+                       class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                <span class="inline-block w-4 h-4 rounded-full flex-shrink-0 ring-1 ring-inset ring-gray-300" 
+                      style="background-color: {{ kid.color|default:'#3b82f6' }}"></span>
+                <span class="font-semibold" style="color: {{ kid.color|default:'#1f2937' }}">{{ kid.first_name }} {{ kid.last_name }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            <p class="text-xs text-gray-500 mt-1.5">Select all that apply. Color helps identify whose event.</p>
+          {% else %}
+            <div class="text-sm text-amber-600 bg-amber-50 border border-amber-100 rounded-2xl p-3">
+              No kids in your family yet. <a href="{% url 'add_kid' %}" class="underline font-medium">Add a kid first</a>.
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Parent selection for attending (now included on creation) -->
+        <div>
+          <label class="block text-sm font-semibold text-gray-700 mb-2">Which parents will attend? (optional)</label>
+          {% if family_parents %}
+            <div class="border border-gray-200 rounded-2xl p-2 max-h-40 overflow-auto space-y-1 bg-gray-50/50">
+              {% for p in family_parents %}
+              <label class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white cursor-pointer transition">
+                <input type="checkbox" name="attending_parents" value="{{ p.id }}"
+                       class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                <span class="font-medium text-gray-800">{{ p.first_name }} {{ p.last_name }}</span>
+                {% if p.id == request.user.id %}<span class="text-xs text-blue-600">(you)</span>{% endif %}
+              </label>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-xs text-gray-500">No other parents in family.</div>
+          {% endif %}
+        </div>
+
+        <!-- Submit -->
+        <button type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3.5 rounded-2xl text-base shadow-sm transition flex items-center justify-center gap-2">
+          <span>+</span> Create Event
+        </button>
+      </form>
+    </div>
+
+    <div class="text-center mt-5">
+      <a href="{% url 'event_list' %}" class="text-sm text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
+        ← Back to schedule
+      </a>
+    </div>
+  </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const startInput = document.getElementById('start_time');
     const endInput = document.getElementById('end_time');
-
     if (!startInput || !endInput) return;
 
     function setEndTimeToOneHourLater() {
         const val = startInput.value;
         if (!val) return;
-
-        // val is "YYYY-MM-DDTHH:MM"
         const [datePart, timePart] = val.split('T');
         if (!timePart) return;
-
         let [hour, minute] = timePart.split(':').map(Number);
         let newHour = hour + 1;
         let newDatePart = datePart;
-
         if (newHour >= 24) {
             newHour -= 24;
-            // increment date manually (preserves the wall time/date user picked)
             const [y, m, d] = datePart.split('-').map(Number);
-            const dt = new Date(y, m - 1, d);
+            const dt = new Date(y, m-1, d);
             dt.setDate(dt.getDate() + 1);
-            const ny = dt.getFullYear();
-            const nm = String(dt.getMonth() + 1).padStart(2, '0');
-            const nd = String(dt.getDate()).padStart(2, '0');
-            newDatePart = `${ny}-${nm}-${nd}`;
+            newDatePart = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
         }
-
-        const newTime = String(newHour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
+        const newTime = String(newHour).padStart(2,'0') + ':' + String(minute).padStart(2,'0');
         endInput.value = newDatePart + 'T' + newTime;
     }
 
     startInput.addEventListener('change', setEndTimeToOneHourLater);
     startInput.addEventListener('input', setEndTimeToOneHourLater);
-
-    // If start already has value (e.g. validation error), auto-set end
-    if (startInput.value) {
-        setEndTimeToOneHourLater();
-    }
+    if (startInput.value) setEndTimeToOneHourLater();
 });
 </script>
 {% endblock %}

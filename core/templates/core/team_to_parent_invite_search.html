@@ -5,9 +5,9 @@
 <div class="max-w-lg mx-auto px-4 py-8">
 
     <div class="mb-6">
-        <a href="{% url 'team_list' %}" class="text-sm text-[#1877f2] hover:underline">← Back to Teams</a>
-        <h1 class="text-2xl font-bold tracking-tight mt-1">Invite Parents to {{ team.name }}</h1>
-        <p class="text-sm text-zinc-500">Search by username to send an invite</p>
+        <a href="{% url 'team_detail' team.id %}" class="text-sm text-blue-600 hover:underline">← Back to {{ team.name }}</a>
+        <h1 class="text-2xl font-bold tracking-tight text-gray-900 mt-1">Invite Parents to {{ team.name }}</h1>
+        <p class="text-sm text-gray-600">Search by username to send a roster invite. The parent must have kids not yet on this team.</p>
     </div>
 
     <!-- Search Form -->
@@ -29,10 +29,10 @@
     {% if results %}
     <div class="space-y-4">
         {% for user in results %}
-        <div class="bg-white rounded-2xl border border-zinc-200 p-4 flex justify-between items-center hover:bg-zinc-50 transition">
+        <div class="bg-white rounded-2xl border border-gray-200 p-4 flex justify-between items-center hover:bg-gray-50 transition">
             <div>
-                <p class="font-semibold text-lg">{{ user.username }}</p>
-                <p class="text-sm text-zinc-500">{{ user.first_name }} {{ user.last_name }}</p>
+                <p class="font-semibold text-lg text-gray-900">{{ user.username }}</p>
+                <p class="text-sm text-gray-500">{{ user.first_name }} {{ user.last_name }}</p>
             </div>
             
             <!-- CORRECT LINK - Uses the invite view -->
@@ -44,7 +44,12 @@
         {% endfor %}
     </div>
     {% elif query %}
-    <p class="text-center text-zinc-500 py-16">No users found for "{{ query }}"</p>
+    <div class="bg-white rounded-3xl border border-dashed border-gray-200 p-12 text-center text-gray-500">
+        No users found for "{{ query }}".<br>
+        <span class="text-xs">Parents sign up with a username; try searching their exact handle.</span>
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-400 text-sm">Enter a username above to search for parents to invite.</div>
     {% endif %}
 
 </div>

@@ -14,13 +14,24 @@ GENDER_CHOICES = [("M", "Male"), ("F", "Female")]
 class Family(models.Model):
     family_name = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Original creator; set to NULL on account deletion to preserve family for other members (right to be forgotten compliance)."
+    )
 
     class Meta:
         verbose_name_plural = 'families'
 
     def __str__(self):
         return self.family_name
+
+    def save(self, *args, **kwargs):
+        if self.family_name:
+            self.family_name = self.family_name.strip().title()
+        super().save(*args, **kwargs)
 
     @property
     def parents(self):
@@ -47,6 +58,13 @@ class Event(models.Model):
     def __str__(self):
         kids_str = ", ".join([k.first_name for k in self.kids.all()[:3]])
         return f"{self.name} for {kids_str or 'no kids'}"
+
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().title()
+        if self.location:
+            self.location = self.location.strip().title()
+        super().save(*args, **kwargs)
     
     class Meta:
         ordering = ['start_time']
@@ -64,12 +82,24 @@ class Kid(models.Model):
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
+    def save(self, *args, **kwargs):
+        if self.first_name:
+            self.first_name = self.first_name.strip().title()
+        if self.last_name:
+            self.last_name = self.last_name.strip().title()
+        super().save(*args, **kwargs)
+
 #------------------------------------------------------------------------------------------------------------------------------
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     ROLE_CHOICES = [('parent', 'Parent / Family'),('owner', 'Team Owner / Organization'),]
     role = models.CharField( max_length=20, choices=ROLE_CHOICES, default='parent')
-    timezone = models.CharField(max_length=50, default='America/Chicago')
+    timezone = models.CharField(
+        max_length=50, 
+        default='America/Chicago',
+        help_text="IANA timezone name (e.g. America/Chicago). Auto-detected at signup from the user's browser."
+    )
+    phone = models.CharField(max_length=40, blank=True, null=True, help_text="Contact phone number for parents (used in owner roster views)")
     family = models.ForeignKey(
         'Family',
         on_delete=models.SET_NULL,
@@ -77,29 +107,43 @@ class Profile(models.Model):
         blank=True,
         related_name='parent_profiles'
     )
+    # Privacy / consent tracking (added for Step 3 compliance)
+    data_consent_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Timestamp when user explicitly consented to data processing (incl. children's data) per Privacy Policy."
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
+
+    def save(self, *args, **kwargs):
+        # Enforce: owners cannot have a family (family side is exclusively for parents/kids).
+        # Any attempt (admin, shell, old data, code path) to set family on owner clears it.
+        if self.role == 'owner':
+            self.family = None
+        super().save(*args, **kwargs)
 #------------------------------------------------------------------------------------------------------------------------------
 class Team(models.Model):
     name = models.CharField(max_length=200)
     sport_type = models.CharField(max_length=100, choices=[
         ('basketball', 'Basketball'),
         ('soccer', 'Soccer'),
-        ('baseball', 'Baseball'),
         ('football', 'Football'),
-        ('volleyball', 'Volleyball'),
-        ('hockey', 'Hockey'),
-        ('other', 'Other'),
     ])
     
     description = models.TextField(blank=True, null=True)
+    color = models.CharField(max_length=9, default='#3b82f6', help_text='Hex color for badges (super distinct per team)')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     organization = models.ForeignKey('Organization', on_delete=models.CASCADE, related_name='teams')
 
     def __str__(self):
         return f"{self.name} ({self.organization.name})"
+
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().title()
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['name']
@@ -146,6 +190,13 @@ class TeamEvent(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.team.name}"
+
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().title()
+        if self.location:
+            self.location = self.location.strip().title()
+        super().save(*args, **kwargs)
 
 #------------------------------------------------------------------------------------------------------------------------------
 class TeamEventAttendance(models.Model):
@@ -232,6 +283,11 @@ class Organization(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        if self.name:
+            self.name = self.name.strip().title()
+        super().save(*args, **kwargs)
+
     class Meta:
         ordering = ['name']
 
@@ -298,3 +354,24 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+# =====================================================================
+# Privacy & Compliance: Account Deletion Audit Log
+# Stores minimal non-PII record of deletions for legal audit / "right to be forgotten" traceability.
+# No foreign keys so it survives user deletion.
+# =====================================================================
+class AccountDeletionLog(models.Model):
+    user_id = models.PositiveIntegerField(help_text="Original User PK at time of deletion")
+    username = models.CharField(max_length=150, blank=True, help_text="Username at deletion time (for internal audit only)")
+    role = models.CharField(max_length=20, blank=True)
+    deleted_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-deleted_at']
+        verbose_name = "Account Deletion Log"
+        verbose_name_plural = "Account Deletion Logs"
+
+    def __str__(self):
+        return f"User#{self.user_id} ({self.role or 'unknown'}) deleted at {self.deleted_at:%Y-%m-%d %H:%M}"

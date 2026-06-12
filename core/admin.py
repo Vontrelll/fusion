@@ -14,6 +14,7 @@ from .models import (
     TeamEventInvitation,
     TeamMembership,
     RosterRequestKid,
+    AccountDeletionLog,
 )
 
 admin.site.register(Event)
@@ -30,4 +31,5 @@ admin.site.register(TeamEvent)
 admin.site.register(TeamEventAttendance)
 admin.site.register(Notification)
 admin.site.register(RosterRequestKid)
+admin.site.register(AccountDeletionLog)
 

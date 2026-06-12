@@ -4,70 +4,78 @@
 {% block content %}
 <div class="max-w-3xl mx-auto px-4 py-8">
 
-    <div class="bg-white rounded-3xl border border-zinc-200 p-8">
+    <div class="mb-4">
+        <a href="{% url 'team_list' %}" class="text-sm text-blue-600 hover:underline">← Back to Teams</a>
+    </div>
+
+    <div class="bg-white rounded-3xl border border-gray-200 p-5 sm:p-8">
         <div class="flex justify-between items-start mb-6">
             <div>
-                <h1 class="text-4xl font-bold tracking-tight">{{ team.name }}</h1>
-                <p class="text-xl text-zinc-500 mt-1">{{ team.get_sport_type_display }}</p>
+                <h1 class="text-4xl font-bold tracking-tight text-gray-900">{{ team.name|title }}</h1>
+                <p class="text-xl text-gray-500 mt-1">{{ team.get_sport_type_display }}</p>
             </div>
 
-            <div class="flex gap-3">
+            <div class="flex flex-wrap gap-2 sm:gap-3">
+                <a href="{% url 'add_team_event' %}?team={{ team.id }}" 
+                   class="px-3 py-1.5 sm:px-4 sm:py-2 bg-white border border-blue-200 hover:bg-blue-50 text-blue-600 rounded-2xl text-xs sm:text-sm font-medium transition">
+                    + Event
+                </a>
                 <a href="{% url 'team_to_parent_invite_search' team.id %}" 
-                   class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-semibold transition">
+                   class="px-3 py-1.5 sm:px-5 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs sm:text-sm font-semibold transition">
                     + Invite Parent
                 </a>
-                <a href="{% url 'edit_team_event' 0 %}" class="hidden"> <!-- placeholder for future team edit --> </a>
+                <a href="{% url 'edit_team' team.id %}" class="px-3 py-1.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-gray-600 hover:text-gray-900 border border-gray-200 hover:bg-gray-50 rounded-2xl transition">Edit</a>
+                <a href="{% url 'delete_team' team.id %}" class="px-3 py-1.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-2xl transition">Delete</a>
             </div>
         </div>
 
         {% if team.description %}
         <div class="mb-8">
-            <div class="text-xs text-zinc-500 font-medium tracking-wider mb-1">ABOUT THIS TEAM</div>
-            <p class="text-zinc-700">{{ team.description }}</p>
+            <div class="text-xs text-gray-500 font-medium tracking-wider mb-1">ABOUT THIS TEAM</div>
+            <p class="text-gray-700">{{ team.description }}</p>
         </div>
         {% endif %}
 
         <!-- Roster -->
         <div>
             <div class="flex items-center justify-between mb-3">
-                <div class="text-xs text-zinc-500 font-medium tracking-wider">ROSTER ({{ players|length }})</div>
+                <div class="text-xs text-gray-500 font-medium tracking-wider">ROSTER ({{ players|length }})</div>
+                <a href="{% url 'org_players' %}" class="text-xs text-blue-600 hover:underline">View in full roster →</a>
             </div>
 
             {% if players %}
-            <div class="divide-y border border-zinc-200 rounded-2xl overflow-hidden">
+            <div class="divide-y border border-gray-200 rounded-2xl overflow-hidden">
                 {% for player in players %}
-                <div class="px-5 py-4 flex items-center justify-between bg-white hover:bg-zinc-50 transition">
+                <div class="px-3 py-3 sm:px-5 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white hover:bg-gray-50 transition">
                     <div class="flex items-center gap-4">
-                        <div class="w-9 h-9 bg-zinc-200 rounded-full flex items-center justify-center text-sm font-semibold">
+                        <div class="w-9 h-9 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-sm font-semibold">
                             {{ player.kid.first_name|slice:":1" }}{{ player.kid.last_name|slice:":1" }}
                         </div>
                         <div>
-                            <div class="font-medium">{{ player.kid.first_name }} {{ player.kid.last_name }}</div>
-                            <div class="text-xs text-zinc-500">Parent: {{ player.team_membership.user.get_full_name|default:player.team_membership.user.username }}</div>
+                            <div class="font-medium">{{ player.kid.first_name|title }} {{ player.kid.last_name|title }}</div>
+                            <div class="text-xs text-gray-500">Parent: {{ player.team_membership.user.get_full_name|default:player.team_membership.user.username }}</div>
                         </div>
                     </div>
 
-                    <div class="text-right text-sm">
-                        {% if player.jersey_number %}
-                        <span class="font-mono text-xs bg-zinc-100 px-2 py-0.5 rounded">#{{ player.jersey_number }}</span>
-                        {% endif %}
-                        {% if player.position %}
-                        <div class="text-xs text-zinc-500 mt-0.5">{{ player.position }}</div>
-                        {% endif %}
+                    <div class="flex items-center gap-3 text-sm">
+                        <div class="text-right text-xs text-gray-400">
+                            {% if player.jersey_number %}<span class="font-mono bg-gray-100 px-1.5 py-0.5 rounded">#{{ player.jersey_number }}</span>{% endif %}
+                            {% if player.position %}<div class="mt-0.5">{{ player.position }}</div>{% endif %}
+                        </div>
+                        <a href="{% url 'owner_remove_kid_from_team' team.id player.kid.id %}" 
+                           onclick="return confirm('Remove {{ player.kid.first_name }} from this team?');"
+                           class="text-red-600 hover:text-red-700 text-xs font-medium px-2 py-1 rounded hover:bg-red-50">Remove</a>
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <div class="text-center py-8 border border-dashed border-zinc-300 rounded-2xl text-zinc-500 text-sm">
+            <div class="text-center py-8 border border-dashed border-gray-200 rounded-2xl text-gray-500 text-sm">
                 No players registered yet.
+                <div class="mt-2"><a href="{% url 'team_to_parent_invite_search' team.id %}" class="text-blue-600 hover:underline">Invite a parent →</a></div>
             </div>
             {% endif %}
         </div>
-    </div>
-
-    <div class="mt-6 text-center">
-        <a href="{% url 'team_list' %}" class="text-sm text-zinc-500 hover:text-zinc-700">← Back to teams</a>
     </div>
 
 </div>

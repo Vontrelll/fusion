@@ -1,0 +1,83 @@
+{% extends 'core/base.html' %}
+{% block title %}Privacy Policy - Fusion{% endblock %}
+{% block navigation %}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-6 py-12">
+    <div class="mb-8">
+        <a href="/" class="text-blue-600 hover:underline text-sm">&larr; Back to Fusion</a>
+        <h1 class="text-4xl font-bold tracking-tighter mt-3">Privacy Policy</h1>
+        <p class="text-gray-500 mt-1">Last updated: April 2026</p>
+    </div>
+
+    <div class="max-w-none text-[15px] leading-relaxed text-gray-800">
+        <p>Fusion ("we", "us", or "our") operates the Fusion family and team scheduling service (the "Service"). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Service. It is especially important because <strong>we process personal data of children</strong> (minors under 18 / under applicable age of consent) on behalf of their parents and guardians.</p>
+
+        <h2 class="font-semibold text-xl mt-8 mb-3">1. Information We Collect</h2>
+        <ul class="list-disc pl-5 space-y-1">
+            <li><strong>Account data:</strong> name, username, email, password (hashed), role (parent/owner), timezone, optional phone number.</li>
+            <li><strong>Children's data (the most sensitive category):</strong> first and last name, date of birth, gender, assigned color, family membership, event participation, team roster status, jersey numbers/positions (for owners).</li>
+            <li><strong>Family &amp; scheduling data:</strong> family name, events (name, times, location, description, attendees), team information you create or join.</li>
+            <li><strong>Usage data:</strong> notifications, invites, login timestamps, device/IP for security (via django-axes).</li>
+            <li><strong>Organization data (for owners):</strong> organization name/description, teams, roster links.</li>
+        </ul>
+
+        <h2 class="font-semibold text-xl mt-8 mb-3">2. Children's Privacy (COPPA / GDPR / Similar)</h2>
+            <p>We do not knowingly collect personal information directly from children. All children's data is entered and controlled exclusively by verified parents, legal guardians, or authorized team/organization representatives ("Parents").</p>
+            <p>We collect the minimum data necessary to provide youth sports/family scheduling features (calendars, rosters, conflict detection, notifications).</p>
+            <p>Parents have full control: they can view, edit, export, or delete their children's data at any time via the Service (see "Your Rights" below). We never sell, rent, or use children's data for advertising, profiling, or any purpose outside the Service.</p>
+            <p>If you believe we have collected information from a child without proper parental consent, please contact us immediately so we can delete it.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">3. How We Use Your Information</h2>
+            <ul class="list-disc pl-5 space-y-1">
+                <li>To provide core functionality: calendars, team rosters, event invitations, conflict warnings, notifications.</li>
+                <li>To authenticate users and enforce role-based access (parent vs. owner).</li>
+                <li>To enable owners to contact parents of registered players (phone/email shown only to connected owners).</li>
+                <li>Security, fraud prevention, and abuse detection (login attempts via axes).</li>
+                <li>To comply with legal obligations and respond to data subject requests.</li>
+            </ul>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">4. Data Sharing &amp; Third Parties</h2>
+            <p>We do not sell your data. We share data only as necessary:</p>
+            <ul class="list-disc pl-5 space-y-1">
+                <li><strong>Supabase</strong> (PostgreSQL database hosting): Your data is stored in Supabase's infrastructure (aws-1-us-east-1 region as configured). Supabase acts as a data processor. See <a href="https://supabase.com/privacy" target="_blank" class="text-blue-600">Supabase Privacy Policy</a>.</li>
+                <li>Within the Service: Other parents in your family can see basic family event details. Team owners/coaches see the names, DOB, gender, and (if provided) parent contact info only for children registered on their teams.</li>
+                <li>Service providers: only the infrastructure required to run the app (hosting, no analytics or ad networks at this time).</li>
+            </ul>
+            <p>We may disclose information if required by law or to protect rights/safety.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">5. Data Retention</h2>
+            <p>We retain your data only while your account is active or as needed to provide the Service. Upon account deletion (see below), we delete or anonymize personal data as described in the deletion flow. A minimal audit log entry (user ID, role, timestamp, IP at deletion) is retained for legal and security audit purposes for a limited period.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">6. Your Rights &amp; Choices (Data Protection)</h2>
+            <ul class="list-disc pl-5 space-y-1">
+                <li><strong>Access &amp; Portability:</strong> Use the "Export My Data" button in Account Settings to download a JSON copy of your kids, events, teams you manage, notifications, etc.</li>
+                <li><strong>Correction:</strong> Edit your profile, kids, events, and teams directly in the app.</li>
+                <li><strong>Deletion ("Right to be Forgotten"):</strong> From Account Settings → Delete Account. This permanently removes your account and associated personal/children's data (with the safeguards and audit log noted above). Password confirmation + explicit "DELETE" typing required.</li>
+                <li><strong>Consent withdrawal:</strong> You may delete your account at any time. For new sign-ups we require explicit consent to children's data processing.</li>
+                <li><strong>Object / Restrict:</strong> Contact us for other requests.</li>
+            </ul>
+            <p>To exercise rights or for questions, email support (or the contact method listed in the app).</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">7. Security</h2>
+            <p>We use industry-standard practices: password hashing, CSRF protection, session security, rate-limiting (django-axes), SSL, role-based authorization checks on every view, and scoped database queries to prevent cross-user data access. No data is stored in client-side localStorage beyond what the browser session requires.</p>
+            <p>Despite our efforts, no system is 100% secure. Please use a strong unique password and keep your login credentials confidential.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">8. Cookies &amp; Tracking</h2>
+            <p>We use only essential session cookies for authentication and CSRF protection. No third-party analytics, advertising, or cross-site tracking cookies are used at this time.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">9. Changes to This Policy</h2>
+            <p>We may update this Privacy Policy. Material changes will be announced via the Service or email. Continued use after changes constitutes acceptance.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">10. Contact</h2>
+            <p>If you have questions about this policy or your data, please reach out through the app or the contact information provided during onboarding.</p>
+
+            <p class="text-xs text-gray-500 mt-10">This is a baseline policy suitable for a service handling children's data. For production use with real users you should have this reviewed by legal counsel and adapt to your jurisdiction (US state laws, GDPR if EU users, etc.).</p>
+        </div>
+
+        <div class="mt-12 pt-6 border-t text-center text-sm">
+            <a href="{% url 'terms_of_service' %}" class="text-blue-600 hover:underline mr-4">Terms of Service</a>
+            <a href="{% url 'account_settings' %}" class="text-blue-600 hover:underline">Account Settings</a>
+        </div>
+    </div>
+{% endblock %}

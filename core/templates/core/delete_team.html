@@ -1,0 +1,29 @@
+{% extends 'core/base.html' %}
+{% block title %}Delete Team - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-8">
+    <div class="bg-white rounded-2xl border border-red-200 p-6">
+        <h1 class="text-2xl font-bold text-red-600 mb-2">Delete Team</h1>
+        
+        <p class="text-gray-600 mb-8">
+            Are you sure you want to delete <strong>"{{ team.name }}"</strong>?<br><br>
+            <strong class="text-red-600">This will permanently remove the team, its roster, events, and related data.</strong>
+        </p>
+
+        <form method="POST">
+            {% csrf_token %}
+            <div class="flex gap-4">
+                <button type="submit"
+                        class="flex-1 bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-semibold">
+                    Yes, Delete Team
+                </button>
+                <a href="{% url 'team_detail' team.id %}"
+                   class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-4 rounded-2xl font-semibold text-center">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

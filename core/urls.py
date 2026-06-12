@@ -22,6 +22,7 @@ urlpatterns = [
     path('family_list/',views.family_list, name='family_list'),
     path('my-family/', views.my_family, name='my_family'),
     path('parent_teams/', views.parent_teams, name='parent_teams'),
+    path('remove_kid_from_team/<int:team_id>/<int:kid_id>/', views.remove_kid_from_team, name='remove_kid_from_team'),
     path('create_first_family/', views.create_first_family, name='create_first_family'),
     path('invite_parent/<int:family_id>/', views.invite_parent, name='invite_parent'),
     path('family_invite_response/<int:invite_id>/', views.family_invite_response, name='family_invite_response'),
@@ -42,8 +43,12 @@ urlpatterns = [
     path('change_password/', views.change_password, name='change_password'),
     path('create_team/', views.create_team, name='create_team'),
     path('team_list/', views.team_list, name='team_list'),
+    path('edit_team/<int:team_id>/', views.edit_team, name='edit_team'),
+    path('delete_team/<int:team_id>/', views.delete_team, name='delete_team'),
+    path('owner_remove_kid_from_team/<int:team_id>/<int:kid_id>/', views.owner_remove_kid_from_team, name='owner_remove_kid_from_team'),
     path('find_teams/', views.find_teams, name='find_teams'),
     path('owner_dashboard/', views.owner_dashboard, name='owner_dashboard'),
+    path('players/', views.organization_players, name='org_players'),
     path('create_organization/', views.create_organization, name='create_organization'),
     path('team_invite_to_parent/<int:team_id>/<str:username>/', views.team_invite_to_parent, name='team_invite_to_parent'),
     path('parent_to_team_request/<int:team_id>/', views.parent_to_team_request, name='parent_to_team_request'),
@@ -63,4 +68,10 @@ urlpatterns = [
     path('keep-team-event-update/<int:event_id>/', views.keep_team_event_update, name='keep_team_event_update'),
     path('remove-team-event-attendance/<int:event_id>/', views.remove_team_event_attendance, name='remove_team_event_attendance'),
     path('team_invite_response/<int:invite_id>/', views.team_invite_response, name='team_invite_response'),
+
+    # Step 3: Privacy, Data Export, Account Deletion, Legal
+    path('account/export/', views.export_data, name='export_data'),
+    path('account/delete/', views.delete_account, name='delete_account'),
+    path('privacy/', views.privacy_policy, name='privacy_policy'),
+    path('terms/', views.terms_of_service, name='terms_of_service'),
 ]

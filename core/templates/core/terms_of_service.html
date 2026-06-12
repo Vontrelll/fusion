@@ -1,0 +1,71 @@
+{% extends 'core/base.html' %}
+{% block title %}Terms of Service - Fusion{% endblock %}
+{% block navigation %}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-6 py-12">
+    <div class="mb-8">
+        <a href="/" class="text-blue-600 hover:underline text-sm">&larr; Back to Fusion</a>
+        <h1 class="text-4xl font-bold tracking-tighter mt-3">Terms of Service</h1>
+        <p class="text-gray-500 mt-1">Last updated: April 2026</p>
+    </div>
+
+    <div class="max-w-none text-[15px] leading-relaxed text-gray-800">
+        <p>Please read these Terms of Service ("Terms") carefully before using the Fusion service ("Service", "Fusion", "we", "us"). By creating an account or using the Service you agree to be bound by these Terms.</p>
+
+        <h2 class="font-semibold text-xl mt-8 mb-3">1. Eligibility &amp; Accounts</h2>
+        <p>You must be at least 18 years old (or the age of majority in your jurisdiction) and have legal authority to act as a parent, guardian, or authorized representative for any children whose data you enter.</p>
+        <p>You are responsible for maintaining the confidentiality of your account credentials and for all activity under your account. You agree to provide accurate information and keep it updated.</p>
+        <p>Two roles exist: "Parent/Family" and "Team Owner/Organization". Owners manage teams and rosters; parents manage their own family calendar and kids.</p>
+
+        <h2 class="font-semibold text-xl mt-8 mb-3">2. Acceptable Use</h2>
+        <p>You agree not to:</p>
+        <ul class="list-disc pl-5 space-y-1">
+            <li>Use the Service for any illegal purpose or in violation of any law (including child privacy laws).</li>
+            <li>Enter false, misleading, or unauthorized data about any child or family.</li>
+                <li>Attempt to access data that does not belong to you or your registered teams/families.</li>
+                <li>Harass, abuse, or harm other users, or impersonate anyone.</li>
+                <li>Reverse engineer, scrape, or interfere with the Service.</li>
+            </ul>
+            <p>We may suspend or terminate accounts that violate these Terms.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">3. Children's Data &amp; Parental Responsibility</h2>
+            <p>You represent that you have the legal right and consent to provide any child's name, date of birth, gender, participation records, and related information into the Service.</p>
+            <p>You are solely responsible for the accuracy and legality of all data you input regarding children. Fusion provides tools for scheduling and coordination only; we are not responsible for decisions made based on the data (e.g., team eligibility, medical, travel).</p>
+            <p>By using the Service you consent to our processing of this data as described in the <a href="{% url 'privacy_policy' %}" class="text-blue-600 hover:underline">Privacy Policy</a>.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">4. Content &amp; Intellectual Property</h2>
+            <p>You retain ownership of the data you provide. By using the Service you grant us a limited license to host, display, and process that data solely to operate the Service.</p>
+            <p>The Fusion software, design, and trademarks are owned by us or our licensors. You may not copy or distribute them without permission.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">5. Data Export, Deletion, and Retention</h2>
+            <p>You may export your data at any time from Account Settings (JSON format).</p>
+            <p>You may permanently delete your account and data from Account Settings. This process requires password confirmation and typing "DELETE". See the Privacy Policy for details on what is deleted vs. retained (minimal audit log).</p>
+            <p>Deleting an owner account will delete the organization, teams, and roster/event data associated with it. Deleting a parent account removes that parent, their children, and their events from the system (and removes their children from any team rosters).</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">6. Third-Party Services</h2>
+            <p>The Service is hosted using Supabase (database). Your data is subject to Supabase's terms and privacy policy in addition to ours. We may use other infrastructure providers in the future.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">7. Disclaimers &amp; Limitation of Liability</h2>
+            <p>THE SERVICE IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, OR MEET YOUR REQUIREMENTS.</p>
+            <p>TO THE MAXIMUM EXTENT PERMITTED BY LAW, WE SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF DATA, PROFITS, OR REVENUE, ARISING FROM YOUR USE OF THE SERVICE.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">8. Termination</h2>
+            <p>You may stop using the Service at any time by deleting your account. We may terminate or suspend access immediately if you violate these Terms or for any other reason.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">9. Changes to Terms</h2>
+            <p>We may modify these Terms. We will provide notice of material changes. Your continued use after changes means you accept the updated Terms.</p>
+
+            <h2 class="font-semibold text-xl mt-8 mb-3">10. Governing Law &amp; Contact</h2>
+            <p>These Terms are governed by the laws of the jurisdiction in which the service operator resides, without regard to conflict of law rules. Any disputes shall be resolved in the courts of that jurisdiction.</p>
+            <p>For questions about these Terms, contact us through the channels provided in the application or during signup.</p>
+
+            <p class="text-xs text-gray-500 mt-10">These Terms, together with the Privacy Policy, constitute the entire agreement between you and Fusion regarding the Service.</p>
+        </div>
+
+        <div class="mt-12 pt-6 border-t text-center text-sm">
+            <a href="{% url 'privacy_policy' %}" class="text-blue-600 hover:underline mr-4">Privacy Policy</a>
+            <a href="{% url 'account_settings' %}" class="text-blue-600 hover:underline">Account Settings</a>
+        </div>
+    </div>
+{% endblock %}

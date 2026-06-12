@@ -4,7 +4,7 @@
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 py-8">
 
-    <div class="bg-white rounded-3xl border border-zinc-200 p-8">
+    <div class="bg-white rounded-3xl border border-zinc-200 p-5 sm:p-8">
         <div class="flex items-start justify-between mb-6">
             <div>
                 <div class="flex items-center gap-3">
@@ -12,20 +12,21 @@
                     <h1 class="text-3xl font-bold tracking-tight">{{ team_event.name }}</h1>
                 </div>
                 <div class="mt-1">
-                    <span class="inline-block text-xs font-medium bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">
+                    <span class="inline-block text-xs font-medium px-3 py-1 rounded-full" 
+                          style="background-color: {{ team_event.team.color|default:'#e0e7ff' }}; color: {{ team_event.team.color|default:'#4338ca' }};">
                         Team Event • {{ team_event.team.name }}
                     </span>
                 </div>
             </div>
 
             {% if request.user == team_event.team.organization.owner %}
-            <div class="flex gap-3">
+            <div class="flex flex-wrap gap-2 sm:gap-3">
                 <a href="{% url 'edit_team_event' team_event.id %}" 
-                   class="px-5 py-2.5 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-2xl transition">
+                   class="px-3 py-1.5 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-2xl transition">
                     Edit
                 </a>
                 <a href="{% url 'delete_team_event' team_event.id %}" 
-                   class="px-5 py-2.5 text-sm font-medium text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-2xl transition">
+                   class="px-3 py-1.5 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-medium text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-2xl transition">
                     Delete
                 </a>
             </div>

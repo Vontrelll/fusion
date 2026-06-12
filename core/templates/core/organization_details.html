@@ -9,75 +9,56 @@
         ← Back to Dashboard
     </a>
 
-    <!-- Header - FB style -->
-    <div class="bg-white rounded-2xl border border-zinc-200 p-6 mb-6">
+    <!-- Header -->
+    <div class="bg-white rounded-3xl border border-gray-200 p-6 mb-6">
         <div class="flex items-center gap-4">
             <div class="w-14 h-14 bg-zinc-100 rounded-2xl flex items-center justify-center text-4xl">🏢</div>
             <div>
-                <h1 class="text-2xl font-bold tracking-tight">{{ organization.name }}</h1>
-                <p class="text-sm text-zinc-500">Organization</p>
+                <h1 class="text-3xl font-bold tracking-tight text-gray-900">{{ organization.name }}</h1>
+                <p class="text-sm text-gray-600">Organization settings &amp; overview</p>
             </div>
         </div>
     </div>
 
-    <!-- Quick Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <div class="bg-white rounded-2xl border border-zinc-200 p-5 text-center">
-            <p class="text-sm text-gray-500">Total Teams</p>
-            <p class="text-5xl font-bold text-blue-600 mt-2">{{ organization.teams.count }}</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-zinc-200 p-5 text-center">
-            <p class="text-sm text-gray-500">Total Members</p>
-            <p class="text-5xl font-bold text-emerald-600 mt-2">0</p>
-        </div>
-        <div class="bg-white rounded-2xl border border-zinc-200 p-5 text-center">
-            <p class="text-sm text-gray-500">Pending Invites</p>
-            <p class="text-5xl font-bold text-orange-600 mt-2">0</p>
-        </div>
+    {% if organization.description %}
+    <div class="bg-white rounded-2xl border border-gray-100 p-5 mb-6 text-gray-700">
+        {{ organization.description }}
     </div>
+    {% endif %}
 
-    <!-- Teams Section -->
-    <div class="mb-12">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-semibold">Teams in this Organization</h2>
-            <a href="{% url 'create_team' %}" 
-               class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-medium">
-                + Add New Team
+    <!-- Teams Section (links to primary team management) -->
+    <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold">Teams</h2>
+            <a href="{% url 'create_team' %}" class="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-xl font-medium">+ New Team</a>
+        </div>
+
+        {% if teams %}
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {% for team in teams %}
+            <a href="{% url 'team_detail' team.id %}" class="block bg-white border border-gray-100 rounded-2xl p-4 hover:shadow-sm transition">
+                <div class="font-semibold">{{ team.name }}</div>
+                <div class="text-sm text-gray-500">{{ team.get_sport_type_display }}</div>
+                <div class="mt-2 text-xs text-blue-600">View roster &amp; manage →</div>
             </a>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {% for team in organization.teams.all %}
-            <div class="bg-white rounded-2xl border border-zinc-200 p-5">
-                <h3 class="font-semibold text-xl">{{ team.name }}</h3>
-                <p class="text-gray-500">{{ team.get_sport_type_display }}</p>
-                <div class="mt-6 flex gap-3">
-                    <a href="#" class="flex-1 text-center py-3 bg-gray-100 hover:bg-gray-200 rounded-2xl text-sm">
-                        View Roster
-                    </a>
-                    <a href="{% url 'team_to_parent_invite_search' team.id %}" 
-                       class="flex-1 text-center py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm">
-                        Invite Parent
-                    </a>
-                </div>
-            </div>
-            {% empty %}
-            <div class="col-span-full bg-white rounded-3xl p-12 text-center text-gray-500">
-                No teams yet in this organization.
-            </div>
             {% endfor %}
         </div>
+        {% else %}
+        <div class="bg-white border border-dashed border-gray-200 rounded-2xl p-6 text-center text-sm text-gray-500">
+            No teams yet. <a href="{% url 'create_team' %}" class="text-blue-600 hover:underline">Create one</a> to get started.
+        </div>
+        {% endif %}
     </div>
 
-    <!-- Future Sections (you can expand later) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div class="bg-white rounded-3xl shadow p-8">
-            <h3 class="font-semibold text-xl mb-4">Organization Settings</h3>
-            <p class="text-gray-500">Coming soon: Edit name, logo, contact info, etc.</p>
+    <!-- Settings area -->
+    <div class="bg-white rounded-3xl border border-gray-100 p-6">
+        <h3 class="font-semibold mb-3">Organization Details</h3>
+        <div class="text-sm text-gray-600 space-y-2">
+            <div>Created {{ organization.created_at|date:"F j, Y" }}</div>
+            <div class="text-xs text-gray-400">Team and roster management happens in the Teams and Players sections. Full org settings (name, description, etc.) coming soon.</div>
         </div>
-        <div class="bg-white rounded-3xl shadow p-8">
-            <h3 class="font-semibold text-xl mb-4">Recent Activity</h3>
-            <p class="text-gray-500">Coming soon: Recent invites and changes</p>
+        <div class="mt-4">
+            <a href="{% url 'owner_dashboard' %}" class="text-sm text-blue-600 hover:underline">← Back to dashboard</a>
         </div>
     </div>
 

@@ -1,0 +1,117 @@
+{% extends 'core/base.html' %}
+{% block title %}All Players - {{ organization.name }} | Fusion{% endblock %}
+{% block content %}
+
+<div class="max-w-6xl mx-auto px-4 py-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <a href="{% url 'owner_dashboard' %}" class="text-blue-600 hover:underline text-sm">&larr; Back to Dashboard</a>
+            <h1 class="text-3xl font-bold text-gray-900 mt-1">All Players</h1>
+            <p class="text-gray-600">{{ organization.name }} • {{ total_players }} athletes across teams</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'team_list' %}?from=invite_parent" class="hidden sm:inline bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-2xl text-sm font-medium">Invite Parent</a>
+            <a href="{% url 'team_list' %}" class="hidden sm:inline bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-2xl text-sm font-medium">Manage Teams</a>
+        </div>
+    </div>
+
+    <!-- Useful info + Filter bar -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+        <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div class="text-sm text-gray-600 max-w-prose">
+                All registered players. Click a parent to view their family card (only kids on your teams) + contact info. Use search to filter live.
+            </div>
+            <div class="w-full sm:w-80">
+                <input id="player-search" type="text" placeholder="Search by name, team, family, parent..." 
+                       class="w-full border border-gray-300 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500"
+                       onkeyup="filterPlayers()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Players List (mobile-first cards, responsive) -->
+    {% if registrations %}
+    <div id="players-list" class="space-y-3">
+        {% for reg in registrations %}
+        <div class="player-card bg-white rounded-2xl shadow border border-gray-100 p-4 hover:shadow-md transition">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <!-- Player -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl flex-shrink-0 text-white" 
+                             style="background-color: {{ reg.kid.color|default:'#10b981' }}">
+                            {% if reg.kid.gender == 'M' %}👦{% else %}👧{% endif %}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-lg text-gray-900 truncate">{{ reg.kid.first_name|title }} {{ reg.kid.last_name|title }}</div>
+                            <div class="text-xs text-gray-500">Kid • {{ reg.kid.date_of_birth }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Team -->
+                <div class="flex-1 min-w-0 sm:px-4">
+                    <div class="text-xs uppercase tracking-wide text-gray-500">Team</div>
+                    <div class="font-medium text-gray-800 truncate">{{ reg.team_membership.team.name }}</div>
+                    <div class="text-xs text-gray-400">{{ reg.team_membership.team.sport_type|title }}</div>
+                </div>
+
+                <!-- Family + Clickable Parent name (leads to owner-specialized parent card + only kids in org) -->
+                <div class="flex-1 min-w-0">
+                    <div class="text-xs uppercase tracking-wide text-gray-500">Family</div>
+                    {% if reg.kid.family %}
+                    <div class="truncate">{{ reg.kid.family.family_name|title }}</div>
+                    <div class="text-xs">
+                        Parent: <a href="{% url 'family_detail' reg.kid.family.id %}?parent={{ reg.kid.parent.id }}" 
+                           class="font-semibold text-blue-600 hover:text-blue-800 hover:underline">
+                            {{ reg.kid.parent.first_name|default:reg.kid.parent.username|title }} {{ reg.kid.parent.last_name|title }}
+                        </a>
+                    </div>
+                    <div class="text-[10px] text-gray-400">Click parent for card + kids in org</div>
+                    {% else %}
+                    <span class="text-gray-400">No family</span>
+                    {% endif %}
+                </div>
+
+                <!-- Meta -->
+                <div class="text-right text-xs text-gray-400 sm:w-24 flex-shrink-0">
+                    Joined<br>
+                    {{ reg.created_at|date:"M j, Y" }}
+                </div>
+
+                <!-- Remove action -->
+                <div class="sm:ml-2">
+                    <a href="{% url 'owner_remove_kid_from_team' reg.team_membership.team.id reg.kid.id %}" 
+                       onclick="return confirm('Remove {{ reg.kid.first_name }} from {{ reg.team_membership.team.name }}?');"
+                       class="text-red-600 hover:text-red-700 text-xs font-medium px-2 py-1 rounded hover:bg-red-50">Remove</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl p-12 text-center text-gray-500">
+        No players registered yet in your organization.
+        <div class="mt-4">
+            <a href="{% url 'team_list' %}?from=invite_parent" class="text-blue-600 hover:underline">Invite parents to build your roster →</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="mt-8 text-xs text-gray-400 text-center">
+        Owner view: Clicking a parent name shows only the kids registered on teams in your org + parent membership card.
+    </div>
+</div>
+
+<script>
+function filterPlayers() {
+    const q = document.getElementById('player-search').value.toLowerCase();
+    document.querySelectorAll('#players-list .player-card').forEach(card => {
+        const txt = card.textContent.toLowerCase();
+        card.style.display = txt.includes(q) ? '' : 'none';
+    });
+}
+</script>
+
+{% endblock %}

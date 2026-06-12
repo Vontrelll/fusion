@@ -1,20 +1,31 @@
 from django.shortcuts import render, redirect
-from .models import Kid, Event, Family, Invite, PlayerRegistration, Team, TeamEventInvitation, TeamMembership, Profile, Organization, TeamEvent, TeamEventAttendance, Notification, RosterRequestKid
-from django.http import HttpResponse 
+from .models import (
+    Kid, Event, Family, Invite, PlayerRegistration, Team, TeamEventInvitation,
+    TeamMembership, Profile, Organization, TeamEvent, TeamEventAttendance,
+    Notification, RosterRequestKid, AccountDeletionLog
+)
+from .utils import _safe_get_user_profile, _safe_get_user_family, _get_user_role
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.urls import reverse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
-from django.contrib.auth.forms import PasswordChangeForm, User
+from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
-from core.forms import CustomUserCreationForm, OrganizationForm, TeamEventForm
+from django.contrib.auth.models import User  # for family transfer logic in deletion (safe read)
+from core.forms import CustomUserCreationForm, OrganizationForm, TeamEventForm, TIMEZONE_CHOICES
 from . forms import TeamForm
 from datetime import date, timedelta
 from django.db.models import Q
 from collections import defaultdict
+import json
+import logging
+
+# Audit logger for privacy-sensitive actions (account deletion)
+deletion_logger = logging.getLogger('fusion.deletion')
 
 
 # Create your views here.
@@ -28,13 +39,13 @@ def dashboard(request):
     if response:
         return response
 
-    profile = request.user.profile   # This works because of OneToOne
+    profile = _safe_get_user_profile(request)
     if profile.role != "parent":
         return redirect('owner_dashboard')
     
     else:
         # Get the user's single family
-        user_family = request.user.profile.family
+        user_family = profile.family
         user_families = [user_family] if user_family else []
 
         kids = Kid.objects.filter(family=user_family) if user_family else Kid.objects.none()
@@ -42,15 +53,48 @@ def dashboard(request):
         now = timezone.now()
         today = timezone.localdate()
 
-
         # Proper today range (fixes the off-by-one day bug)
 
-        todays_events = Event.objects.filter(
+        # Family/personal events today
+        family_events = Event.objects.filter(
             family__in=user_families,
-            start_time__date=today   # This is the simplest and most reliable way
-        ).order_by('start_time')
+            start_time__date=today
+        ).prefetch_related('kids').order_by('start_time')
 
-        # This week's events (family-wide)
+        # Team events today for teams this parent is on (show in Today's Events)
+        # Only include those the parent/kids have *accepted* (do not auto-show unaccepted invitations)
+        parent_team_ids = list(TeamMembership.objects.filter(user=request.user, role='parent').values_list('team_id', flat=True))
+        team_events_today = []
+        if parent_team_ids and kids:
+            kid_ids = list(kids.values_list('id', flat=True))
+            accepted_event_ids = TeamEventAttendance.objects.filter(
+                kid_id__in=kid_ids,
+                status='accepted',
+                team_event__team_id__in=parent_team_ids,
+                team_event__start_time__date=today
+            ).values_list('team_event_id', flat=True).distinct()
+            if accepted_event_ids:
+                team_events_qs = TeamEvent.objects.filter(
+                    id__in=accepted_event_ids
+                ).select_related('team').order_by('start_time')
+                team_events_today = list(team_events_qs)
+                for ev in team_events_today:
+                    ev.attending_kids = Kid.objects.filter(
+                        teameventattendance__team_event=ev,
+                        teameventattendance__status='accepted'
+                    ).distinct()
+
+        # Combine + sort
+        combined_today = []
+        for ev in family_events:
+            ev.is_team_event = False
+            combined_today.append(ev)
+        for ev in team_events_today:
+            ev.is_team_event = True
+            combined_today.append(ev)
+        combined_today.sort(key=lambda e: getattr(e, 'start_time', now))
+
+        # This week's events (family-wide count)
         week_ago = now - timedelta(days=7)
         this_weeks_events = Event.objects.filter(
             family__in=user_families,
@@ -59,9 +103,9 @@ def dashboard(request):
 
         context = {
             "num_of_kids": kids.count(),
-            "num_of_events": todays_events.count(),
+            "num_of_events": len(combined_today),
             "weeks_events_count": this_weeks_events.count(),
-            "user_events": todays_events,
+            "user_events": combined_today,
             "kids": kids,
     }
 
@@ -75,7 +119,7 @@ def owner_dashboard(request):
         return response
 
     # Role check - only allow owners
-    profile = request.user.profile
+    profile = _safe_get_user_profile(request)
     if profile.role != "owner":
         messages.error(request, "You do not have access to the Owner Dashboard.")
         return redirect('dashboard')  # or 'parent_dashboard' if you rename it
@@ -86,17 +130,124 @@ def owner_dashboard(request):
     # Get teams under that organization
     teams = Team.objects.filter(organization=organization) if organization else []
 
+    # Annotate with roster counts for owner visibility
+    for team in teams:
+        team.roster_count = PlayerRegistration.objects.filter(
+            team_membership__team=team
+        ).count()
+
     pending_requests = Invite.objects.filter(receiver=request.user,status="pending").count()
+
+    # NEW: split pending for Action Center (roster requests incoming to owner, invites sent by owner)
+    pending_roster_requests = Invite.objects.filter(
+        receiver=request.user, status="pending", invite_type="team_join_request"
+    ).count()
+    pending_invites = Invite.objects.filter(
+        sender=request.user, status="pending", invite_type="team_sent_invite"
+    ).count()
+
+    # Dynamic total players from actual registrations - UPDATED for unique/deduped players at org level
+    total_players = PlayerRegistration.objects.filter(
+        team_membership__team__organization=organization
+    ).values('kid').distinct().count() if organization else 0
+
+    num_families = PlayerRegistration.objects.filter(
+        team_membership__team__organization=organization
+    ).values('kid__family').distinct().count() if organization else 0
+
+    # NEW: Upcoming team events this week (for header stat + dedicated section)
+    upcoming_events = []
+    upcoming_count = 0
+    if organization:
+        now = timezone.now()
+        in_one_week = now + timedelta(days=7)
+        qs = TeamEvent.objects.filter(
+            team__organization=organization,
+            start_time__gte=now,
+            start_time__lte=in_one_week
+        ).select_related('team').order_by('start_time')[:7]
+        upcoming_events = list(qs)
+        upcoming_count = len(upcoming_events)
+        for ev in upcoming_events:
+            ev.summary = get_attendance_summary(ev)
+
+    # For dashboard suggestions / making it useful: real recent activity using existing models
+    # (implements "live team feeds" idea from vision without new models or breakage)
+    recent_activity = []
+    if organization:
+        # Recent new player registrations
+        recent_regs = PlayerRegistration.objects.filter(
+            team_membership__team__organization=organization
+        ).select_related('kid', 'team_membership__team').order_by('-created_at')[:3]
+        for r in recent_regs:
+            recent_activity.append({
+                'type': 'registration',
+                'when': r.created_at,
+                'text': f"{r.kid.first_name} {r.kid.last_name} joined {r.team_membership.team.name}",
+                'link': reverse('org_players'),
+            })
+
+        # Recent team events
+        recent_ev = TeamEvent.objects.filter(
+            team__organization=organization
+        ).select_related('team').order_by('-created_at')[:3]
+        for e in recent_ev:
+            recent_activity.append({
+                'type': 'event',
+                'when': e.created_at,
+                'text': f"New event '{e.name}' for {e.team.name}",
+                'link': reverse('event_list'),
+            })
+
+        # Sort combined by recency (simple)
+        recent_activity.sort(key=lambda x: x['when'], reverse=True)
+        recent_activity = recent_activity[:5]
 
     context = {
         'user_organization': organization,
         'total_teams': len(teams),
-        'total_players': 0,           # TODO: Update later with real player count
+        'total_players': total_players,
+        'num_families': num_families,
         'pending_requests': pending_requests,  
+        'pending_roster_requests': pending_roster_requests,
+        'pending_invites': pending_invites,
         'my_teams': teams,
+        'recent_activity': recent_activity,
+        'upcoming_events': upcoming_events,
+        'upcoming_count': upcoming_count,
     }
     
     return render(request, "core/owner_dashboard.html", context)
+
+
+@login_required
+def organization_players(request):
+    """Owner view: All players (registrations) across the organization.
+    Shows kid name, team, family (clickable to parent contact details).
+    Responsive for mobile.
+    """
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "This page is for owners only.")
+        return redirect('dashboard')
+
+    organization = Organization.objects.filter(owner=request.user).first()
+    if not organization:
+        messages.error(request, "No organization found. Create one first.")
+        return redirect('create_organization')
+
+    registrations = PlayerRegistration.objects.filter(
+        team_membership__team__organization=organization
+    ).select_related(
+        'kid', 'kid__family', 'kid__parent', 'team_membership__team'
+    ).order_by('kid__last_name', 'kid__first_name')
+
+    context = {
+        'organization': organization,
+        'registrations': registrations,
+        'total_players': registrations.count(),
+    }
+    return render(request, "core/org_players.html", context)
 
     
 
@@ -105,19 +256,20 @@ def owner_dashboard(request):
 #THI ADD EVENT IS FOR FAMILIES ONLY
 @login_required
 def add_event(request):
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "Only parents can create family events.")
         return redirect('owner_dashboard')
 
-    user_family = request.user.profile.family
+    user_family = profile.family
     user_kids = Kid.objects.filter(family=user_family) if user_family else Kid.objects.none()
     family_parents = user_family.parents.all() if user_family else []
 
     if request.method == "POST":
-        name = request.POST.get("name")
+        name = (request.POST.get("name") or '').strip().title()
         start_time_str = request.POST.get("start_time")
         end_time_str = request.POST.get("end_time")
-        location = request.POST.get("location")
+        location = (request.POST.get("location") or '').strip().title()
         kid_ids = request.POST.getlist('kids')
         attending_parent_ids = request.POST.getlist('attending_parents')
 
@@ -215,7 +367,7 @@ def add_event(request):
 
 @login_required
 def add_team_event(request):
-    if request.user.profile.role != "owner":
+    if _get_user_role(request) != "owner":
         messages.error(request, "Only team owners can create team events.")
         return redirect('dashboard')
 
@@ -281,6 +433,13 @@ def add_team_event(request):
             messages.error(request, "Form has errors.")
     else:
         form = TeamEventForm(user=request.user)
+        # Support preselect via ?team=123 from team_detail or dashboard CTAs
+        preselect_team_id = request.GET.get('team')
+        if preselect_team_id:
+            try:
+                form.fields['team'].initial = int(preselect_team_id)
+            except (ValueError, TypeError):
+                pass
 
     return render(request, 'core/add_team_event.html', {'form': form})
 
@@ -291,20 +450,18 @@ def add_team_event(request):
 #EDIT TEAM EVENTS 
 @login_required
 def edit_event(request, event_id):
-    user_family = request.user.profile.family
+    profile = _safe_get_user_profile(request)
+    user_family = profile.family
 
-    if request.user.profile.role != "parent":
+    if profile.role != "parent":
         messages.error(request, 'You do not have permission to edit this event.')
         return redirect('owner_dashboard')
 
+    # Scope the lookup to this user's family (prevents IDOR / data leakage for guessed IDs)
     try:
-        event = Event.objects.get(id=event_id)
+        event = Event.objects.get(id=event_id, family=user_family)
     except Event.DoesNotExist:
         messages.error(request, "Event not found.")
-        return redirect('event_list')
-
-    if not user_family or user_family.id != event.family.id:
-        messages.error(request, "You do not have permission to modify this event.")
         return redirect('event_list')
 
     # Initialize for GET and failed POST
@@ -312,8 +469,8 @@ def edit_event(request, event_id):
     selected_attending_parents = event.attending_parents.all()
 
     if request.method == "POST":
-        name = request.POST.get("name")
-        location = request.POST.get("location")
+        name = (request.POST.get("name") or '').strip().title()
+        location = (request.POST.get("location") or '').strip().title()
         start_time_str = request.POST.get("start_time")
         end_time_str = request.POST.get("end_time")
         kid_ids = request.POST.getlist("kids")
@@ -367,31 +524,35 @@ def edit_event(request, event_id):
 
 
 def edit_team_event(request, event_id):
-    try:
-        team_event= TeamEvent.objects.get(id=event_id)
-        
-    except TeamEvent.DoesNotExist:
-        messages.error(request, "This team event does not exist.")
-        return redirect('event_list')
-    
-    if request.user.profile.role != "owner":
-        messages.error(request, 'you do not have permission to edit this event.')
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, 'You do not have permission to edit this event.')
         return redirect('dashboard')
-    
+
+    # Hardened lookup: only events belonging to this owner's teams (prevents other owners editing via ID guess)
+    try:
+        team_event = TeamEvent.objects.get(
+            id=event_id,
+            team__organization__owner=request.user
+        )
+    except TeamEvent.DoesNotExist:
+        messages.error(request, "This team event does not exist or you do not have access.")
+        return redirect('event_list')
+
     user_teams = Team.objects.filter(organization__owner=request.user)
 
     if request.method == "POST":
-        name = request.POST.get('name')
+        name = (request.POST.get('name') or '').strip().title()
         start_time_str = request.POST.get('start_time')
         end_time_str = request.POST.get('end_time')
-        location = request.POST.get('location')
+        location = (request.POST.get('location') or '').strip().title()
         description = request.POST.get('description')
         team_id = request.POST.get('team')
 
         try:
-            team = Team.objects.get(id=team_id)
+            team = Team.objects.get(id=team_id, organization__owner=request.user)
         except Team.DoesNotExist:
-            messages.error(request, 'Selected team does not exist.')
+            messages.error(request, 'Selected team does not exist or is not yours.')
             return redirect('edit_team_event', event_id=event_id)
 
         #CONVERTING STRINGS INTO TIMEZONE-AWARE DATEANDTIME
@@ -472,8 +633,9 @@ def has_conflict(new_event, kids=None, team=None):
         kid_ids = [k.id for k in family_list]
 
         # === Check personal/family events (M2M) ===
+        # Any event involving these kids (family-wide). A kid's calendar is blocked
+        # regardless of which parent in the family created the prior event.
         personal_events = Event.objects.filter(
-            created_by=new_event.created_by if hasattr(new_event, 'created_by') else None,
             kids__id__in=kid_ids,
         )
         if new_event.pk:
@@ -508,16 +670,16 @@ def get_kid_conflicts(kid, proposed_event):
     """
     Returns a list of events that conflict with the proposed_event for a single kid.
     Used during parent response to team events.
-    Checks family events + accepted attendances on other team events + pending invitations.
-    Overlap check is performed in Python for reliability (avoids any potential
-    ORM datetime comparison / TZ edge cases with aware datetimes).
+    ONLY checks events the parent has explicitly confirmed/added to calendar (personal Events
+    they created + accepted TeamEventAttendance). Does NOT check pending invites, declined,
+    or unconfirmed items (they are not yet on the calendar).
     """
     if not proposed_event.start_time or not proposed_event.end_time:
         return []
 
     conflicts = []
 
-    # 1. Check Family/Personal Events for this kid.
+    # 1. Check Family/Personal Events for this kid (explicitly created by parent).
     family_events = Event.objects.filter(
         kids=kid,
     )
@@ -531,7 +693,8 @@ def get_kid_conflicts(kid, proposed_event):
                 'reason': 'Family event conflict'
             })
 
-    # 2. Check Accepted Team Events (other than this one)
+    # 2. Check Accepted Team Events the kid is already attending (other than this one).
+    # Only confirmed/attending events.
     team_attendances = TeamEventAttendance.objects.filter(
         kid=kid,
         status='accepted',
@@ -547,33 +710,6 @@ def get_kid_conflicts(kid, proposed_event):
                 'reason': 'Already attending another team event'
             })
 
-    # 3. Also check other *pending* TeamEventInvitations for this parent, where the kid is registered
-    # on that other team. This catches team-vs-team conflicts even before the other invitation has
-    # been accepted (so both don't get auto-accepted leading to double-booked team events).
-    # (Owner already prevents overlapping events on the *same* team.)
-    try:
-        pending_invs = TeamEventInvitation.objects.filter(
-            user=kid.parent,
-            status='pending'
-        ).exclude(team_event=proposed_event).select_related('team_event__team')
-        for inv in pending_invs:
-            other_te = inv.team_event
-            # Is this kid registered on the other team?
-            registered = PlayerRegistration.objects.filter(
-                kid=kid,
-                team_membership__team=other_te.team
-            ).exists()
-            if registered:
-                overlaps = (other_te.start_time < proposed_event.end_time) and (other_te.end_time > proposed_event.start_time)
-                if overlaps:
-                    conflicts.append({
-                        'type': 'team',
-                        'event': other_te,
-                        'reason': 'Pending team event invitation for another team this kid is registered on'
-                    })
-    except Exception:
-        pass
-
     return conflicts
 
 
@@ -583,8 +719,7 @@ def get_conflicts_for_kids(selected_kids, proposed_event):
     Format: {kid: [list of conflict dicts]}
     Keys are the Kid model instances (supports 'kid in conflicts' and conflicts[kid]).
 
-    This is a thin wrapper around get_kid_conflicts (called per kid).
-    No other checks were altered.
+    Thin wrapper around get_kid_conflicts. Only confirmed/attending events are considered.
     """
     conflicts = {}
     for kid in selected_kids:
@@ -592,6 +727,24 @@ def get_conflicts_for_kids(selected_kids, proposed_event):
         if kid_conflicts:
             conflicts[kid] = kid_conflicts
     return conflicts
+
+
+def get_attendance_summary(team_event):
+    """Safe summary for team event attendance (used by owners for roster planning and visibility).
+    Returns counts + filtered lists. Does not leak across families.
+    """
+    qs = team_event.attendances.select_related('kid', 'kid__family').all()
+    accepted = [a for a in qs if a.status == 'accepted']
+    declined = [a for a in qs if a.status == 'declined']
+    needs_review = [a for a in qs if getattr(a, 'needs_review', False)]
+    return {
+        'accepted_count': len(accepted),
+        'declined_count': len(declined),
+        'needs_review_count': len(needs_review),
+        'accepted': accepted,
+        'declined': declined,
+        'total': len(qs),
+    }
 
 
 @login_required
@@ -610,9 +763,17 @@ def review_team_event_update(request, event_id):
         return redirect('event_list')
     
 
+    profile = _safe_get_user_profile(request)
+    user_family = profile.family
+
+    # Owners should not hit the parent "review update" flow; send them to event details
+    if profile.role == 'owner' or not user_family or TeamEvent.objects.filter(
+            id=event_id, team__organization__owner=request.user).exists():
+        return redirect('team_event_detail', event_id=event_id)
+
     attendances = list(TeamEventAttendance.objects.filter(
                 team_event=team_event,
-                kid__family=request.user.profile.family,
+                kid__family=user_family,
                 status='accepted'
             ).select_related('kid'))
 
@@ -663,9 +824,11 @@ def keep_team_event_update(request, event_id):
         ).update(is_read=True)
 
         # Clear the needs_review flag now that the parent has handled the update notification
+        profile = _safe_get_user_profile(request)
+        user_family = profile.family
         TeamEventAttendance.objects.filter(
             team_event=event,
-            kid__family=request.user.profile.family,
+            kid__family=user_family,
             status='accepted'
         ).update(needs_review=False)
         
@@ -679,24 +842,41 @@ def keep_team_event_update(request, event_id):
 
 @login_required
 def remove_team_event_attendance(request, event_id):
-    """Parent chooses to remove the team event from their calendar"""
+    """Parent chooses to remove the team event from their calendar (self-unregister)."""
     # If ?read present, this returns redirect to clean URL (no ?read)
     response = _mark_notification_as_read(request)
     if response:
         return response
 
+    profile = _safe_get_user_profile(request)
+    user_family = profile.family
     try:
+        # Scope not strictly needed (we check attendance), but use try for safety
         event = TeamEvent.objects.get(id=event_id)
         
-        # Remove the attendance record
-        attendance = TeamEventAttendance.objects.filter(
+        # Remove the attendance record (only for this parent's kids)
+        attendances = TeamEventAttendance.objects.filter(
             team_event=event,
             kid__parent=request.user
-        ).first()
+        )
+        removed_names = []
+        for att in list(attendances):
+            kid_name = f"{att.kid.first_name} {att.kid.last_name}".strip()
+            removed_names.append(kid_name)
+            att.delete()
         
-        if attendance:
-            attendance.delete()
-            messages.success(request, f"'{event.name}' has been removed from your calendar.")
+        if removed_names:
+            messages.success(request, f"'{event.name}' has been removed from your calendar for: {', '.join(removed_names)}.")
+            # Notify owner of the un-registration
+            owner = event.team.organization.owner
+            if owner and owner != request.user:
+                Notification.objects.create(
+                    user=owner,
+                    title="Attendance Change",
+                    message=f"{', '.join(removed_names)} removed from '{event.name}' by parent.",
+                    notification_type='team_event_updated',
+                    extra_data={'team_event_id': event.id, 'action': 'unregistered_by_parent'}
+                )
         else:
             messages.error(request, "You were not attending this event.")
             
@@ -718,15 +898,12 @@ def delete_event(request, event_id=None, attendance_id=None, team_event_id=None)
 
     # ==================== CASE 1: Personal / Family Event ====================
     if event_id:
+        profile = _safe_get_user_profile(request)
+        user_family = profile.family
         try:
-            event = Event.objects.get(id=event_id)
+            event = Event.objects.get(id=event_id, family=user_family)
         except Event.DoesNotExist:
             messages.error(request, "Event not found.")
-            return redirect('event_list')
-
-        # Permission check
-        if event.family and not (request.user.profile.family and request.user.profile.family.id == event.family.id):
-            messages.error(request, "You do not have permission to delete this event.")
             return redirect('event_list')
 
         if request.method == "POST":
@@ -761,14 +938,14 @@ def delete_event(request, event_id=None, attendance_id=None, team_event_id=None)
 
     # ==================== CASE 3: Owner deleting full Team Event ====================
     elif team_event_id:
+        profile = _safe_get_user_profile(request)
         try:
-            team_event = TeamEvent.objects.get(id=team_event_id)
+            team_event = TeamEvent.objects.get(
+                id=team_event_id,
+                team__organization__owner=request.user
+            )
         except TeamEvent.DoesNotExist:
             messages.error(request, "Team event not found.")
-            return redirect('event_list')
-
-        if request.user != team_event.team.organization.owner:
-            messages.error(request, "You do not have permission to delete this team event.")
             return redirect('event_list')
 
         if request.method == "POST":
@@ -827,8 +1004,9 @@ def event_list(request):
     if response:
         return response
 
-    if request.user.profile.role == "parent":
-        user_family = request.user.profile.family
+    profile = _safe_get_user_profile(request)
+    if profile.role == "parent":
+        user_family = profile.family
         user_families = [user_family] if user_family else []
 
         # Personal Events
@@ -866,6 +1044,11 @@ def event_list(request):
             team__organization__owner=request.user
         ).select_related('team').order_by('start_time')
         
+        # Enhance for owners: attach attendance data for visibility into who's going
+        for event in events:
+            event.attendances_list = list(event.attendances.select_related('kid').filter(status='accepted')[:10])
+            event.attendance_count = event.attendances.filter(status='accepted').count()
+        
         context = {'events': events, 'is_parent': False}
 
     return render(request, 'core/event_list.html', context)
@@ -878,7 +1061,7 @@ def login_view(request):
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password")
-        user = authenticate(username=username, password=password)
+        user = authenticate(request, username=username, password=password)
 
         #This is not compelte code only a placeholder for the skeleton. would still 
         #need to redirect etc.
@@ -891,10 +1074,15 @@ def login_view(request):
 
         else:
             return render(request, "core/login.html", context={
-                "error": "Invalid credentials, try again"
+                "error": "Invalid credentials, try again."
             })
 
-    return render(request, "core/login.html")
+    # Privacy: show friendly message after successful account deletion
+    deleted = request.GET.get('deleted') == '1'
+    context = {}
+    if deleted:
+        context['success'] = "Your account and all associated data have been permanently deleted. We're sorry to see you go."
+    return render(request, "core/login.html", context)
 
 @login_required
 def logout_view(request):
@@ -906,9 +1094,12 @@ def signup_view(request):
     if request.method == "POST":
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()                    # This already creates the Profile
-            login(request, user)
-            
+            user = form.save()  # This already creates the Profile via form/middleware
+
+            # IMPORTANT FIX: Specify backend when using multiple auth backends
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+
+            # Use direct on the fresh user
             if user.profile.role == 'owner':
                 return redirect('owner_onboarding')
             else:
@@ -919,20 +1110,46 @@ def signup_view(request):
     return render(request, "core/signup.html", {'form': form})
 
 
+# Re-export for account_settings and any other modules that need the list.
+# The canonical definition lives in forms.py so signup and settings stay in sync.
+COMMON_TIMEZONES = TIMEZONE_CHOICES
+
+
+
 @login_required
 def account_settings(request):
+    profile = _safe_get_user_profile(request)
+    
     if request.method == "POST":
-        # Update user info
-        request.user.first_name = request.POST.get('first_name', request.user.first_name)
-        request.user.last_name = request.POST.get('last_name', request.user.last_name)
+        # Update User model fields
+        request.user.first_name = (request.POST.get('first_name', request.user.first_name) or '').strip().title()
+        request.user.last_name = (request.POST.get('last_name', request.user.last_name) or '').strip().title()
         request.user.email = request.POST.get('email', request.user.email)
         request.user.save()
-        
-        messages.success(request, "Profile updated successfully!")
+
+        # Update Profile fields
+        new_tz = request.POST.get('timezone')
+        # Only accept known IANA keys from our list (prevents garbage from old template or tampering)
+        tz_keys = {tz[0] for tz in COMMON_TIMEZONES}
+        if new_tz in tz_keys and profile.timezone != new_tz:
+            profile.timezone = new_tz
+            profile.save(update_fields=['timezone'])
+
+        # Phone Number (enforce model max_length=40 to avoid DataError)
+        phone = (request.POST.get('phone', '') or '').strip()[:40]
+        if profile.phone != phone:
+            profile.phone = phone
+            profile.save(update_fields=['phone'])
+
+        messages.success(request, "✅ Profile updated successfully!")
         return redirect('account_settings')
 
+    # GET request
     return render(request, "core/account_settings.html", {
-        'user': request.user
+        'user': request.user,
+        'profile': profile,
+        'current_timezone': profile.timezone if profile else 'America/Chicago',
+        'timezones': COMMON_TIMEZONES,
     })
 
 
@@ -955,25 +1172,27 @@ def change_password(request):
 
 @login_required
 def add_kid(request):
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
+    user_family = profile.family
+
     if request.method == "POST":
-        first_name = request.POST.get("first_name")
-        last_name = request.POST.get("last_name")
+        first_name = (request.POST.get("first_name") or '').strip().title()
+        last_name = (request.POST.get("last_name") or '').strip().title()
         date_of_birth = request.POST.get("date_of_birth")
         gender = request.POST.get("gender")
-        user_family = request.user.profile.family
 
         #CHECK IF USER IS PART OF A FAMILY
         if not user_family:
             messages.error(request, "You must be part of a family before adding kids.")
             return redirect('setup_family')
         #CHECK IF USER IS PART OF THE FAMILY THE KID IS BEING ADDED TO
-        if user_family != request.user.profile.family:
+        if user_family != profile.family:
             messages.error(request, "You do not have permission to add kids to this family.")
-            return redirect('family_list')
+            return redirect('my_family')
             
    
         #creating the kid and saving it to the parent and database
@@ -981,8 +1200,21 @@ def add_kid(request):
         gender=gender)
         kid.parent = request.user
         kid.family = user_family
+
+        # Assign a super distinct color (not same blue for all kids)
+        existing_colors = set(Kid.objects.filter(family=user_family).values_list('color', flat=True))
+        palette = ['#64748b', '#6b7280', '#78716c', '#57534e', '#4b5563', '#9f1239', '#166534', '#1e40af', '#4338ca', '#6b21a8', '#854d0e', '#065f46', '#0f766e', '#1d4ed8', '#5b21b6']
+        for c in palette:
+            if c not in existing_colors:
+                kid.color = c
+                break
+        else:
+            kid.color = '#64748b'  # fallback slate if all used
         kid.save()
-        return redirect('family_list')
+        # If user came from family page to add kid, return there; else default my_family (or could use kid_list)
+        if request.GET.get('from') == 'family':
+            return redirect('my_family')
+        return redirect('my_family')
 
     #GET request
     return render(request, "core/add_kid.html")
@@ -991,43 +1223,42 @@ def add_kid(request):
 
 @login_required
 def edit_kid(request, kid_id):
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
-    kid = Kid.objects.get(id= kid_id)
-
-    if not (kid.family and request.user.profile.family and request.user.profile.family == kid.family):
-        messages.error(request, "You do not have permission to edit this kid.")
-        return redirect('family_list')
+    user_family = profile.family
+    try:
+        kid = Kid.objects.get(id=kid_id, family=user_family)
+    except Kid.DoesNotExist:
+        messages.error(request, "Kid not found.")
+        return redirect('my_family')
 
     if request.method == "POST":
-        kid.first_name = request.POST.get("first_name")
-        kid.last_name = request.POST.get("last_name")
+        kid.first_name = (request.POST.get("first_name") or '').strip().title()
+        kid.last_name = (request.POST.get("last_name") or '').strip().title()
         kid.date_of_birth = request.POST.get("date_of_birth")
         kid.gender = request.POST.get("gender")
         kid.save()
         messages.success(request, "Kid information updated successfully.")
-        return redirect('family_list')
+        return redirect('my_family')
     
     return render(request, "core/edit_kid.html", {"kid": kid})
 
 @login_required
 def delete_kid(request, kid_id):
-    try:
-        kid = Kid.objects.get(id=kid_id)
-    except Kid.DoesNotExist:
-        messages.error(request, "This kid does not exist.")
-        return redirect('kid_list')
-
-    # Authorization checks
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
-    if not kid.family or request.user.profile.family != kid.family:
-        messages.error(request, "You are not authorized to delete this kid.")
-        return redirect('dashboard')
+    user_family = profile.family
+    try:
+        kid = Kid.objects.get(id=kid_id, family=user_family)
+    except Kid.DoesNotExist:
+        messages.error(request, "This kid does not exist.")
+        return redirect('kid_list')
 
     kid_name = f"{kid.first_name} {kid.last_name}"
 
@@ -1046,7 +1277,7 @@ def delete_kid(request, kid_id):
         kid.delete()
 
         messages.success(request, f"{kid_name} has been deleted successfully.")
-        return redirect('family_list')            # or 'kid_list'
+        return redirect('my_family')            # or 'kid_list'
 
     # GET request - show confirmation page
     context = {
@@ -1064,37 +1295,56 @@ def kid_list(request):
     if response:
         return response
 
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
-    user_family = request.user.profile.family
-    if user_family != request.user.profile.family and request.user.profile.role == "parent":
-        redirect('dashboard')
-    
-    if user_family != request.user.profile.family and request.user.profile.role == "owner":
-        redirect('owner_dashboard')
-        
+    user_family = profile.family
+    # (removed dead self-comparison redirects that did nothing)
     if user_family:
         kids = Kid.objects.filter(family=user_family)
     else:
         kids = Kid.objects.none()
-    return render(request,"core/kid_list.html",context= {"kids": kids})
+
+    # Backfill distinct colors for old kids so they don't all have the same default color
+    if kids:
+        existing_colors = set(kids.values_list('color', flat=True))
+        palette = ['#64748b', '#6b7280', '#78716c', '#57534e', '#4b5563', '#9f1239', '#166534', '#1e40af', '#4338ca', '#6b21a8', '#854d0e', '#065f46', '#0f766e', '#1d4ed8', '#5b21b6']
+        updated = False
+        for kid in kids:
+            if not kid.color or kid.color == '#3b82f6' or kid.color not in palette:  # treat default or missing as needing color
+                for c in palette:
+                    if c not in existing_colors:
+                        kid.color = c
+                        kid.save(update_fields=['color'])
+                        existing_colors.add(c)
+                        updated = True
+                        break
+                else:
+                    kid.color = '#64748b'
+                    kid.save(update_fields=['color'])
+        if updated:
+            # refresh queryset
+            kids = Kid.objects.filter(family=user_family)
+
+    return render(request, "core/kid_list.html", context={"kids": kids})
 
 
 #From here down is family views
 @login_required
 def add_family(request):
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
     if request.method == "POST":
-        family_name = request.POST.get("family_name")
+        family_name = (request.POST.get("family_name") or '').strip().title()
         new_family = Family(family_name=family_name, created_by=request.user)
         new_family.save()
-        request.user.profile.family = new_family
-        request.user.profile.save()
+        profile.family = new_family
+        profile.save()
         return redirect('dashboard')
     
     return render(request, "core/add_family.html")
@@ -1103,14 +1353,10 @@ def add_family(request):
 #Family List
 @login_required
 def family_list(request):
-    # Support ?read= for marking notifications when linked
-    response = _mark_notification_as_read(request)
-    if response:
-        return response
-
-    user_family = request.user.profile.family
-    families = [user_family] if user_family else []
-    return render(request, "core/family_list.html", context={"families": families})
+    # Legacy URL kept for backward compatibility (bookmarks, old links).
+    # All internal flows now use my_family (which renders the family details).
+    # This safely redirects without breaking any URLs.
+    return redirect('my_family')
 
 
 @login_required
@@ -1121,14 +1367,32 @@ def my_family(request):
     if response:
         return response
 
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
-    family = request.user.profile.family
+    family = profile.family
     if not family:
         messages.error(request, "You don't have a family yet.")
         return redirect('create_first_family')
+
+    # Backfill distinct colors for old kids (so they get unique colors even if created before the feature)
+    kids_qs = family.kids.all()
+    if kids_qs.exists():
+        existing_colors = set(kids_qs.values_list('color', flat=True))
+        palette = ['#64748b', '#6b7280', '#78716c', '#57534e', '#4b5563', '#9f1239', '#166534', '#1e40af', '#4338ca', '#6b21a8', '#854d0e', '#065f46', '#0f766e', '#1d4ed8', '#5b21b6']
+        for kid in kids_qs:
+            if not kid.color or kid.color == '#3b82f6':
+                for c in palette:
+                    if c not in existing_colors:
+                        kid.color = c
+                        kid.save(update_fields=['color'])
+                        existing_colors.add(c)
+                        break
+                else:
+                    kid.color = '#64748b'
+                    kid.save(update_fields=['color'])
 
     # Reuse the same logic as family_detail for pending invites etc.
     pending_invites = Invite.objects.filter(
@@ -1146,7 +1410,8 @@ def my_family(request):
 @login_required
 def parent_teams(request):
     """Page for parents to see all teams they belong to."""
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
@@ -1163,23 +1428,63 @@ def parent_teams(request):
     return render(request, "core/parent_teams.html", context)
 
 
+@login_required
+def remove_kid_from_team(request, team_id, kid_id):
+    """Parent removes one of their kids from a team's roster (unregister from team)."""
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
+        messages.error(request, "This page is for parents only.")
+        return redirect('owner_dashboard')
+
+    try:
+        kid = Kid.objects.get(id=kid_id, parent=request.user)
+        team = Team.objects.get(id=team_id)
+        # Verify parent is member of the team
+        membership = TeamMembership.objects.get(team=team, user=request.user, role='parent')
+        deleted, _ = PlayerRegistration.objects.filter(
+            team_membership=membership, kid=kid
+        ).delete()
+        if deleted:
+            messages.success(request, f"{kid.first_name} has been removed from the team {team.name}.")
+            # Notify owner
+            owner = team.organization.owner
+            if owner and owner != request.user:
+                Notification.objects.create(
+                    user=owner,
+                    title="Roster Change",
+                    message=f"{kid.first_name} {kid.last_name} was removed from {team.name} by the parent.",
+                    notification_type='roster_request',
+                    extra_data={'team_id': team.id, 'kid_id': kid.id, 'action': 'removed_by_parent'}
+                )
+            # If no more registrations for this parent on the team, remove membership
+            if not PlayerRegistration.objects.filter(team_membership=membership).exists():
+                membership.delete()
+                messages.info(request, f"You have left the team {team.name}.")
+        else:
+            messages.info(request, f"{kid.first_name} was not registered on that team.")
+    except (Kid.DoesNotExist, Team.DoesNotExist, TeamMembership.DoesNotExist):
+        messages.error(request, "Could not find the team or kid registration.")
+    return redirect('parent_teams')
+
+
 #Create first Family
 @login_required
 def create_first_family(request):
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
     # If user already has a family, redirect to dashboard
-    if request.user.profile.family:
+    if profile.family:
         return redirect('dashboard')
     
     if request.method == "POST":
-        family_name = request.POST.get("family_name")
+        family_name = (request.POST.get("family_name") or '').strip().title()
         new_family = Family(family_name=family_name, created_by=request.user)
         new_family.save()
-        request.user.profile.family = new_family
-        request.user.profile.save()
+        profile.family = new_family
+        profile.save()
         return redirect('dashboard')
     
     return render(request, "core/create_first_family.html")
@@ -1187,7 +1492,8 @@ def create_first_family(request):
 #SETUP FAMILY
 @login_required
 def setup_family(request):
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
@@ -1196,7 +1502,8 @@ def setup_family(request):
 
 @login_required
 def parent_onboarding(request):
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
     return render(request, "core/parent_onboarding.html")
@@ -1204,7 +1511,8 @@ def parent_onboarding(request):
 
 @login_required
 def owner_onboarding(request):
-    if request.user.profile.role != "owner":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
         messages.error(request, "This page is for owners only.")
         return redirect('dashboard')
     return render(request, "core/owner_onboarding.html")
@@ -1216,7 +1524,8 @@ def owner_onboarding(request):
 #JOIN FAMILY LOGIC FOR SIGNUP FLOW
 @login_required
 def join_family(request):
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
@@ -1237,7 +1546,8 @@ def join_family(request):
 
         elif user_target_family:
             family = user_target_family
-            if request.user.profile.family and target_user.profile.family == family:
+            current_family = _safe_get_user_family(request)
+            if current_family and target_user.profile.family == family:
                 messages.error(request, f"You are already a member of the {family.family_name} family")
                 return redirect('join_family')
                 
@@ -1288,9 +1598,18 @@ def accept_family_invite(request, invite_id):
         messages.error(request, "This invitation is not associated with a family.")
         return redirect('notifications')
 
-    # Defensive checks for already members
-    receiver_in_family = invite.receiver.profile.family
-    sender_in_family = invite.sender.profile.family
+    # Defensive checks for already members (use .profile on the other users is fine here; enforce they are parents)
+    receiver_profile = invite.receiver.profile
+    sender_profile = invite.sender.profile
+
+    # Enforce: only parents can be in families. Owners have no family side.
+    if receiver_profile.role != 'parent' or sender_profile.role != 'parent':
+        invite.delete()
+        messages.error(request, "Family membership is only for parent accounts, not organization owners.")
+        return redirect('notifications')
+
+    receiver_in_family = receiver_profile.family
+    sender_in_family = sender_profile.family
 
     if invite.invite_type == "sent_invite" and receiver_in_family:
         invite.delete()
@@ -1302,14 +1621,14 @@ def accept_family_invite(request, invite_id):
         messages.info(request, "This parent is already a member of the family.")
         return redirect('family_detail', family_id=invite.family.id)
 
-    # Handle family invite types
+    # Handle family invite types - set via the profile instance we fetched
     if invite.invite_type in ("join_request", "family_join_request"):
-        invite.sender.profile.family = invite.family
-        invite.sender.profile.save()
+        sender_profile.family = invite.family
+        sender_profile.save()
 
     elif invite.invite_type == "sent_invite":
-        invite.receiver.profile.family = invite.family
-        invite.receiver.profile.save()
+        receiver_profile.family = invite.family
+        receiver_profile.save()
 
     else:
         messages.error(request, "Invalid invite type for family acceptance.")
@@ -1432,7 +1751,8 @@ def decline_invite(request, invite_id):
 
 @login_required
 def invite_parent(request, family_id):
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
@@ -1440,7 +1760,7 @@ def invite_parent(request, family_id):
         family = Family.objects.get(id=family_id)
     except Family.DoesNotExist:
         messages.error(request, "Family does not exist")
-        return redirect('family_list')
+        return redirect('my_family')
     
     if request.method == "POST":
         username = request.POST.get("username")
@@ -1512,7 +1832,7 @@ def team_invite_to_parent(request, team_id, username):
         return redirect('team_to_parent_invite_search', team_id=team_id)
 
     # PERMISSION CHECK
-    if request.user.profile.role != "owner":
+    if _get_user_role(request) != "owner":
         messages.error(request, "You are not authorized to send this invite.")
         return redirect('dashboard')
 
@@ -1567,17 +1887,21 @@ def team_invite_to_parent(request, team_id, username):
         )
 
     messages.success(request, f"Invite sent to {target_user.username} successfully!")
-    return redirect('owner_dashboard')
+    return redirect('team_to_parent_invite_search', team_id=team.id)
 
 
 def get_unregistered_kids_for_team(parent_user, team):
-    """Return the kids in the parent's family that are not yet registered on this specific team."""
+    """Return the kids in the parent's family that are not yet registered on this specific team.
+    Owners have no family, so return empty for them.
+    """
     if not parent_user or not team:
         return Kid.objects.none()
 
-    user_family = parent_user.profile.family
-    if not user_family:
+    p = parent_user.profile
+    if p.role == 'owner' or not p.family:
         return Kid.objects.none()
+
+    user_family = p.family
 
     registered_kid_ids = PlayerRegistration.objects.filter(
         team_membership__team=team,
@@ -1594,13 +1918,19 @@ def select_kids_for_team_join_request(request, team_id):
     """Kid selection step before sending a parent-to-team roster request.
     Now supports parents adding additional kids even if they have a pending or accepted request.
     """
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
+        messages.error(request, "Only parents can select kids for team roster requests.")
+        return redirect('owner_dashboard')
+
     try:
         team = Team.objects.get(id=team_id)
     except Team.DoesNotExist:
         messages.error(request, "Team does not exist.")
         return redirect('find_teams')
 
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "Only parents can send roster requests.")
         return redirect('owner_dashboard')
 
@@ -1635,7 +1965,8 @@ def parent_to_team_request(request, team_id):
         messages.error(request, "Team does not exist.")
         return redirect('find_teams')
 
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "You are not authorized to send this request")
         return redirect('owner_dashboard')
 
@@ -1700,7 +2031,7 @@ def parent_to_team_request(request, team_id):
         return redirect('find_teams')
 
     # GET requests: force the new kid selection flow for parents
-    if request.user.profile.role == "parent":
+    if _get_user_role(request) == "parent":
         return redirect('select_kids_for_team_join_request', team_id=team.id)
 
     # Fallback for non-parents
@@ -1728,7 +2059,7 @@ def team_invite_response(request, invite_id):
         messages.error(request, "This invitation is not linked to a team.")
         return redirect('notifications')
 
-    family = request.user.profile.family
+    family = _safe_get_user_family(request)
 
     if not family:
         messages.error(request, "No family profile found.")
@@ -1771,6 +2102,12 @@ def family_invite_response(request, invite_id):
     response = _mark_notification_as_read(request)
     if response:
         return response
+
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
+        messages.error(request, "Owners cannot participate in family membership. This is a parent/family feature.")
+        return redirect('owner_dashboard')
+
     try:
         invite = Invite.objects.get(
             id=invite_id,
@@ -1790,8 +2127,9 @@ def family_invite_response(request, invite_id):
         return redirect('notifications')
 
     # Defensive check: only relevant when the current user is the one being invited (sent_invite direction).
-    # For join requests, the viewer is the family owner, who is expected to already be in the family.
-    if invite.invite_type in ("sent_invite",) and request.user.profile.family and request.user.profile.family == family:
+    # For join requests, the viewer is the family owner (a parent), who is expected to already be in the family.
+    user_family = _safe_get_user_family(request)
+    if invite.invite_type in ("sent_invite",) and user_family and user_family == family:
         invite.delete()  # Clean up the useless pending invite
         messages.info(request, "You are already a member of this family.")
         return redirect('family_detail', family_id=family.id)
@@ -1821,6 +2159,12 @@ def review_roster_request(request, invite_id):
     response = _mark_notification_as_read(request)
     if response:
         return response
+
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "This page is for owners only.")
+        return redirect('dashboard')
+
     try:
         invite = Invite.objects.get(
             id=invite_id,
@@ -1898,7 +2242,7 @@ def review_roster_request(request, invite_id):
                 request,
                 f"Roster request approved. {added_count} kid(s) added to {team.name}."
             )
-            return redirect('owner_dashboard')
+            return redirect('team_detail', team_id=team.id)
 
     # GET: prepare requested kids for display/selection
     requested_kids = [
@@ -1920,20 +2264,44 @@ def review_roster_request(request, invite_id):
 
 @login_required
 def remove_parent(request, family_id, parent_id,):
-    parent = User.objects.get(id=parent_id)
-    family = Family.objects.get(id=family_id)
-    if parent == family.created_by and request.user != family.created_by:
-        messages.error(request, "You can not delete the creator of the family.")
-        return redirect('family_list')
+    """Only the family creator (a parent) can remove other parents from the family.
+    Families are strictly the parent/kid side; owners have no families.
+    Hardened: scope lookups, require ownership, always define context.
+    """
+    profile = _safe_get_user_profile(request)
+    user_family = profile.family
+
+    try:
+        family = Family.objects.get(id=family_id)
+        parent = User.objects.get(id=parent_id)
+    except (Family.DoesNotExist, User.DoesNotExist):
+        messages.error(request, "Family or parent not found.")
+        return redirect('my_family')
+
+    # Authorization: must be the creator of this family, and the target must be in it.
+    if request.user != family.created_by:
+        messages.error(request, "You do not have permission to modify this family.")
+        return redirect('my_family')
+
+    if user_family is None or user_family.id != family.id:
+        messages.error(request, "You do not have access to this family.")
+        return redirect('my_family')
+
+    parent_profile = parent.profile
+    if parent_profile.family != family:
+        messages.error(request, "That parent is not in this family.")
+        return redirect('my_family')
+
     if request.method == "POST":
-        if parent.profile.family == family:
-            parent.profile.family = None
-            parent.profile.save()
+        if parent_profile.family == family:
+            parent_profile.family = None
+            parent_profile.save()
         if parent == family.created_by:
             family.delete()
-        return redirect('family_list')
+        return redirect('my_family')
 
-    return render(request, "core/remove_parent.html", context={"parent": parent})
+    context = {"parent": parent, "family": family}
+    return render(request, "core/remove_parent.html", context)
 
 @login_required
 def family_detail(request, family_id):
@@ -1942,46 +2310,106 @@ def family_detail(request, family_id):
     if response:
         return response
 
-    if request.user.profile.role != "parent":
-        messages.error(request, "This page is for parents only.")
-        return redirect('owner_dashboard')
+    profile = _safe_get_user_profile(request)
+    family = Family.objects.filter(id=family_id).first()
+    if not family:
+        messages.error(request, "Family not found.")
+        return redirect('dashboard')
 
-    family = Family.objects.get(id=family_id)
-
-    # Permission check
-    if not request.user.profile.family or request.user.profile.family.id != family.id:
-        messages.error(request, "You do not have access to this family.")
-        return redirect('family_list')
+    if profile.role == "parent":
+        # Parents can only see their own family
+        if not profile.family or profile.family.id != family.id:
+            messages.error(request, "You do not have access to this family.")
+            return redirect('my_family')
+    elif profile.role == "owner":
+        # Owners can view families of kids registered in their organization (for roster/parent contact access)
+        has_connection = PlayerRegistration.objects.filter(
+            kid__family=family,
+            team_membership__team__organization__owner=request.user
+        ).exists()
+        if not has_connection:
+            messages.error(request, "You do not have access to this family's details.")
+            return redirect('owner_dashboard')
+    else:
+        messages.error(request, "Access denied.")
+        return redirect('dashboard')
 
     # Pending family invites (both sent by this family and requests to join this family)
-    pending_invites = Invite.objects.filter(
-        family=family,
-        status="pending"
-    ).select_related('sender', 'receiver').order_by('-created_at')
+    # Only for actual family parents (owners get read-only contact view)
+    if profile.role == "parent":
+        pending_invites = Invite.objects.filter(
+            family=family,
+            status="pending"
+        ).select_related('sender', 'receiver').order_by('-created_at')
+    else:
+        pending_invites = []
 
     context = {
         "family": family,
         "pending_invites": pending_invites,
+        "is_owner_view": profile.role == "owner",
     }
+
+    # For owner view from roster/players: specialize to ONLY kids registered in THIS org's teams
+    # and parent cards that include their TeamMembership in the org.
+    # This fulfills: clickable (from players) shows only relevant org kids + parent card with membership.
+    if profile.role == "owner":
+        organization = Organization.objects.filter(owner=request.user).first()
+        context['organization'] = organization  # always set for owner (may be None, template guards)
+        if organization:
+            # Registrations for this family's kids in the org's teams
+            org_family_regs = list(PlayerRegistration.objects.filter(
+                kid__family=family,
+                team_membership__team__organization=organization
+            ).select_related('kid', 'team_membership__team', 'kid__parent').order_by('kid__first_name'))
+
+            # Parents that have at least one kid in the above regs (or all family parents, but we'll filter display)
+            # Build list of (parent_user, [memberships in org])
+            parents_with_memberships = []
+            seen_parents = set()
+            for reg in org_family_regs:
+                p = reg.kid.parent
+                if p.id not in seen_parents:
+                    seen_parents.add(p.id)
+                    mems = list(TeamMembership.objects.filter(
+                        user=p,
+                        team__organization=organization
+                    ).select_related('team'))
+                    parents_with_memberships.append((p, mems))
+
+            # If clicked a specific parent name from roster (e.g. ?parent=123), filter to only that parent and their kids in org
+            focus_parent_id = request.GET.get('parent')
+            if focus_parent_id:
+                try:
+                    focus_parent_id = int(focus_parent_id)
+                    parents_with_memberships = [(p, m) for p, m in parents_with_memberships if p.id == focus_parent_id]
+                    org_family_regs = [r for r in org_family_regs if getattr(r.kid, 'parent_id', None) == focus_parent_id]
+                    context['focus_parent_id'] = focus_parent_id
+                except (ValueError, TypeError):
+                    pass
+
+            context.update({
+                'org_family_regs': org_family_regs,
+                'parents_with_memberships': parents_with_memberships,
+            })
+
     return render(request, "core/family_details.html", context)
 
 
 @login_required
 def event_detail(request, event_id):
     """Detail page for a personal/family event."""
-    if request.user.profile.role != "parent":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
+    user_family = profile.family
+    # Scope lookup (hardened for security: no data leakage on guessed event_id)
     try:
-        event = Event.objects.get(id=event_id)
+        event = Event.objects.get(id=event_id, family=user_family)
     except Event.DoesNotExist:
         messages.error(request, "Event not found.")
-        return redirect('event_list')
-
-    # Permission: must be in the same family
-    if not event.family or not request.user.profile.family or request.user.profile.family.id != event.family.id:
-        messages.error(request, "You do not have access to this event.")
         return redirect('event_list')
 
     context = {
@@ -1994,14 +2422,28 @@ def event_detail(request, event_id):
 @login_required
 def team_event_detail(request, event_id):
     """Detail page for a team event."""
-    try:
-        team_event = TeamEvent.objects.get(id=event_id)
-    except TeamEvent.DoesNotExist:
-        messages.error(request, "Team event not found.")
-        return redirect('event_list')
+    profile = _safe_get_user_profile(request)
+    user_family = profile.family
+
+    # For owners: scope to their org's teams only. For parents: we'll validate via attendance after.
+    team_event = None
+    if profile.role == "owner":
+        try:
+            team_event = TeamEvent.objects.get(
+                id=event_id,
+                team__organization__owner=request.user
+            )
+        except TeamEvent.DoesNotExist:
+            messages.error(request, "Team event not found.")
+            return redirect('event_list')
+    else:
+        try:
+            team_event = TeamEvent.objects.get(id=event_id)
+        except TeamEvent.DoesNotExist:
+            messages.error(request, "Team event not found.")
+            return redirect('event_list')
 
     # Permission: owner of the team OR has an accepted attendance for one of their family kids
-    user_family = request.user.profile.family
     has_access = False
 
     if team_event.team.organization.owner == request.user:
@@ -2019,12 +2461,14 @@ def team_event_detail(request, event_id):
         messages.error(request, "You do not have access to this team event.")
         return redirect('event_list')
 
-    # Get attendances for display
+    # Get attendances for display + summary (for owners to see at-a-glance who is going)
     attendances = team_event.attendances.select_related('kid').all()
+    summary = get_attendance_summary(team_event)
 
     context = {
         "team_event": team_event,
         "attendances": attendances,
+        "attendance_summary": summary,
         "is_team_event": True,
     }
     return render(request, "core/team_event_detail.html", context)
@@ -2033,6 +2477,9 @@ def team_event_detail(request, event_id):
 @login_required
 def team_detail(request, team_id):
     """Detail page for a team."""
+    profile = _safe_get_user_profile(request)
+    # Owners can look up any of their org's teams; members/parents look up teams they belong to.
+    # We still fetch then authorize to support cross-role (owner viewing their team).
     try:
         team = Team.objects.get(id=team_id)
     except Team.DoesNotExist:
@@ -2101,7 +2548,18 @@ def notifications(request):
         # Determine base URL WITHOUT any query parameters
         if ntype == "team_event_updated":
             team_event_id = extra.get("team_event_id") or extra.get("event_id")
-            base_url = reverse('review_team_event_update', args=[team_event_id]) if team_event_id else reverse('notifications')
+            if team_event_id:
+                try:
+                    te = TeamEvent.objects.select_related('team__organization').get(id=team_event_id)
+                    if te.team.organization.owner_id == user.id:
+                        # Owner of the team: go to details page, not the parent review page
+                        base_url = reverse('team_event_detail', args=[team_event_id])
+                    else:
+                        base_url = reverse('review_team_event_update', args=[team_event_id])
+                except TeamEvent.DoesNotExist:
+                    base_url = reverse('event_list')
+            else:
+                base_url = reverse('event_list')
         elif ntype == "team_event_invitation":
             invitation_id = extra.get("invitation_id") or extra.get("team_event_id")
             base_url = reverse('team_event_kid_selection', args=[invitation_id]) if invitation_id else reverse('notifications')
@@ -2125,7 +2583,7 @@ def notifications(request):
         else:
             final_url = f"{base_url}?read={n.id}"
 
-        items.append({
+        item = {
             "id": n.id,
             "title": n.title,
             "message": n.message,
@@ -2133,7 +2591,10 @@ def notifications(request):
             "is_read": n.is_read,
             "type": ntype,
             "url": final_url,
-        })
+        }
+        if ntype == "team_event_invitation":
+            item["invitation_id"] = extra.get("invitation_id")
+        items.append(item)
 
     unread_count = sum(1 for i in items if not i["is_read"])
 
@@ -2152,7 +2613,12 @@ def notifications(request):
 
 @login_required
 def create_team(request):
-        #CHECKS IF USER HAS AN ORG BECAUSE THEY ARE REQUIRED TO HAVE ONE BEFORE CREATING A TEAM
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "This page is for owners only.")
+        return redirect('dashboard')
+
+    #CHECKS IF USER HAS AN ORG BECAUSE THEY ARE REQUIRED TO HAVE ONE BEFORE CREATING A TEAM
     if not Organization.objects.filter(owner=request.user).exists():
         messages.error(request, "You must have an Organization before you can create a team.")
         return redirect('create_organization')
@@ -2166,6 +2632,16 @@ def create_team(request):
             team = form.save(commit=False)
             organization = Organization.objects.get(owner=request.user) #BE SURE THAT TEAMS OWNERS ONLY HAVE ONE ORG
             team.organization = organization #THIS CREATES THE CONNECTION TO THE OWNERS ORG
+
+            # Assign super distinct team color (vibrant, not shades of same)
+            existing_team_colors = set(Team.objects.filter(organization=organization).values_list('color', flat=True))
+            palette = ['#64748b', '#6b7280', '#78716c', '#57534e', '#4b5563', '#9f1239', '#166534', '#1e40af', '#4338ca', '#6b21a8', '#854d0e', '#065f46', '#0f766e', '#1d4ed8', '#5b21b6']
+            for c in palette:
+                if c not in existing_team_colors:
+                    team.color = c
+                    break
+            else:
+                team.color = '#64748b'
             team.save()
 
             # TeamMembership acts as a join table between User and Team.
@@ -2174,7 +2650,7 @@ def create_team(request):
             membership = TeamMembership(team=team, user=request.user, role='admin') 
             membership.save()
             messages.success(request, f"Team '{team.name}' created successfully!")
-            return redirect('owner_dashboard')
+            return redirect('team_list')
     else:
         form = TeamForm()
 
@@ -2182,13 +2658,35 @@ def create_team(request):
 
 
 @login_required
+@login_required
 def team_list(request): 
     # Support ?read= for marking notifications when linked
     response = _mark_notification_as_read(request)
     if response:
         return response
 
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "This page is for owners only.")
+        return redirect('dashboard')
+
     teams = Team.objects.filter(organization__owner= request.user).order_by('name')
+
+    # Annotate roster counts for display (consistent with owner_dashboard)
+    for team in teams:
+        team.roster_count = PlayerRegistration.objects.filter(
+            team_membership__team=team
+        ).count()
+
+        # Backfill distinct colors for older teams (run once per load is cheap)
+        if team.color in (None, '', '#3b82f6'):
+            used = set(Team.objects.filter(organization=team.organization).exclude(id=team.id).values_list('color', flat=True))
+            palette = ['#64748b', '#6b7280', '#78716c', '#57534e', '#4b5563', '#9f1239', '#166534', '#1e40af', '#4338ca', '#6b21a8', '#854d0e', '#065f46', '#0f766e', '#1d4ed8', '#5b21b6']
+            for c in palette:
+                if c not in used:
+                    team.color = c
+                    team.save(update_fields=['color'])
+                    break
 
     # ← Pass this flag that lets teamlist know its present in order to send a parent invite. user has to select team first
     from_invite = request.GET.get('from') == 'invite_parent'
@@ -2199,6 +2697,95 @@ def team_list(request):
     }
 
     return render(request, "core/team_list.html", context)
+
+
+@login_required
+def owner_remove_kid_from_team(request, team_id, kid_id):
+    """Owner removes a kid from one of their team's roster."""
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "This page is for owners only.")
+        return redirect('dashboard')
+
+    try:
+        team = Team.objects.get(id=team_id, organization__owner=request.user)
+        kid = Kid.objects.get(id=kid_id)
+        # Find the membership for the kid's parent on this team
+        membership = TeamMembership.objects.get(team=team, user=kid.parent, role='parent')
+        deleted, _ = PlayerRegistration.objects.filter(
+            team_membership=membership, kid=kid
+        ).delete()
+        if deleted:
+            messages.success(request, f"{kid.first_name} has been removed from the roster of {team.name}.")
+            # Notify the parent (data leakage safe: only notify the actual kid.parent)
+            parent_user = kid.parent
+            if parent_user:
+                Notification.objects.create(
+                    user=parent_user,
+                    title="Removed from Roster",
+                    message=f"Your kid {kid.first_name} {kid.last_name} was removed from {team.name} by the team owner.",
+                    notification_type='roster_request',
+                    extra_data={'team_id': team.id, 'kid_id': kid.id, 'action': 'removed_by_owner'}
+                )
+            # If no more registrations for this parent on the team, remove membership
+            # (prevents dangling TeamMembership with zero kids after owner removal)
+            if not PlayerRegistration.objects.filter(team_membership=membership).exists():
+                membership.delete()
+        else:
+            messages.info(request, "That kid was not on the roster.")
+    except (Team.DoesNotExist, Kid.DoesNotExist, TeamMembership.DoesNotExist):
+        messages.error(request, "Team, kid, or registration not found.")
+    return redirect('team_list')
+
+
+@login_required
+def edit_team(request, team_id):
+    """Owner edits one of their teams (name, sport, description)."""
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "This page is for owners only.")
+        return redirect('dashboard')
+
+    try:
+        team = Team.objects.get(id=team_id, organization__owner=request.user)
+    except Team.DoesNotExist:
+        messages.error(request, "Team not found.")
+        return redirect('team_list')
+
+    if request.method == "POST":
+        form = TeamForm(request.POST, instance=team)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Team '{team.name}' updated successfully!")
+            return redirect('team_detail', team_id=team.id)
+    else:
+        form = TeamForm(instance=team)
+
+    return render(request, "core/edit_team.html", {"form": form, "team": team})
+
+
+@login_required
+def delete_team(request, team_id):
+    """Owner deletes a team (cascades related memberships/registrations/events via FK)."""
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "This page is for owners only.")
+        return redirect('dashboard')
+
+    try:
+        team = Team.objects.get(id=team_id, organization__owner=request.user)
+    except Team.DoesNotExist:
+        messages.error(request, "Team not found.")
+        return redirect('team_list')
+
+    if request.method == "POST":
+        team_name = team.name
+        team.delete()
+        messages.success(request, f"Team '{team_name}' and its data have been deleted.")
+        return redirect('team_list')
+
+    return render(request, "core/delete_team.html", {"team": team})
+
 
 @login_required
 def find_teams(request):
@@ -2235,16 +2822,18 @@ def find_teams(request):
 
 
 @login_required
+@login_required
 def team_to_parent_invite_search(request, team_id):
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "This page is for owners only.")
+        return redirect('dashboard')
+
+    # Scope to this owner's teams only (prevents parents guessing team_id + correct error handling)
     try:
-        team = Team.objects.get(id=team_id)
+        team = Team.objects.get(id=team_id, organization__owner=request.user)
     except Team.DoesNotExist:
         messages.error(request, "Team not found.")
-        return redirect('owner_dashboard')
-
-    # Only team owner / admin can invite
-    if request.user != team.organization.owner:
-        messages.error(request, "You do not have permission to invite to this team.")
         return redirect('owner_dashboard')
 
     query = request.GET.get('q', '').strip()
@@ -2263,6 +2852,11 @@ def team_to_parent_invite_search(request, team_id):
 
 
 def select_kids_for_team_roster(request, invite_id):
+    profile = _safe_get_user_profile(request)
+    if profile.role != "parent":
+        messages.error(request, "This is a parent feature for joining teams with kids.")
+        return redirect('owner_dashboard')
+
     invite = Invite.objects.get(id=invite_id)
 
     # Authorization check
@@ -2281,13 +2875,14 @@ def select_kids_for_team_roster(request, invite_id):
 
     if request.method == "POST":
         selected_kid_ids = request.POST.getlist('kids')
+        user_family = _safe_get_user_family(request)
 
         if not selected_kid_ids:
             messages.error(request, "Please select at least one kid.")
         else:
             for kid_id in selected_kid_ids:
                 try:
-                    kid = Kid.objects.get(id=kid_id, family=request.user.profile.family)
+                    kid = Kid.objects.get(id=kid_id, family=user_family)
                     # Extra safety: don't re-register
                     if not PlayerRegistration.objects.filter(team_membership=membership, kid=kid).exists():
                         PlayerRegistration.objects.create(
@@ -2330,7 +2925,8 @@ def decline_team_event_invite(request, team_event_invitation_id, kid_id):
         messages.error(request, "Unauthorized.")
         return redirect('notifications')
 
-    user_family = request.user.profile.family
+    profile = _safe_get_user_profile(request)
+    user_family = profile.family
     try:
         kid = Kid.objects.get(id=kid_id, family=user_family)
     except Kid.DoesNotExist:
@@ -2395,7 +2991,8 @@ def team_event_kid_selection(request, team_event_invitation_id):
         messages.error(request, "Unauthorized.")
         return redirect('notifications')
 
-    user_family = request.user.profile.family
+    profile = _safe_get_user_profile(request)
+    user_family = profile.family
 
     # Mark the clicked notification as read (if this link was followed from notifications)
     # If ?read present, this returns redirect to clean URL (no ?read)
@@ -2425,7 +3022,18 @@ def team_event_kid_selection(request, team_event_invitation_id):
     ).distinct() if user_family else Kid.objects.none()
 
     if request.method == "POST":
+        action = request.POST.get('action')
         selected_kid_ids = request.POST.getlist('kids')
+
+        if action == 'decline':
+            invitation.status = 'declined'
+            invitation.save()
+            # Clean any pending session
+            request.session.pop('team_event_original_selection', None)
+            request.session.pop('team_event_pending_kids', None)
+            request.session.pop('selected_kid_ids', None)
+            messages.info(request, "You have declined this team event.")
+            return redirect('event_list')
 
         if not selected_kid_ids:
             messages.error(request, "Please select at least one kid.")
@@ -2472,6 +3080,21 @@ def team_event_kid_selection(request, team_event_invitation_id):
                     defaults={'status': 'accepted'}
                 )
                 auto_accepted_count += 1
+
+        if auto_accepted_count > 0:
+            # Notify the owner about new attendances
+            owner = team_event.team.organization.owner
+            if owner and owner != request.user:
+                Notification.objects.get_or_create(
+                    user=owner,
+                    notification_type='team_event_updated',
+                    extra_data__team_event_id=team_event.id,
+                    defaults={
+                        'title': f"New Attendance: {team_event.name}",
+                        'message': f"{auto_accepted_count} kid(s) have been added to your team event '{team_event.name}'.",
+                        'extra_data': {'team_event_id': team_event.id}
+                    }
+                )
 
         if pending_kid_ids:
             # Some kids have conflicts → store only the pending ones for the wizard
@@ -2534,7 +3157,8 @@ def resolve_team_event_conflict(request, team_event_invitation_id):
         messages.error(request, "You are not authorized.")
         return redirect('notifications')
 
-    user_family = request.user.profile.family
+    profile = _safe_get_user_profile(request)
+    user_family = profile.family
 
     # Prefer the new keys; fall back to legacy 'selected_kid_ids' for the display list
     original_ids = request.session.get('team_event_original_selection') or request.session.get('selected_kid_ids', [])
@@ -2562,11 +3186,10 @@ def resolve_team_event_conflict(request, team_event_invitation_id):
     ).select_related('kid'):
         att_status_by_kid[att.kid_id] = att.status
 
-    # Use id sets for robustness
+    # Use id sets for robustness (only confirmed conflicts now)
     conflicting_ids = {k.id for k in conflicts.keys()}
 
-    # Prepare a list for the template so we have easy per-kid conflict lists (avoids the old conflicts.kid template bug)
-    # and can render decided vs undecided cleanly.
+    # Prepare a list for the template so we have easy per-kid conflict lists
     kids_data = []
     for kid in selected_kids:
         kid_conflicts = conflicts.get(kid, [])
@@ -2614,7 +3237,8 @@ def replace_with_team_event(request, team_event_invitation_id, kid_id):
         messages.error(request, "Unauthorized.")
         return redirect('notifications')
 
-    user_family = request.user.profile.family
+    profile = _safe_get_user_profile(request)
+    user_family = profile.family
     try:
         chosen_kid = Kid.objects.get(id=kid_id, family=user_family)
     except Kid.DoesNotExist:
@@ -2658,6 +3282,21 @@ def replace_with_team_event(request, team_event_invitation_id, kid_id):
         defaults={'status': 'accepted'}
     )
 
+    # Notify the owner about the new attendance
+    owner = team_event.team.organization.owner
+    if owner and owner != request.user:
+        kid_full_name = f"{chosen_kid.first_name} {chosen_kid.last_name}".strip()
+        Notification.objects.get_or_create(
+            user=owner,
+            notification_type='team_event_updated',
+            extra_data__team_event_id=team_event.id,
+            defaults={
+                'title': f"New Attendance: {team_event.name}",
+                'message': f"{kid_full_name} has been added to your team event '{team_event.name}'.",
+                'extra_data': {'team_event_id': team_event.id, 'kid_id': chosen_kid.id}
+            }
+        )
+
     kid_full_name = f"{chosen_kid.first_name} {chosen_kid.last_name}".strip()
 
     if handled_count > 0:
@@ -2699,9 +3338,15 @@ def replace_with_team_event(request, team_event_invitation_id, kid_id):
 
 
 @login_required
+@login_required
 def create_organization(request):
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "This page is for owners only.")
+        return redirect('dashboard')
+
     if Organization.objects.filter(owner=request.user).exists():
-        messages.error("You already have an organization.")
+        messages.error(request, "You already have an organization.")
         return redirect('owner_dashboard')
     if request.method == "POST":
         form = OrganizationForm(request.POST)
@@ -2710,23 +3355,43 @@ def create_organization(request):
             organization.owner = request.user          # Important: Set current user as owner
             organization.save()
             
-            messages.success(request, f"Organization '{organization.name}' created successfully!")
-            return redirect('owner_dashboard')         # or 'create_team' later
+            messages.success(request, f"Organization '{organization.name}' created successfully! Now create your first team.")
+            return redirect('team_list')
     else:
         form = OrganizationForm()
 
     return render(request, "core/create_organization.html", {"form": form})
 
+@login_required
 def organization_details(request, org_id):
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "This page is for owners only.")
+        return redirect('dashboard')
+
     try:
         organization = Organization.objects.get(id=org_id, owner=request.user)
     except Organization.DoesNotExist:
         messages.error(request, "Organization not found.")
         return redirect('owner_dashboard')
 
+    # Compute live stats (fixing the hardcoded 0s)
+    teams_qs = Team.objects.filter(organization=organization)
+    total_players = PlayerRegistration.objects.filter(team_membership__team__organization=organization).count()
+    num_families = PlayerRegistration.objects.filter(
+        team_membership__team__organization=organization
+    ).values('kid__family').distinct().count()
+    pending_invites = Invite.objects.filter(
+        team__organization=organization, status="pending"
+    ).count()
+
     context = {
         'organization': organization,
-        # Add more context later (teams, members, etc.)
+        'total_teams': teams_qs.count(),
+        'total_players': total_players,
+        'num_families': num_families,
+        'pending_invites': pending_invites,
+        'teams': list(teams_qs.select_related('organization')),
     }
     return render(request, 'core/organization_details.html', context)
 
@@ -2734,7 +3399,8 @@ def organization_details(request, org_id):
 @login_required
 def my_organization(request):
     """Convenience view for owners to see their own organization (used in nav)."""
-    if request.user.profile.role != "owner":
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
         messages.error(request, "This page is for owners only.")
         return redirect('dashboard')
 
@@ -2744,16 +3410,344 @@ def my_organization(request):
         messages.error(request, "You don't have an organization yet.")
         return redirect('create_organization')
 
-    context = {
-        'organization': organization,
+    # Delegate to details view logic for consistent stats
+    return organization_details(request, organization.id)
+
+
+# =====================================================================================
+# STEP 3: PRIVACY, DATA PROTECTION & ACCOUNT DELETION / EXPORT
+# =====================================================================================
+
+def _collect_user_data_for_export(user):
+    """
+    Gather a safe, complete snapshot of the user's own data for export (GDPR Art. 20 style).
+    Never includes other users' data. Used by export_data view.
+    """
+    profile = getattr(user, 'profile', None)
+    data = {
+        "exported_at": timezone.now().isoformat(),
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "date_joined": user.date_joined.isoformat() if user.date_joined else None,
+        },
+        "profile": None,
+        "role": profile.role if profile else None,
+        "kids": [],
+        "personal_events": [],
+        "team_memberships": [],
+        "managed_organizations": [],
+        "notifications": [],
+        "invites_sent": [],
+        "invites_received": [],
     }
-    return render(request, 'core/organization_details.html', context)
+
+    if profile:
+        data["profile"] = {
+            "timezone": profile.timezone,
+            "phone": profile.phone,
+            "data_consent_at": profile.data_consent_at.isoformat() if profile.data_consent_at else None,
+            "family_id": profile.family_id,
+        }
+
+    # Kids (only this user's; parent FK)
+    for kid in Kid.objects.filter(parent=user).select_related('family'):
+        data["kids"].append({
+            "id": kid.id,
+            "first_name": kid.first_name,
+            "last_name": kid.last_name,
+            "date_of_birth": kid.date_of_birth.isoformat(),
+            "gender": kid.gender,
+            "color": kid.color,
+            "family_name": kid.family.family_name if kid.family else None,
+            "created_at": kid.created_at.isoformat(),
+        })
+
+    # Personal / Family Events created by user or where user is attending (scoped to their data)
+    # Include events from families the user belonged to (via profile at time, but we use created_by + attending + kids owned)
+    user_kid_ids = list(Kid.objects.filter(parent=user).values_list('id', flat=True))
+    events_qs = Event.objects.filter(
+        Q(created_by=user) |
+        Q(attending_parents=user) |
+        Q(kids__id__in=user_kid_ids)
+    ).distinct().select_related('family').prefetch_related('kids', 'attending_parents')
+
+    for ev in events_qs:
+        data["personal_events"].append({
+            "id": ev.id,
+            "name": ev.name,
+            "start_time": ev.start_time.isoformat(),
+            "end_time": ev.end_time.isoformat(),
+            "location": ev.location,
+            "description": ev.description,
+            "family_name": ev.family.family_name if ev.family else None,
+            "kids": [f"{k.first_name} {k.last_name}" for k in ev.kids.all()],
+            "attending_parents": [u.username for u in ev.attending_parents.all()],
+            "created_by_id": ev.created_by_id,
+            "created_at": ev.created_at.isoformat(),
+        })
+
+    # Team memberships (as parent or admin)
+    for tm in TeamMembership.objects.filter(user=user).select_related('team', 'team__organization'):
+        data["team_memberships"].append({
+            "team_id": tm.team_id,
+            "team_name": tm.team.name,
+            "organization": tm.team.organization.name,
+            "role": tm.role,
+            "jersey_number": tm.jersey_number,
+            "joined_at": tm.joined_at.isoformat(),
+        })
+
+    # Organizations + teams they own (full management data snapshot)
+    for org in Organization.objects.filter(owner=user).prefetch_related('teams'):
+        org_data = {
+            "id": org.id,
+            "name": org.name,
+            "description": org.description,
+            "created_at": org.created_at.isoformat(),
+            "teams": [],
+        }
+        for team in org.teams.all():
+            team_data = {
+                "id": team.id,
+                "name": team.name,
+                "sport_type": team.sport_type,
+                "description": team.description,
+                "members": [],
+            }
+            for mem in TeamMembership.objects.filter(team=team).select_related('user'):
+                team_data["members"].append({
+                    "user_id": mem.user_id,
+                    "username": mem.user.username,
+                    "role": mem.role,
+                })
+            org_data["teams"].append(team_data)
+        data["managed_organizations"].append(org_data)
+
+    # Recent notifications (their own)
+    for n in Notification.objects.filter(user=user)[:100]:
+        data["notifications"].append({
+            "id": n.id,
+            "title": n.title,
+            "message": n.message,
+            "type": n.notification_type,
+            "is_read": n.is_read,
+            "created_at": n.created_at.isoformat(),
+        })
+
+    # Invites
+    for inv in Invite.objects.filter(sender=user):
+        data["invites_sent"].append({
+            "id": inv.id, "type": inv.invite_type, "status": inv.status,
+            "created_at": inv.created_at.isoformat()
+        })
+    for inv in Invite.objects.filter(receiver=user):
+        data["invites_received"].append({
+            "id": inv.id, "type": inv.invite_type, "status": inv.status,
+            "created_at": inv.created_at.isoformat()
+        })
+
+    return data
 
 
+@login_required
+def export_data(request):
+    """
+    Allow user to download a JSON export of all data associated with their account.
+    Implements "right to data portability".
+    Only their data; safe for parents (kids + events) and owners (orgs + teams they manage).
+    """
+    user = request.user
+    data = _collect_user_data_for_export(user)
+
+    filename = f"fusion_data_export_{user.username}_{timezone.now().strftime('%Y%m%d_%H%M')}.json"
+
+    response = HttpResponse(
+        json.dumps(data, indent=2, default=str),
+        content_type='application/json'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
-    
-    
+def _perform_account_deletion(user, request):
+    """
+    Carefully delete or clean all data for a user account.
+    Follows "right to be forgotten" while preserving data integrity for remaining users.
+    - For owners: deletes their Organization(s) + cascades (teams, events, roster links, attendances).
+      Kids of OTHER parents remain; only links and team-owned events are removed.
+    - For parents: deletes their Kids (cascades attendances), cleans their events (like delete_kid),
+      removes from shared families (transfers created_by), removes from teams (cascades memberships/regs).
+    - All notifications, invites, team event invites for the user are removed.
+    - M2M attendances cleaned.
+    - Finally deletes the User (cascades Profile, remaining owner refs already handled).
+    Logs to AccountDeletionLog + python logger before destructive action.
+    """
+    profile = getattr(user, 'profile', None)
+    role = profile.role if profile else 'unknown'
+    ip = request.META.get('REMOTE_ADDR') if request else None
+
+    # 1. AUDIT LOG (before any delete)
+    try:
+        AccountDeletionLog.objects.create(
+            user_id=user.id,
+            username=user.username,
+            role=role,
+            ip_address=ip
+        )
+    except Exception:
+        pass  # never block deletion on log failure
+
+    deletion_logger.warning(
+        "ACCOUNT DELETION initiated for user_id=%s username=%s role=%s ip=%s",
+        user.id, user.username, role, ip
+    )
+
+    # 2. Notifications (own)
+    Notification.objects.filter(user=user).delete()
+
+    # 3. TeamEventInvitation (invites to this user)
+    TeamEventInvitation.objects.filter(user=user).delete()
+
+    # 4. Invites involving user (family/team join etc)
+    Invite.objects.filter(Q(sender=user) | Q(receiver=user)).delete()
+
+    # 5. Remove from personal event M2M attending_parents (do not delete events owned by others)
+    for event in list(Event.objects.filter(attending_parents=user)):
+        event.attending_parents.remove(user)
+
+    # 6. OWNER PATH: delete owned organizations (cascades Teams, TeamEvents, TeamEventAttendance,
+    #    TeamMembership, PlayerRegistration, Invites on teams, etc.)
+    #    This removes roster links and team event history from the org, but does NOT delete
+    #    the Kid or Family records of the parents (their kids stay in their families).
+    if role == 'owner':
+        for org in list(Organization.objects.filter(owner=user)):
+            org_name = org.name
+            org.delete()
+            deletion_logger.info("Deleted owned Organization id=%s name=%s during account deletion", org.id, org_name)
+
+    # 7. PARENT PATH / shared family handling + kid cleanup
+    # Transfer family created_by if other parents exist; delete family only if sole.
+    for family in list(Family.objects.filter(created_by=user)):
+        other_parents = User.objects.filter(profile__family=family).exclude(id=user.id)
+        if other_parents.exists():
+            family.created_by = other_parents.first()
+            family.save(update_fields=['created_by'])
+            deletion_logger.info("Transferred family created_by for family_id=%s (user leaving but others remain)", family.id)
+        else:
+            # Safe: sole creator, delete family (cascades its Events + Kids via their FKs)
+            family.delete()
+            deletion_logger.info("Deleted sole-owned family_id=%s during account deletion", family.id)
+
+    # 8. Clean events involving this user's kids (mirrors delete_kid logic to avoid orphan events)
+    # Must do BEFORE user.delete() which will CASCADE delete the Kid rows.
+    user_kids = list(Kid.objects.filter(parent=user).select_related('family'))
+    for kid in user_kids:
+        for event in list(kid.events.all()):
+            if event.kids.count() <= 1:
+                event.delete()
+            else:
+                event.kids.remove(kid)
+
+    # Also delete any PlayerRegistrations for these kids (belt & suspenders; kid delete will cascade too)
+    if user_kids:
+        kid_ids = [k.id for k in user_kids]
+        PlayerRegistration.objects.filter(kid_id__in=kid_ids).delete()
+
+    # 9. TeamEventAttendance for user's kids will cascade on kid delete (kid FK CASCADE)
+    # TeamMembership for user will cascade delete on user delete (good, removes from rosters)
+
+    # 10. Finally delete the user.
+    # - This CASCADE deletes: Profile, Kid (parent), TeamMembership (user), Notification (already done),
+    #   Invite (already), TeamEventInvitation (already), and SET_NULLs Event.created_by, Family.created_by (we handled).
+    # - For owners we already deleted orgs so no CASCADE org delete on user.
+    deleted_username = user.username
+    user.delete()
+
+    deletion_logger.warning("ACCOUNT DELETION COMPLETED for former username=%s (user record removed)", deleted_username)
+
+    return True
+
+
+@login_required
+def delete_account(request):
+    """
+    Safe, confirmed account deletion flow.
+    - GET: shows serious warning page with exactly what will be deleted based on role.
+    - POST: requires current password confirmation + CSRF.
+    - On success: performs full cleanup, logs, logs user out, redirects to login with message.
+    - Never deletes without explicit confirmation.
+    """
+    user = request.user
+    profile = _safe_get_user_profile(request)
+    role = profile.role
+
+    if request.method == "POST":
+        password = request.POST.get("password", "")
+        confirm_text = request.POST.get("confirm_text", "").strip()
+
+        # Double confirmation: password + typed "DELETE"
+        if confirm_text != "DELETE":
+            messages.error(request, "You must type DELETE exactly to confirm.")
+            return redirect('delete_account')
+
+        if not user.check_password(password):
+            messages.error(request, "Incorrect password. Account was not deleted.")
+            return redirect('delete_account')
+
+        # Perform the deletion (logs + cleans + deletes user)
+        try:
+            _perform_account_deletion(user, request)
+        except Exception as e:
+            deletion_logger.exception("Deletion failed for user %s: %s", user.id, e)
+            messages.error(request, "An error occurred during deletion. Please contact support.")
+            # Do not log them out; they can try again or contact
+            return redirect('account_settings')
+
+        # Success: user is gone. Log out (session will be invalid anyway) and inform.
+        logout(request)
+        # We can't use messages after logout easily for next request; use query param or session flash alternative.
+        # For simplicity, redirect to login and template can check ?deleted=1
+        return redirect(reverse('login') + '?deleted=1')
+
+    # GET - render confirmation with warnings
+    # Compute summary for the template (what will be removed)
+    num_kids = Kid.objects.filter(parent=user).count()
+    num_personal_events = Event.objects.filter(
+        Q(created_by=user) | Q(attending_parents=user) | Q(kids__parent=user)
+    ).distinct().count()
+    num_orgs = Organization.objects.filter(owner=user).count()
+    num_teams_managed = Team.objects.filter(organization__owner=user).count()
+    num_team_memberships = TeamMembership.objects.filter(user=user).count()
+    num_notifications = Notification.objects.filter(user=user).count()
+    num_invites = Invite.objects.filter(Q(sender=user) | Q(receiver=user)).count()
+
+    context = {
+        "role": role,
+        "num_kids": num_kids,
+        "num_personal_events": num_personal_events,
+        "num_orgs": num_orgs,
+        "num_teams_managed": num_teams_managed,
+        "num_team_memberships": num_team_memberships,
+        "num_notifications": num_notifications,
+        "num_invites": num_invites,
+        "has_family": bool(getattr(profile, 'family', None)),
+    }
+    return render(request, "core/delete_account.html", context)
+
+
+def privacy_policy(request):
+    """Public page: Privacy Policy (linked from footer, signup, login, settings)."""
+    return render(request, "core/privacy_policy.html")
+
+
+def terms_of_service(request):
+    """Public page: Terms of Service (linked from footer, signup, login, settings)."""
+    return render(request, "core/terms_of_service.html")
+
 
 
 

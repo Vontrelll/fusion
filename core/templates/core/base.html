@@ -9,7 +9,6 @@
     
     <script>
         tailwind.config = {
-            content: ["./**/*.{html,js}"],
             theme: {
                 extend: {
                     fontFamily: {
@@ -20,121 +19,280 @@
         }
     </script>
 </head>
-<body class="bg-[#f0f2f5] text-zinc-900 min-h-screen antialiased">
-    
-    <!-- Facebook-style Top Navigation -->
-    <nav class="bg-white border-b border-zinc-200 sticky top-0 z-50 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4">
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Navigation Bar -->
+    {% block navigation %}
+    <nav class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 shadow-md backdrop-blur bg-white/95">
+        <div class="max-w-6xl mx-auto px-6">
             <div class="h-14 flex items-center justify-between">
                 
-                <!-- Left: Logo + Search -->
-                <div class="flex items-center gap-3">
-                    <a href="{% if request.user.profile.role == 'owner' %}{% url 'owner_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" 
-                       class="flex items-center gap-2">
-                        <div class="w-9 h-9 bg-[#1877f2] text-white rounded-full flex items-center justify-center">
-                            <span class="text-xl">⚽</span>
-                        </div>
-                        <span class="text-2xl font-bold tracking-tighter text-[#1877f2]">Fusion</span>
-                    </a>
+                <!-- Left: Logo only "Fusion" -->
+                <a href="{% if current_role == 'owner' %}{% url 'owner_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" 
+                   class="flex items-center gap-2 text-2xl font-bold text-blue-600">
+                    <span>Fusion</span>
+                </a>
 
-                    <!-- Search Bar (Instagram/FB style) -->
-                    <div class="hidden md:block relative w-64">
-                        <input type="text" 
-                               placeholder="Search teams or events..."
-                               class="w-full bg-[#f0f2f5] border border-zinc-200 focus:border-[#1877f2] transition pl-9 py-1.5 rounded-3xl text-sm outline-none">
-                        <i class="fa-solid fa-search absolute left-3 top-2.5 text-zinc-400 text-sm"></i>
-                    </div>
-                </div>
-
-                <!-- Center Navigation (Facebook style icons) -->
+                <!-- Desktop Center Nav (role aware, kept liked style) -->
                 {% with current=request.resolver_match.url_name %}
+                {% if request.user.is_authenticated %}
                 <div class="hidden md:flex items-center gap-1">
-                    {% if request.user.profile.role == 'owner' %}
-                        <a href="{% url 'owner_dashboard' %}" 
-                           class="px-6 py-2 rounded-2xl hover:bg-zinc-100 {% if current == 'owner_dashboard' %}text-[#1877f2]{% else %}text-zinc-500 hover:text-zinc-700{% endif %}">
-                            <i class="fa-solid fa-home text-xl"></i>
+                    {% if current_role == 'owner' %}
+                        <a href="{% url 'owner_dashboard' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'owner_dashboard' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-home mr-1"></i> Home
                         </a>
-                        <a href="{% url 'my_organization' %}" 
-                           class="px-6 py-2 rounded-2xl hover:bg-zinc-100 {% if current == 'my_organization' %}text-[#1877f2]{% else %}text-zinc-500 hover:text-zinc-700{% endif %}">
-                            <i class="fa-solid fa-sitemap text-xl"></i>
+                        <a href="{% url 'team_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'team_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-people-group mr-1"></i> Teams
                         </a>
-                        <a href="{% url 'team_list' %}" 
-                           class="px-6 py-2 rounded-2xl hover:bg-zinc-100 {% if current == 'team_list' %}text-[#1877f2]{% else %}text-zinc-500 hover:text-zinc-700{% endif %}">
-                            <i class="fa-solid fa-futbol text-xl"></i>
+                        <a href="{% url 'event_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'event_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-calendar mr-1"></i> Events
                         </a>
-                        <a href="{% url 'event_list' %}" 
-                           class="px-6 py-2 rounded-2xl hover:bg-zinc-100 {% if current == 'event_list' %}text-[#1877f2]{% else %}text-zinc-500 hover:text-zinc-700{% endif %}">
-                            <i class="fa-solid fa-calendar text-xl"></i>
+                        <a href="{% url 'org_players' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'org_players' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-users mr-1"></i> Players
                         </a>
-                        <a href="{% url 'notifications' %}" 
-                           class="px-6 py-2 rounded-2xl hover:bg-zinc-100 {% if current == 'notifications' %}text-[#1877f2]{% else %}text-zinc-500 hover:text-zinc-700{% endif %} relative">
-                            <i class="fa-solid fa-bell text-xl"></i>
+                        <a href="{% url 'my_organization' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'my_organization' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-sitemap mr-1"></i> Org
                         </a>
                     {% else %}
-                        <a href="{% url 'dashboard' %}" 
-                           class="px-6 py-2 rounded-2xl hover:bg-zinc-100 {% if current == 'dashboard' %}text-[#1877f2]{% else %}text-zinc-500 hover:text-zinc-700{% endif %}">
-                            <i class="fa-solid fa-home text-xl"></i>
+                        <a href="{% url 'dashboard' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'dashboard' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-home mr-1"></i> Home
                         </a>
-                        <a href="{% url 'event_list' %}" 
-                           class="px-6 py-2 rounded-2xl hover:bg-zinc-100 {% if current == 'event_list' %}text-[#1877f2]{% else %}text-zinc-500 hover:text-zinc-700{% endif %}">
-                            <i class="fa-solid fa-calendar text-xl"></i>
+                        <a href="{% url 'event_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'event_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-calendar mr-1"></i> Events
                         </a>
-                        <a href="{% url 'parent_teams' %}" 
-                           class="px-6 py-2 rounded-2xl hover:bg-zinc-100 {% if current == 'parent_teams' %}text-[#1877f2]{% else %}text-zinc-500 hover:text-zinc-700{% endif %}">
-                            <i class="fa-solid fa-futbol text-xl"></i>
+                        <a href="{% url 'parent_teams' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'parent_teams' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-people-group mr-1"></i> Teams
                         </a>
-                        <a href="{% url 'my_family' %}" 
-                           class="px-6 py-2 rounded-2xl hover:bg-zinc-100 {% if current == 'my_family' or current == 'family_detail' or current == 'create_first_family' or current == 'join_family' or current == 'setup_family' or current == 'add_family' %}text-[#1877f2]{% else %}text-zinc-500 hover:text-zinc-700{% endif %}">
-                            <i class="fa-solid fa-users text-xl"></i>
-                        </a>
-                        <a href="{% url 'notifications' %}" 
-                           class="px-6 py-2 rounded-2xl hover:bg-zinc-100 {% if current == 'notifications' %}text-[#1877f2]{% else %}text-zinc-500 hover:text-zinc-700{% endif %} relative">
-                            <i class="fa-solid fa-bell text-xl"></i>
+                        <a href="{% url 'my_family' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'my_family' or current == 'family_detail' or current == 'create_first_family' or current == 'join_family' or current == 'setup_family' or current == 'add_family' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-users mr-1"></i> Family
                         </a>
                     {% endif %}
                 </div>
+                {% else %}
+                <!-- Anon: no main nav items (or could link to marketing) -->
+                <div class="hidden md:flex items-center gap-1 text-sm text-gray-400">
+                    <span class="px-3">Family &amp; Team Scheduling</span>
+                </div>
+                {% endif %}
                 {% endwith %}
 
-                <!-- Right Side -->
-                <div class="flex items-center gap-2">
-                    <!-- Profile -->
-                    <a href="{% url 'account_settings' %}" 
-                       class="flex items-center gap-2 px-3 py-1.5 rounded-3xl hover:bg-zinc-100 transition">
-                        <div class="w-8 h-8 bg-zinc-700 text-white rounded-full flex items-center justify-center text-sm font-semibold">
-                            {{ request.user.first_name|default:request.user.username|slice:":1" }}
-                        </div>
-                        <span class="hidden md:inline text-sm font-medium">{{ request.user.first_name|default:request.user.username }}</span>
-                    </a>
+                <!-- Right: Notifications + (minimal user menu) + Hamburger (no avatar circle/initial) -->
+                <div class="flex items-center gap-1">
+                    {% if request.user.is_authenticated %}
+                        <!-- Notifications (auth only) -->
+                        <a href="{% url 'notifications' %}" class="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition">
+                            <i class="fa-solid fa-bell"></i>
+                            {% if unread_notifications_count > 0 %}
+                            <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                            {% endif %}
+                        </a>
 
-                    <a href="{% url 'logout' %}" 
-                       class="flex items-center gap-2 px-3 py-1.5 text-zinc-500 hover:text-red-600 hover:bg-red-50 rounded-3xl transition text-sm">
-                        <i class="fa-solid fa-sign-out-alt"></i>
-                        <span class="hidden sm:inline">Log out</span>
-                    </a>
+                        <!-- Minimal profile menu (silhouette only on desktop; mobile uses hamburger) -->
+                        <div class="relative hidden md:block" id="profile-dropdown">
+                            <button onclick="toggleProfileDropdown(event)" 
+                                    class="flex items-center gap-1 p-2 rounded-xl hover:bg-gray-100 transition text-gray-600 hover:text-gray-900">
+                                <i class="fa-solid fa-user text-base"></i>
+                            </button>
+                            
+                            <div id="profile-menu" 
+                                 class="hidden absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50"
+                                 onmouseenter="keepProfileDropdownOpen()" onmouseleave="scheduleHideProfileDropdown()">
+                                <a href="{% url 'account_settings' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Account Settings</a>
+                                <div class="border-t my-1"></div>
+                                <a href="{% url 'logout' %}" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Logout</a>
+                            </div>
+                        </div>
+                    {% else %}
+                        <!-- Public / anon visitors: login + signup -->
+                        <a href="{% url 'login' %}" class="px-4 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900">Log in</a>
+                        <a href="{% url 'signup' %}" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-2xl">Sign up</a>
+                    {% endif %}
+
+                    <!-- Mobile Hamburger -->
+                    <button onclick="toggleMobileMenu()" class="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
                 </div>
             </div>
         </div>
-    </nav>
 
-    <!-- Messages -->
+        <!-- Mobile Menu (kept for responsiveness) -->
+        <div id="mobile-menu" class="hidden md:hidden border-t bg-white">
+            <div class="px-4 py-3 space-y-1 text-sm">
+                {% if current_role == 'owner' %}
+                    <a href="{% url 'owner_dashboard' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Home</a>
+                    <a href="{% url 'team_list' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Teams</a>
+                    <a href="{% url 'event_list' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Events</a>
+                    <a href="{% url 'org_players' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Players</a>
+                    <a href="{% url 'my_organization' %}" class="block px-3 py-2 rounded hover:bg-gray-100">My Organization</a>
+                {% else %}
+                    <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Home</a>
+                    <a href="{% url 'event_list' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Events</a>
+                    <a href="{% url 'parent_teams' %}" class="block px-3 py-2 rounded hover:bg-gray-100">My Teams</a>
+                    <a href="{% url 'my_family' %}" class="block px-3 py-2 rounded hover:bg-gray-100">My Family</a>
+                {% endif %}
+                {% if request.user.is_authenticated %}
+                    <div class="border-t my-1"></div>
+                    <a href="{% url 'account_settings' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Account Settings</a>
+                    <a href="{% url 'logout' %}" class="block px-3 py-2 rounded text-red-600 hover:bg-red-50">Logout</a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Log in</a>
+                    <a href="{% url 'signup' %}" class="block px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Sign up</a>
+                    <div class="border-t my-1"></div>
+                    <a href="{% url 'privacy_policy' %}" class="block px-3 py-2 rounded hover:bg-gray-100 text-sm">Privacy Policy</a>
+                    <a href="{% url 'terms_of_service' %}" class="block px-3 py-2 rounded hover:bg-gray-100 text-sm">Terms of Service</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    {% endblock %}
+
+    <!-- Messages (consistent, role-aware friendly) -->
     {% if messages %}
-    <div class="max-w-7xl mx-auto px-6 pt-6">
+    <div class="max-w-7xl mx-auto px-5 sm:px-6 pt-16">
         {% for message in messages %}
-        <div class="mb-4 px-5 py-3.5 rounded-2xl text-sm font-medium border
-            {% if message.tags == 'success' %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}
-            {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800{% endif %}
-            {% if message.tags == 'warning' %}bg-amber-50 border-amber-200 text-amber-800{% endif %}">
+        <div class="px-4 py-3 rounded-2xl mb-4 text-sm font-medium border
+            {% if message.tags == 'success' %}bg-green-50 text-green-800 border-green-200{% endif %}
+            {% if message.tags == 'error' %}bg-red-50 text-red-800 border-red-200{% endif %}
+            {% if message.tags == 'warning' %}bg-amber-50 text-amber-800 border-amber-200{% endif %}
+            {% if message.tags == 'info' %}bg-blue-50 text-blue-800 border-blue-200{% endif %}">
             {{ message }}
         </div>
         {% endfor %}
     </div>
     {% endif %}
 
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-6 py-8">
+    <!-- Main Content - unified wide container (pt for fixed floating nav) -->
+    <div class="max-w-7xl mx-auto px-5 sm:px-6 pt-16 pb-6">
         {% block content %}
         {% endblock %}
     </div>
+
+    <!-- Footer with legal links (Step 3 privacy compliance) -->
+    <footer class="border-t border-gray-200 bg-white mt-12">
+        <div class="max-w-6xl mx-auto px-6 py-5 text-xs text-gray-500 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-2">
+            <div>
+                &copy; {% now "Y" %} Fusion. Family &amp; team scheduling.
+            </div>
+            <div class="flex flex-wrap gap-x-4 gap-y-1">
+                <a href="{% url 'privacy_policy' %}" class="hover:text-gray-700">Privacy Policy</a>
+                <a href="{% url 'terms_of_service' %}" class="hover:text-gray-700">Terms of Service</a>
+                <span class="text-gray-300">•</span>
+                <span class="text-[10px]">We protect children's data. Export or delete your data anytime from Account Settings.</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Mobile Bottom Navigation (kept for responsiveness) -->
+    {% if request.user.is_authenticated %}
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+        <div class="flex justify-around items-center h-14 text-xs">
+            {% if current_role == 'owner' %}
+                <a href="{% url 'owner_dashboard' %}" class="flex flex-col items-center justify-center flex-1 py-1 text-gray-500 hover:text-blue-600">
+                    <i class="fa-solid fa-home text-lg"></i>
+                    <span class="text-[10px]">Home</span>
+                </a>
+                <a href="{% url 'my_organization' %}" class="flex flex-col items-center justify-center flex-1 py-1 text-gray-500 hover:text-blue-600">
+                    <i class="fa-solid fa-sitemap text-lg"></i>
+                    <span class="text-[10px]">Org</span>
+                </a>
+                <a href="{% url 'team_list' %}" class="flex flex-col items-center justify-center flex-1 py-1 text-gray-500 hover:text-blue-600">
+                    <i class="fa-solid fa-futbol text-lg"></i>
+                    <span class="text-[10px]">Teams</span>
+                </a>
+                <a href="{% url 'org_players' %}" class="flex flex-col items-center justify-center flex-1 py-1 text-gray-500 hover:text-blue-600">
+                    <i class="fa-solid fa-users text-lg"></i>
+                    <span class="text-[10px]">Players</span>
+                </a>
+                <a href="{% url 'event_list' %}" class="flex flex-col items-center justify-center flex-1 py-1 text-gray-500 hover:text-blue-600">
+                    <i class="fa-solid fa-calendar text-lg"></i>
+                    <span class="text-[10px]">Events</span>
+                </a>
+            {% else %}
+                <a href="{% url 'dashboard' %}" class="flex flex-col items-center justify-center flex-1 py-1 text-gray-500 hover:text-blue-600">
+                    <i class="fa-solid fa-home text-lg"></i>
+                    <span class="text-[10px]">Home</span>
+                </a>
+                <a href="{% url 'event_list' %}" class="flex flex-col items-center justify-center flex-1 py-1 text-gray-500 hover:text-blue-600">
+                    <i class="fa-solid fa-calendar text-lg"></i>
+                    <span class="text-[10px]">Events</span>
+                </a>
+                <a href="{% url 'parent_teams' %}" class="flex flex-col items-center justify-center flex-1 py-1 text-gray-500 hover:text-blue-600">
+                    <i class="fa-solid fa-futbol text-lg"></i>
+                    <span class="text-[10px]">Teams</span>
+                </a>
+                <a href="{% url 'my_family' %}" class="flex flex-col items-center justify-center flex-1 py-1 text-gray-500 hover:text-blue-600">
+                    <i class="fa-solid fa-users text-lg"></i>
+                    <span class="text-[10px]">Family</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            if (menu) menu.classList.toggle('hidden');
+        }
+
+        // Profile dropdown - improved to be click-based and easier to use (doesn't disappear too quick)
+        let profileDropdownTimeout = null;
+
+        function toggleProfileDropdown(event) {
+            event.preventDefault();
+            const menu = document.getElementById('profile-menu');
+            if (!menu) return;
+
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                menu.classList.add('block');
+            } else {
+                menu.classList.add('hidden');
+                menu.classList.remove('block');
+            }
+        }
+
+        function keepProfileDropdownOpen() {
+            if (profileDropdownTimeout) {
+                clearTimeout(profileDropdownTimeout);
+                profileDropdownTimeout = null;
+            }
+        }
+
+        function scheduleHideProfileDropdown() {
+            if (profileDropdownTimeout) clearTimeout(profileDropdownTimeout);
+            profileDropdownTimeout = setTimeout(() => {
+                const menu = document.getElementById('profile-menu');
+                if (menu) {
+                    menu.classList.add('hidden');
+                    menu.classList.remove('block');
+                }
+            }, 300); // small delay so user can move mouse to menu
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('profile-dropdown');
+            const menu = document.getElementById('profile-menu');
+            if (dropdown && menu && !dropdown.contains(e.target)) {
+                menu.classList.add('hidden');
+                menu.classList.remove('block');
+            }
+        });
+
+        // Close mobile menu on outside click
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('mobile-menu');
+            const btns = document.querySelectorAll('button[onclick*="toggleMobileMenu"]');
+            let clickedBtn = false;
+            btns.forEach(b => { if (b.contains(e.target)) clickedBtn = true; });
+            if (menu && !menu.contains(e.target) && !clickedBtn) {
+                menu.classList.add('hidden');
+            }
+        });
+    </script>
 
 </body>
 </html>

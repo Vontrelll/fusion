@@ -1,0 +1,103 @@
+{% extends 'core/base.html' %}
+{% block title %}Delete Account - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+    <div class="bg-white rounded-3xl shadow-xl border border-red-200 p-8">
+        <!-- Header -->
+        <div class="flex items-center gap-4 mb-6">
+            <div class="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center text-4xl flex-shrink-0">🗑️</div>
+            <div>
+                <h1 class="text-3xl font-bold text-red-700 tracking-tight">Delete Your Account</h1>
+                <p class="text-red-600 text-sm font-medium">This action is permanent and cannot be undone.</p>
+            </div>
+        </div>
+
+        <div class="prose prose-sm text-gray-700 mb-8">
+            <p class="font-semibold text-gray-900">Before you continue, please understand exactly what will happen:</p>
+        </div>
+
+        <!-- What gets deleted - role aware -->
+        <div class="bg-red-50 border border-red-200 rounded-2xl p-6 mb-8 text-sm">
+            <h3 class="font-semibold text-red-800 mb-3">What will be permanently deleted:</h3>
+            <ul class="list-disc pl-5 space-y-1 text-red-700">
+                <li>Your user account, profile, and login credentials</li>
+                <li>All notifications sent to you ({{ num_notifications }})</li>
+                <li>All invites you sent or received ({{ num_invites }})</li>
+                {% if role == 'parent' %}
+                    <li><strong>Your {{ num_kids }} kid(s)</strong> and all associated data (names, dates of birth, gender, colors)</li>
+                    <li>Your personal/family events ({{ num_personal_events }} affected) — events with only your kids will be removed entirely; multi-kid events will have your kids removed</li>
+                    <li>Your membership in any teams ({{ num_team_memberships }}) — your kids will be removed from all rosters</li>
+                    {% if has_family %}
+                    <li>If you are the last parent in your family, the family and its remaining data will also be deleted</li>
+                    {% endif %}
+                {% else %}
+                    <li><strong>Your entire Organization(s) ({{ num_orgs }})</strong> including all teams ({{ num_teams_managed }}), team events, roster registrations, attendances, and invitations</li>
+                    <li>Player registrations and history for <em>all</em> families/children currently on your teams will be removed (the children's base records in their own families stay)</li>
+                    <li>Your team memberships (if any as parent) and related data</li>
+                {% endif %}
+                <li>Any team event invitations and attendance records tied to you</li>
+            </ul>
+
+            <div class="mt-4 pt-4 border-t border-red-200 text-red-800">
+                <strong>What is NOT deleted (where applicable):</strong>
+                <ul class="list-disc pl-5 mt-1 text-red-700">
+                    <li>Data belonging to other parents/families (their kids, their events, their families)</li>
+                    <li>Historical events or records where references were already SET_NULL (e.g. events you created_by will lose the creator attribution)</li>
+                    <li>Audit log entry recording that this account was deleted (for legal compliance)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-2xl p-4 mb-8 text-sm">
+            <strong>Legal note:</strong> This fulfills your "right to be forgotten" under applicable privacy laws (GDPR, CCPA, etc.). 
+            Children's personal data will be removed. A minimal deletion record is kept for audit purposes only.
+        </div>
+
+        <!-- Confirmation form -->
+        <form method="POST" class="space-y-6" onsubmit="return confirmFinalDelete();">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-800 mb-2">Confirm by typing <span class="font-mono bg-red-100 px-1 rounded">DELETE</span> below</label>
+                <input type="text" name="confirm_text" required placeholder="DELETE"
+                       class="w-full px-4 py-3 border-2 border-red-300 focus:border-red-500 rounded-2xl font-mono text-lg placeholder:text-red-300">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-gray-800 mb-2">Enter your current password to authorize deletion</label>
+                <input type="password" name="password" required autocomplete="current-password"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500">
+            </div>
+
+            <div class="pt-2">
+                <button type="submit"
+                        class="w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold py-4 rounded-2xl text-lg transition shadow">
+                    PERMANENTLY DELETE MY ACCOUNT AND ALL MY DATA
+                </button>
+                <p class="text-center text-xs text-red-600 mt-2">This cannot be recovered. All data listed above will be gone immediately.</p>
+            </div>
+
+            <a href="{% url 'account_settings' %}"
+               class="block w-full text-center bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3.5 rounded-2xl transition">
+                Cancel — keep my account
+            </a>
+        </form>
+    </div>
+
+    <p class="text-center text-xs text-gray-500 mt-6">
+        Need help? Contact support before deleting. Data export is available in Account Settings.
+    </p>
+</div>
+
+<script>
+function confirmFinalDelete() {
+    const text = document.querySelector('input[name="confirm_text"]').value.trim();
+    if (text !== 'DELETE') {
+        alert('You must type DELETE exactly (in all caps) to proceed.');
+        return false;
+    }
+    return confirm('FINAL WARNING: Deleting your account is irreversible. All listed data will be permanently removed. Continue?');
+}
+</script>
+{% endblock %}
