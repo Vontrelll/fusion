@@ -184,8 +184,6 @@ AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 
 
 # ==================== LOGGING ====================
-import os
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -194,19 +192,10 @@ LOGGING = {
             'format': '{levelname} {asctime} {module}.{funcName}:{lineno} - {message}',
             'style': '{',
         },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs/fusion.log',
             'formatter': 'verbose',
         },
     },
@@ -214,19 +203,19 @@ LOGGING = {
         'django': {
             'handlers': ['console'],
             'level': 'INFO',
-            'propagate': True,
         },
-        'fusion': {  # All your app's logging
-            'handlers': ['console', 'file'],
+        'fusion': {
+            'handlers': ['console'],
             'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': True,
         },
-        'fusion.deletion': {  # Privacy audit log
-            'handlers': ['console', 'file'],
+        'fusion.deletion': {
+            'handlers': ['console'],
             'level': 'WARNING',
             'propagate': False,
         },
     },
+}
 }
 # ==================== EMAIL ====================
 # Development: emails are printed to the console (great for testing password resets, etc.).
