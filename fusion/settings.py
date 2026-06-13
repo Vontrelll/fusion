@@ -16,7 +16,7 @@ if SENTRY_DSN and not DEBUG:
     import sentry_sdk
     sentry_sdk.init(
         dsn=SENTRY_DSN,
-        send_default_pii=False,   # Set to True only if you want user data
+        send_default_pii=False,
     )
 
 # DEBUG must be defined early
@@ -31,6 +31,27 @@ if not SECRET_KEY:
         raise ValueError("SECRET_KEY is missing from .env file!")
 
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if h.strip()]
+
+# ==================== PRODUCTION SECURITY (Fixed for Railway) ====================
+if not DEBUG:
+    # Railway + HTTPS fixes
+    SECURE_SSL_REDIRECT = False
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    USE_X_FORWARDED_HOST = True
+    USE_X_FORWARDED_PORT = True
+
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
+else:
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_SSL_REDIRECT = False
 
 # ==================== DATABASE ====================
 if all([os.getenv('DB_NAME'), os.getenv('DB_USER'), os.getenv('DB_PASSWORD'), os.getenv('DB_HOST')]):
@@ -100,8 +121,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fusion.wsgi.application'
 
-# Password validation, Internationalization, etc. (kept as-is)
-AUTH_PASSWORD_VALIDATORS = [ ... ]   # keep your existing block
+# Password validation, Internationalization, etc.
+AUTH_PASSWORD_VALIDATORS = [
+    # ... keep your existing validators here
+]
+
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'America/Chicago'
 USE_I18N = True
@@ -115,22 +139,8 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 LOGIN_URL = 'login'
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# ==================== PRODUCTION SECURITY ====================
-if not DEBUG:
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
-    SECURE_HSTS_SECONDS = 31536000
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_BROWSER_XSS_FILTER = True
-    X_FRAME_OPTIONS = 'DENY'
-else:
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ==================== AUTHENTICATION BACKENDS ====================
 AUTHENTICATION_BACKENDS = [
@@ -138,7 +148,7 @@ AUTHENTICATION_BACKENDS = [
     'axes.backends.AxesStandaloneBackend',
 ]
 
-# ==================== LOGGING (Console Only - Safe for Railway) ====================
+# ==================== LOGGING ====================
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -164,12 +174,8 @@ LOGGING = {
             'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': True,
         },
-        'fusion.deletion': {
-            'handlers': ['console'],
-            'level': 'WARNING',
-            'propagate': False,
-        },
     },
 }
+
 # ==================== EMAIL ====================
-# Keep your existing email block (console in dev, SMTP in prod)
+# Keep your existing email configuration here
