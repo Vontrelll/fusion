@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Fusion{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.2/dist/htmx.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     
     <script>
@@ -29,14 +30,17 @@
                 
                 <!-- Left: Logo only "Fusion" -->
                 <a href="{% if current_role == 'owner' %}{% url 'owner_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" 
-                   class="flex items-center gap-2 text-2xl font-bold text-blue-600">
+                   class="flex items-center gap-2 text-2xl font-bold text-blue-600"
+                   hx-boost="true" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML">
                     <span>Fusion</span>
                 </a>
 
                 <!-- Desktop Center Nav (role aware, kept liked style) -->
                 {% with current=request.resolver_match.url_name %}
                 {% if request.user.is_authenticated %}
-                <div class="hidden md:flex items-center gap-1">
+                <div id="desktop-nav" class="hidden md:flex items-center gap-1"
+                     {% if request.META.HTTP_HX_REQUEST %}hx-swap-oob="true"{% endif %}
+                     hx-boost="true" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML">
                     {% if current_role == 'owner' %}
                         <a href="{% url 'owner_dashboard' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'owner_dashboard' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
                             <i class="fa-solid fa-home mr-1"></i> Home
@@ -118,7 +122,9 @@
 
         <!-- Mobile Menu (kept for responsiveness) -->
         <div id="mobile-menu" class="hidden md:hidden border-t bg-white">
-            <div class="px-4 py-3 space-y-1 text-sm">
+            <div id="mobile-nav" class="px-4 py-3 space-y-1 text-sm"
+                 {% if request.META.HTTP_HX_REQUEST %}hx-swap-oob="true"{% endif %}
+                 hx-boost="true" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML">
                 {% with current=request.resolver_match.url_name %}
                 {% if current_role == 'owner' %}
                     <a href="{% url 'owner_dashboard' %}" class="block px-3 py-2 rounded {% if current == 'owner_dashboard' or current == 'owner_onboarding' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Home</a>
@@ -135,11 +141,11 @@
                 {% endwith %}
                 {% if request.user.is_authenticated %}
                     <div class="border-t my-1"></div>
-                    <a href="{% url 'account_settings' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Account Settings</a>
-                    <a href="{% url 'logout' %}" class="block px-3 py-2 rounded text-red-600 hover:bg-red-50">Logout</a>
+                    <a href="{% url 'account_settings' %}" class="block px-3 py-2 rounded hover:bg-gray-100" hx-boost="false">Account Settings</a>
+                    <a href="{% url 'logout' %}" class="block px-3 py-2 rounded text-red-600 hover:bg-red-50" hx-boost="false">Logout</a>
                 {% else %}
-                    <a href="{% url 'login' %}" class="block px-3 py-2 rounded hover:bg-gray-100">Log in</a>
-                    <a href="{% url 'signup' %}" class="block px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Sign up</a>
+                    <a href="{% url 'login' %}" class="block px-3 py-2 rounded hover:bg-gray-100" hx-boost="false">Log in</a>
+                    <a href="{% url 'signup' %}" class="block px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700" hx-boost="false">Sign up</a>
                     <div class="border-t my-1"></div>
                     <a href="{% url 'privacy_policy' %}" class="block px-3 py-2 rounded hover:bg-gray-100 text-sm">Privacy Policy</a>
                     <a href="{% url 'terms_of_service' %}" class="block px-3 py-2 rounded hover:bg-gray-100 text-sm">Terms of Service</a>
@@ -165,7 +171,7 @@
     {% endif %}
 
     <!-- Main Content - unified wide container (pt for fixed floating nav) -->
-    <div class="max-w-7xl mx-auto px-5 sm:px-6 pt-16 pb-6">
+    <div id="main-content" class="max-w-7xl mx-auto px-5 sm:px-6 pt-16 pb-6">
         {% block content %}
         {% endblock %}
     </div>
@@ -188,7 +194,9 @@
     <!-- Mobile Bottom Navigation (kept for responsiveness) -->
     {% if request.user.is_authenticated %}
     <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-        <div class="flex justify-around items-center h-14 text-xs">
+        <div id="bottom-nav" class="flex justify-around items-center h-14 text-xs"
+             {% if request.META.HTTP_HX_REQUEST %}hx-swap-oob="true"{% endif %}
+             hx-boost="true" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML">
             {% with current=request.resolver_match.url_name %}
             {% if current_role == 'owner' %}
                 <a href="{% url 'owner_dashboard' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'owner_dashboard' or current == 'owner_onboarding' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
