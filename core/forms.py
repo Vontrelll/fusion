@@ -46,6 +46,14 @@ class CustomUserCreationForm(UserCreationForm):
             'placeholder': 'you@example.com'
         }),
     )
+
+    username = forms.CharField(
+        max_length=150,
+        required=True,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+        })
+    )
     
     role = forms.ChoiceField(
         choices=Profile.ROLE_CHOICES,
@@ -74,6 +82,18 @@ class CustomUserCreationForm(UserCreationForm):
             'class': 'w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
         }),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Ensure password fields get the same nice input styling as first/last name
+        if 'password1' in self.fields:
+            self.fields['password1'].widget.attrs.update({
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+            })
+        if 'password2' in self.fields:
+            self.fields['password2'].widget.attrs.update({
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+            })
 
     class Meta:
         model = User

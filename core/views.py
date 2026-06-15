@@ -1059,18 +1059,21 @@ def event_list(request):
 
 def login_view(request):
     if request.method == "POST":
-        username = request.POST.get("username")
+        username = (request.POST.get("username") or "").strip()
         password = request.POST.get("password")
-        user = authenticate(request, username=username, password=password)
+        user = None
 
-        #This is not compelte code only a placeholder for the skeleton. would still 
-        #need to redirect etc.
+        if username and password:
+            # Username login is case-insensitive; only password is case-sensitive
+            try:
+                user_obj = User.objects.get(username__iexact=username)
+                user = authenticate(request, username=user_obj.username, password=password)
+            except User.DoesNotExist:
+                user = None
+
         if user:
             login(request, user)
             return redirect("dashboard")
-
-        #This is not compelte code only a placeholder for the skeleton. I would 
-        #need to setup real error messages re rendering etc.
 
         else:
             return render(request, "core/login.html", context={
@@ -1203,13 +1206,13 @@ def add_kid(request):
 
         # Assign a super distinct color (not same blue for all kids)
         existing_colors = set(Kid.objects.filter(family=user_family).values_list('color', flat=True))
-        palette = ['#64748b', '#6b7280', '#78716c', '#57534e', '#4b5563', '#9f1239', '#166534', '#1e40af', '#4338ca', '#6b21a8', '#854d0e', '#065f46', '#0f766e', '#1d4ed8', '#5b21b6']
+        palette = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#84cc16']
         for c in palette:
             if c not in existing_colors:
                 kid.color = c
                 break
         else:
-            kid.color = '#64748b'  # fallback slate if all used
+            kid.color = '#3b82f6'  # fallback blue if all used
         kid.save()
         # If user came from family page to add kid, return there; else default my_family (or could use kid_list)
         if request.GET.get('from') == 'family':
@@ -1310,7 +1313,7 @@ def kid_list(request):
     # Backfill distinct colors for old kids so they don't all have the same default color
     if kids:
         existing_colors = set(kids.values_list('color', flat=True))
-        palette = ['#64748b', '#6b7280', '#78716c', '#57534e', '#4b5563', '#9f1239', '#166534', '#1e40af', '#4338ca', '#6b21a8', '#854d0e', '#065f46', '#0f766e', '#1d4ed8', '#5b21b6']
+        palette = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#84cc16']
         updated = False
         for kid in kids:
             if not kid.color or kid.color == '#3b82f6' or kid.color not in palette:  # treat default or missing as needing color
@@ -1322,7 +1325,7 @@ def kid_list(request):
                         updated = True
                         break
                 else:
-                    kid.color = '#64748b'
+                    kid.color = '#3b82f6'
                     kid.save(update_fields=['color'])
         if updated:
             # refresh queryset
@@ -1381,7 +1384,7 @@ def my_family(request):
     kids_qs = family.kids.all()
     if kids_qs.exists():
         existing_colors = set(kids_qs.values_list('color', flat=True))
-        palette = ['#64748b', '#6b7280', '#78716c', '#57534e', '#4b5563', '#9f1239', '#166534', '#1e40af', '#4338ca', '#6b21a8', '#854d0e', '#065f46', '#0f766e', '#1d4ed8', '#5b21b6']
+        palette = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#84cc16']
         for kid in kids_qs:
             if not kid.color or kid.color == '#3b82f6':
                 for c in palette:
@@ -1391,7 +1394,7 @@ def my_family(request):
                         existing_colors.add(c)
                         break
                 else:
-                    kid.color = '#64748b'
+                    kid.color = '#3b82f6'
                     kid.save(update_fields=['color'])
 
     # Reuse the same logic as family_detail for pending invites etc.

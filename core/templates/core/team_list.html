@@ -17,12 +17,14 @@
             <h1 class="text-3xl font-bold text-gray-900 tracking-tight">My Teams</h1>
             <p class="text-sm text-gray-600">Teams you manage as owner/coach</p>
         </div>
+        {% if teams %}
         <div class="flex items-center gap-3">
             <a href="{% url 'create_team' %}" 
                class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold text-sm flex items-center gap-2 transition shadow-md hover:shadow-lg whitespace-nowrap">
                 <span class="text-lg">+</span> Create Team
             </a>
         </div>
+        {% endif %}
     </div>
 
     {% if teams %}
@@ -83,7 +85,7 @@
             Create your first team to start organizing players, events, and schedules.
         </p>
         <a href="{% url 'create_team' %}" 
-           class="mt-8 inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-2xl font-semibold shadow-md hover:shadow-lg flex items-center gap-2 mx-auto w-fit">
+           class="mt-8 inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-2xl font-semibold shadow-md hover:shadow-lg flex items-center gap-2 mx-auto w-fit whitespace-nowrap">
             <span class="text-lg">+</span> Create Your First Team
         </a>
     </div>

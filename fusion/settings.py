@@ -180,4 +180,20 @@ LOGGING = {
 }
 
 # ==================== EMAIL ====================
-# Keep your existing email configuration here
+# Configured via environment variables for security (works in Railway + local dev).
+# - In development (no EMAIL_* vars or DEBUG=True): uses console backend (emails printed to terminal, great for testing resets).
+# - In production: set EMAIL_BACKEND=smtp + HOST/USER/PASS etc. via Railway Variables.
+# Users enter their *email* on the password reset page (already set up that way in templates).
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend'
+)
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@fusionbeta.com')
+
+if EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend':
+    EMAIL_HOST = os.getenv('EMAIL_HOST')
+    EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+    EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
+    EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() in ('true', '1', 'yes')

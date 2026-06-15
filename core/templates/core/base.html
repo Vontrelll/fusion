@@ -159,7 +159,7 @@
     {% if messages %}
     <div class="max-w-7xl mx-auto px-5 sm:px-6 pt-16">
         {% for message in messages %}
-        <div class="px-4 py-3 rounded-2xl mb-4 text-sm font-medium border
+        <div class="flash-message px-4 py-3 rounded-2xl mb-4 text-sm font-medium border transition-opacity duration-500
             {% if message.tags == 'success' %}bg-green-50 text-green-800 border-green-200{% endif %}
             {% if message.tags == 'error' %}bg-red-50 text-red-800 border-red-200{% endif %}
             {% if message.tags == 'warning' %}bg-amber-50 text-amber-800 border-amber-200{% endif %}
@@ -303,6 +303,31 @@
             if (menu && !menu.contains(e.target) && !clickedBtn) {
                 menu.classList.add('hidden');
             }
+        });
+
+        // Close hamburger mobile menu immediately when user clicks a main nav selection (owner or parent)
+        // This fixes the case where menu only closed on certain actions like account settings.
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('mobile-menu');
+            if (menu && !menu.classList.contains('hidden')) {
+                if (e.target.closest('#mobile-nav a')) {
+                    menu.classList.add('hidden');
+                }
+            }
+        });
+
+        // Auto-dismiss flash messages (success/warning/error/info) after a few seconds
+        // So they don't linger too long on parent or owner pages.
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.flash-message').forEach(function(el) {
+                setTimeout(function() {
+                    el.style.transition = 'opacity 400ms ease';
+                    el.style.opacity = '0';
+                    setTimeout(function() {
+                        if (el && el.parentNode) el.parentNode.removeChild(el);
+                    }, 400);
+                }, 4200);
+            });
         });
     </script>
 
