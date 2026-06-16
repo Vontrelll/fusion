@@ -1127,7 +1127,11 @@ def account_settings(request):
         # Update User model fields
         request.user.first_name = (request.POST.get('first_name', request.user.first_name) or '').strip().title()
         request.user.last_name = (request.POST.get('last_name', request.user.last_name) or '').strip().title()
-        request.user.email = request.POST.get('email', request.user.email)
+        new_email = (request.POST.get('email', request.user.email) or '').strip()
+        if new_email and User.objects.filter(email__iexact=new_email).exclude(id=request.user.id).exists():
+            messages.error(request, "An account with this email address already exists.")
+            return redirect('account_settings')
+        request.user.email = new_email
         request.user.save()
 
         # Update Profile fields
@@ -1759,12 +1763,17 @@ def invite_parent(request, family_id):
         messages.error(request, "This page is for parents only.")
         return redirect('owner_dashboard')
 
-    try: 
+    user_family = profile.family
+    try:
         family = Family.objects.get(id=family_id)
     except Family.DoesNotExist:
         messages.error(request, "Family does not exist")
         return redirect('my_family')
-    
+
+    if not user_family or user_family.id != family.id:
+        messages.error(request, "You do not have access to this family.")
+        return redirect('my_family')
+
     if request.method == "POST":
         username = request.POST.get("username")
 
@@ -1822,8 +1831,12 @@ def invite_parent(request, family_id):
 
 @login_required
 def team_invite_to_parent(request, team_id, username):
+    if _get_user_role(request) != "owner":
+        messages.error(request, "You are not authorized to send this invite.")
+        return redirect('dashboard')
+
     try:
-        team = Team.objects.get(id=team_id)
+        team = Team.objects.get(id=team_id, organization__owner=request.user)
     except Team.DoesNotExist:
         messages.error(request, "Team does not exist.")
         return redirect('team_list')
@@ -1833,11 +1846,6 @@ def team_invite_to_parent(request, team_id, username):
     except User.DoesNotExist:
         messages.error(request, "User does not exist.")
         return redirect('team_to_parent_invite_search', team_id=team_id)
-
-    # PERMISSION CHECK
-    if _get_user_role(request) != "owner":
-        messages.error(request, "You are not authorized to send this invite.")
-        return redirect('dashboard')
 
     # Prevent self-invite
     if team.organization.owner_id == target_user.id:
@@ -2854,6 +2862,7 @@ def team_to_parent_invite_search(request, team_id):
     return render(request, 'core/team_to_parent_invite_search.html', context)
 
 
+@login_required
 def select_kids_for_team_roster(request, invite_id):
     profile = _safe_get_user_profile(request)
     if profile.role != "parent":
@@ -3397,6 +3406,34 @@ def organization_details(request, org_id):
         'teams': list(teams_qs.select_related('organization')),
     }
     return render(request, 'core/organization_details.html', context)
+
+
+@login_required
+def edit_organization(request, org_id):
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "This page is for owners only.")
+        return redirect('dashboard')
+
+    try:
+        organization = Organization.objects.get(id=org_id, owner=request.user)
+    except Organization.DoesNotExist:
+        messages.error(request, "Organization not found.")
+        return redirect('owner_dashboard')
+
+    if request.method == "POST":
+        form = OrganizationForm(request.POST, instance=organization)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Organization '{organization.name}' updated successfully!")
+            return redirect('organization_details', org_id=organization.id)
+    else:
+        form = OrganizationForm(instance=organization)
+
+    return render(request, "core/edit_organization.html", {
+        "form": form,
+        "organization": organization,
+    })
 
 
 @login_required

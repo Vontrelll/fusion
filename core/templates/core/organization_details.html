@@ -52,10 +52,13 @@
 
     <!-- Settings area -->
     <div class="bg-white rounded-3xl border border-gray-100 p-6">
-        <h3 class="font-semibold mb-3">Organization Details</h3>
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="font-semibold">Organization Details</h3>
+            <a href="{% url 'edit_organization' organization.id %}" class="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-xl font-medium">Edit</a>
+        </div>
         <div class="text-sm text-gray-600 space-y-2">
             <div>Created {{ organization.created_at|date:"F j, Y" }}</div>
-            <div class="text-xs text-gray-400">Team and roster management happens in the Teams and Players sections. Full org settings (name, description, etc.) coming soon.</div>
+            <div class="text-xs text-gray-400">Team and roster management happens in the Teams and Players sections.</div>
         </div>
         <div class="mt-4">
             <a href="{% url 'owner_dashboard' %}" class="text-sm text-blue-600 hover:underline">← Back to dashboard</a>

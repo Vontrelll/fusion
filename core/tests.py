@@ -281,7 +281,8 @@ class FamilyKidEventTests(TestCase):
             "kids": [str(self.kid1.id)],
         })
         self.assertEqual(resp2.status_code, 302)
-        self.assertTrue(Event.objects.filter(name="NonConflicting").exists())
+        # add_event applies .title() to names ("NonConflicting" → "Nonconflicting")
+        self.assertTrue(Event.objects.filter(name="Nonconflicting").exists())
 
 
 # =============================================================================
@@ -975,7 +976,214 @@ class AdditionalCoverageTests(TestCase):
         self.assertContains(resp, "permanently deleted")
 
 
-# Add more classes here as the app grows.
-# The goal is to keep the suite fast, isolated (each TestCase gets a fresh DB),
-# and to cover the user-visible critical paths especially around team events,
-# conflict resolution, and account deletion.
+# =============================================================================
+# TEAM EVENT UPDATE REVIEW TESTS
+# =============================================================================
+
+class TeamEventUpdateReviewTests(TestCase):
+    """Test the parent review flow after an owner updates a team event."""
+
+    def setUp(self):
+        self.client = Client()
+        self.owner, _ = create_owner_user("update_coach")
+        self.org = create_org("Update Org", self.owner)
+        self.team = create_team("Update Team", self.org)
+
+        self.parent, self.pprof = create_parent_user("update_parent")
+        self.family = create_family("Update Fam", self.parent)
+        self.pprof.family = self.family
+        self.pprof.save()
+        self.kid = create_kid("Update", "Kid", self.family, self.parent)
+
+        mem = create_team_membership(self.team, self.parent)
+        PlayerRegistration.objects.create(team_membership=mem, kid=self.kid)
+
+        self.team_event = create_team_event(
+            "Original Practice", self.team, self.owner,
+            timezone.now() + timedelta(days=5),
+            timezone.now() + timedelta(days=5, hours=2),
+        )
+        TeamEventAttendance.objects.create(
+            team_event=self.team_event, kid=self.kid, status="accepted"
+        )
+
+    def test_review_page_shown_when_needs_review(self):
+        TeamEventAttendance.objects.filter(
+            team_event=self.team_event, kid=self.kid
+        ).update(needs_review=True)
+
+        self.client.login(username="update_parent", password="testpass123")
+        resp = self.client.get(reverse("review_team_event_update", args=[self.team_event.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Original Practice")
+
+    def test_keep_update_clears_needs_review(self):
+        TeamEventAttendance.objects.filter(
+            team_event=self.team_event, kid=self.kid
+        ).update(needs_review=True)
+
+        self.client.login(username="update_parent", password="testpass123")
+        resp = self.client.get(reverse("keep_team_event_update", args=[self.team_event.id]))
+        self.assertEqual(resp.status_code, 302)
+
+        att = TeamEventAttendance.objects.get(team_event=self.team_event, kid=self.kid)
+        self.assertFalse(att.needs_review)
+
+    def test_remove_attendance_after_update(self):
+        self.client.login(username="update_parent", password="testpass123")
+        resp = self.client.get(reverse("remove_team_event_attendance", args=[self.team_event.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(
+            TeamEventAttendance.objects.filter(team_event=self.team_event, kid=self.kid).exists()
+        )
+
+    def test_review_redirects_when_no_needs_review(self):
+        self.client.login(username="update_parent", password="testpass123")
+        resp = self.client.get(reverse("review_team_event_update", args=[self.team_event.id]))
+        self.assertEqual(resp.status_code, 302)
+
+
+# =============================================================================
+# SECURITY / IDOR HARDENING TESTS
+# =============================================================================
+
+class SecurityIDORTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner1, _ = create_owner_user("owner_a")
+        self.owner2, _ = create_owner_user("owner_b")
+        self.org1 = create_org("Org A", self.owner1)
+        self.org2 = create_org("Org B", self.owner2)
+        self.team1 = create_team("Team A", self.org1)
+        self.team2 = create_team("Team B", self.org2)
+
+        self.parent1, self.p1prof = create_parent_user("parent_a")
+        self.parent2, self.p2prof = create_parent_user("parent_b")
+        self.fam1 = create_family("Fam A", self.parent1)
+        self.fam2 = create_family("Fam B", self.parent2)
+        self.p1prof.family = self.fam1
+        self.p1prof.save()
+        self.p2prof.family = self.fam2
+        self.p2prof.save()
+
+    def test_owner_cannot_invite_to_another_owners_team(self):
+        self.client.login(username="owner_a", password="testpass123")
+        resp = self.client.get(
+            reverse("team_invite_to_parent", args=[self.team2.id, "parent_b"])
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(
+            Invite.objects.filter(team=self.team2, sender=self.owner1).exists()
+        )
+
+    def test_parent_cannot_invite_to_another_family(self):
+        self.client.login(username="parent_a", password="testpass123")
+        resp = self.client.post(reverse("invite_parent", args=[self.fam2.id]), {
+            "username": "parent_b",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(
+            Invite.objects.filter(family=self.fam2, sender=self.parent1).exists()
+        )
+
+    def test_parent_can_invite_to_own_family(self):
+        self.client.login(username="parent_a", password="testpass123")
+        resp = self.client.post(reverse("invite_parent", args=[self.fam1.id]), {
+            "username": "parent_b",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(
+            Invite.objects.filter(family=self.fam1, sender=self.parent1, receiver=self.parent2).exists()
+        )
+
+    def test_select_kids_for_team_roster_requires_login(self):
+        owner, _ = create_owner_user("roster_owner")
+        org = create_org("Roster Org", owner)
+        team = create_team("Roster Team", org)
+        invite = Invite.objects.create(
+            team=team,
+            sender=owner,
+            receiver=self.parent1,
+            invite_type="team_sent_invite",
+            status="pending",
+        )
+        resp = self.client.get(reverse("select_kids_for_team_roster", args=[invite.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/login", resp["Location"])
+
+
+# =============================================================================
+# ORGANIZATION EDIT TESTS
+# =============================================================================
+
+class AccountSettingsTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user, self.profile = create_parent_user("settings_user")
+        self.other, _ = create_parent_user("other_email_user")
+        self.other.email = "taken@example.com"
+        self.other.save()
+
+    def test_duplicate_email_rejected_on_account_settings(self):
+        self.client.login(username="settings_user", password="testpass123")
+        resp = self.client.post(reverse("account_settings"), {
+            "first_name": "Settings",
+            "last_name": "User",
+            "email": "taken@example.com",
+            "timezone": "America/Chicago",
+            "phone": "",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.email.lower(), "taken@example.com")
+
+    def test_own_email_can_be_saved_unchanged(self):
+        self.user.email = "mine@example.com"
+        self.user.save()
+        self.client.login(username="settings_user", password="testpass123")
+        resp = self.client.post(reverse("account_settings"), {
+            "first_name": "Settings",
+            "last_name": "User",
+            "email": "mine@example.com",
+            "timezone": "America/Chicago",
+            "phone": "",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "mine@example.com")
+
+
+class OrganizationEditTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner, _ = create_owner_user("org_owner")
+        self.other_owner, _ = create_owner_user("other_org_owner")
+        self.org = create_org("Original Name", self.owner)
+        self.other_org = create_org("Other Org", self.other_owner)
+
+    def test_edit_organization_page_loads_for_owner(self):
+        self.client.login(username="org_owner", password="testpass123")
+        resp = self.client.get(reverse("edit_organization", args=[self.org.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Edit Organization")
+
+    def test_owner_can_edit_organization(self):
+        self.client.login(username="org_owner", password="testpass123")
+        resp = self.client.post(reverse("edit_organization", args=[self.org.id]), {
+            "name": "Updated Club",
+            "description": "New description",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.org.refresh_from_db()
+        self.assertEqual(self.org.name, "Updated Club")
+        self.assertEqual(self.org.description, "New description")
+
+    def test_owner_cannot_edit_another_owners_organization(self):
+        self.client.login(username="org_owner", password="testpass123")
+        resp = self.client.post(reverse("edit_organization", args=[self.other_org.id]), {
+            "name": "Hijacked",
+            "description": "Nope",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.other_org.refresh_from_db()
+        self.assertEqual(self.other_org.name, "Other Org")

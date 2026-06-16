@@ -10,6 +10,9 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# DEBUG must be defined before Sentry and other production checks
+DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
+
 # ==================== SENTRY (only in production) ====================
 SENTRY_DSN = os.getenv('SENTRY_DSN')
 if SENTRY_DSN and not DEBUG:
@@ -18,9 +21,6 @@ if SENTRY_DSN and not DEBUG:
         dsn=SENTRY_DSN,
         send_default_pii=False,
     )
-
-# DEBUG must be defined early
-DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 # ==================== SECURITY ====================
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -123,10 +123,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fusion.wsgi.application'
 
-# Password validation, Internationalization, etc.
+# Password validation
 AUTH_PASSWORD_VALIDATORS = [
-    # ... keep your existing validators here
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
+
+# ==================== BRUTE-FORCE PROTECTION (django-axes) ====================
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = 1  # hours
+AXES_LOCKOUT_PARAMETERS = [['username', 'ip_address']]
+AXES_RESET_ON_SUCCESS = True
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'America/Chicago'

@@ -1,0 +1,39 @@
+{% extends 'core/base.html' %}
+{% block title %}Edit {{ organization.name }} - Fusion{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-8">
+    <div class="mb-6">
+        <a href="{% url 'organization_details' organization.id %}" class="text-sm text-blue-600 hover:underline">← Back to Organization</a>
+    </div>
+
+    <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-14 h-14 bg-zinc-100 text-4xl rounded-2xl mb-4">
+            🏢
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight">Edit Organization</h1>
+        <p class="text-sm text-zinc-500 mt-1">{{ organization.name }}</p>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-zinc-200 p-6">
+        <form method="POST" class="space-y-6">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Organization Name</label>
+                {{ form.name }}
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description <span class="text-gray-400">(optional)</span></label>
+                {{ form.description }}
+            </div>
+
+            <button type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl transition text-lg">
+                Save Changes
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
