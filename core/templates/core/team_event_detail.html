@@ -13,8 +13,8 @@
                 </div>
                 <div class="mt-1">
                     <span class="inline-block text-xs font-medium px-3 py-1 rounded-full" 
-                          style="background-color: {{ team_event.team.color|default:'#e0e7ff' }}; color: {{ team_event.team.color|default:'#4338ca' }};">
-                        Team Event • {{ team_event.team.name }}
+                          style="background-color: {% if team_event.team %}{{ team_event.team.color|default:'#e0e7ff' }}20{% else %}#f3e8ff{% endif %}; color: {% if team_event.team %}{{ team_event.team.color|default:'#4338ca' }}{% else %}#7c3aed{% endif %};">
+                        {% if team_event.event_type == 'training' %}Training Session{% else %}Team Event{% endif %} • {% if team_event.team %}{{ team_event.team.name }}{% else %}Org-wide{% endif %}
                     </span>
                 </div>
             </div>
@@ -25,6 +25,12 @@
                    class="px-3 py-1.5 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-2xl transition">
                     Edit
                 </a>
+                {% if team_event.event_type == 'training' %}
+                <a href="{% url 'select_players_for_training' team_event.id %}" 
+                   class="px-3 py-1.5 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-medium text-violet-600 hover:text-violet-700 border border-violet-200 hover:bg-violet-50 rounded-2xl transition">
+                    Invite / Manage Players
+                </a>
+                {% endif %}
                 <a href="{% url 'delete_team_event' team_event.id %}" 
                    class="px-3 py-1.5 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-medium text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-2xl transition">
                     Delete
@@ -59,9 +65,17 @@
         </div>
         {% endif %}
 
-        <!-- Kids Attending -->
+        <!-- Kids Attending / Invited -->
+        {% if is_owner %}
         <div>
-            <div class="text-xs text-zinc-500 font-medium tracking-wider mb-3">KIDS ATTENDING ({{ attendances|length }})</div>
+            {% if attendance_summary %}
+            <div class="flex flex-wrap gap-2 mb-2">
+                <span class="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-2xl">{{ attendance_summary.accepted_count|default:0 }} accepted</span>
+                {% if attendance_summary.pending_count %}<span class="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-2xl">{{ attendance_summary.pending_count }} pending</span>{% endif %}
+                {% if attendance_summary.declined_count %}<span class="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-2xl">{{ attendance_summary.declined_count }} declined</span>{% endif %}
+            </div>
+            {% endif %}
+            <div class="text-xs text-zinc-500 font-medium tracking-wider mb-3">INVITED / ATTENDING ({{ attendances|length }})</div>
             
             {% if attendances %}
             <div class="space-y-2">
@@ -72,7 +86,9 @@
                         <span class="font-medium">{{ att.kid.first_name }} {{ att.kid.last_name }}</span>
                     </div>
                     <span class="text-xs px-3 py-1 rounded-full 
-                        {% if att.status == 'accepted' %}bg-emerald-100 text-emerald-700{% else %}bg-red-100 text-red-700{% endif %}">
+                        {% if att.status == 'accepted' %}bg-emerald-100 text-emerald-700
+                        {% elif att.status == 'declined' %}bg-red-100 text-red-700
+                        {% else %}bg-amber-100 text-amber-700{% endif %}">
                         {{ att.get_status_display }}
                     </span>
                 </div>
@@ -82,6 +98,29 @@
             <p class="text-sm text-zinc-500">No kids registered yet.</p>
             {% endif %}
         </div>
+        {% else %}
+        <div>
+            <div class="text-xs text-zinc-500 font-medium tracking-wider mb-3">YOUR ATTENDANCE</div>
+            {% if attendances %}
+            <div class="space-y-2">
+                {% for att in attendances %}
+                <div class="flex items-center justify-between bg-emerald-50 px-4 py-3 rounded-2xl">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xl">{% if att.kid.gender == 'M' %}👦{% else %}👧{% endif %}</span>
+                        <span class="font-medium">{{ att.kid.first_name }} {{ att.kid.last_name }}</span>
+                    </div>
+                    <span class="text-xs px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">
+                        Attending
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            <p class="text-xs text-zinc-500 mt-2">Only you and the team owner can see attendance details for this event.</p>
+            {% else %}
+            <p class="text-sm text-zinc-500">Attendance recorded.</p>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <div class="text-xs text-zinc-400 mt-8 pt-6 border-t">
             Created by {{ team_event.created_by.get_full_name|default:team_event.created_by.username }} on {{ team_event.created_at|date:"M j, Y" }}

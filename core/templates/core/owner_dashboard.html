@@ -1,160 +1,181 @@
 {% extends 'core/base.html' %}
 {% block title %}Owner Dashboard - Fusion{% endblock %}
 {% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-<div class="max-w-7xl mx-auto px-4 py-6">
-    <!-- Header: Org name + 4 stat cards + quick tools -->
+    <!-- PROFESSIONAL HEADER -->
     <div class="mb-8">
-        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-4">
+        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900">
+                <div class="text-xs font-semibold tracking-[2px] text-gray-500 uppercase mb-1">Operations Center</div>
+                <h1 class="text-4xl lg:text-5xl font-bold tracking-tight text-gray-900">
                     {{ user_organization.name|default:"Your Organization" }}
                 </h1>
-                <p class="text-sm text-gray-500 mt-0.5">Coach / Team Owner Dashboard</p>
+                <p class="mt-1 text-lg text-gray-600">The complete platform for running your teams and connecting with families.</p>
             </div>
-            <div class="flex flex-nowrap gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                <a href="{% url 'create_team' %}"
-                   class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl font-semibold flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm w-fit whitespace-nowrap flex-shrink-0">
-                    <span class="text-base sm:text-lg leading-none">+</span> New Team
-                </a>
-                <a href="{% url 'add_team_event' %}"
-                   class="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl font-semibold flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm w-fit whitespace-nowrap flex-shrink-0">
-                    <span class="text-base sm:text-lg leading-none">+</span> New Event
-                </a>
-                <a href="{% url 'team_list' %}?from=invite_parent"
-                   class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl font-semibold flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm w-fit whitespace-nowrap flex-shrink-0">
-                    👨‍👩‍👧‍👦 Invite Parent
-                </a>
-            </div>
-        </div>
 
-        <!-- 4 key stat cards (header) -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="bg-white border border-gray-200 rounded-3xl p-4">
-                <div class="text-xs font-medium text-gray-500">Total Teams</div>
-                <div class="text-4xl font-bold text-blue-600 mt-1">{{ total_teams|default:0 }}</div>
-            </div>
-            <div class="bg-white border border-gray-200 rounded-3xl p-4">
-                <div class="text-xs font-medium text-gray-500">Unique Athletes</div>
-                <div class="text-4xl font-bold text-emerald-600 mt-1">{{ total_players|default:0 }}</div>
-                <div class="text-[10px] text-gray-400">deduplicated across teams</div>
-            </div>
-            <div class="bg-white border border-gray-200 rounded-3xl p-4">
-                <div class="text-xs font-medium text-gray-500">Unique Families</div>
-                <div class="text-4xl font-bold text-purple-600 mt-1">{{ num_families|default:0 }}</div>
-                <div class="text-[10px] text-gray-400">deduplicated</div>
-            </div>
-            <div class="bg-white border border-gray-200 rounded-3xl p-4">
-                <div class="text-xs font-medium text-gray-500">Upcoming This Week</div>
-                <div class="text-4xl font-bold text-orange-600 mt-1">{{ upcoming_count|default:0 }}</div>
+            <!-- Prominent Create Buttons - side by side, alive, mobile friendly -->
+            <div class="flex flex-row gap-2 sm:gap-3 w-full lg:w-auto">
+                <a href="{% url 'add_team_event' %}" 
+                   class="action-btn bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg px-4 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base rounded-3xl flex-1 justify-center transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap">
+                    <i class="fa-solid fa-calendar-plus mr-2"></i> New Team Event
+                </a>
+                <a href="{% url 'add_team_event' %}?type=training" 
+                   class="action-btn bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white shadow-md hover:shadow-lg px-4 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base rounded-3xl flex-1 justify-center transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap">
+                    <i class="fa-solid fa-dumbbell mr-2"></i> New Training Session
+                </a>
             </div>
         </div>
     </div>
 
-    <!-- Upcoming Events (placed above Action Center; compact for mobile/iPhone) -->
-    <div class="mb-8">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-xl font-semibold text-gray-900">Upcoming Events</h2>
-            <a href="{% url 'event_list' %}" class="text-sm text-blue-600 hover:underline">See all →</a>
+    <!-- KEY METRICS - Professional Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="fusion-card p-5 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                <i class="fa-solid fa-people-group text-2xl"></i>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500">Active Teams</div>
+                <div class="text-3xl font-bold text-gray-900">{{ total_teams|default:0 }}</div>
+            </div>
         </div>
-        {% if upcoming_events %}
-        <div class="bg-white border border-gray-200 rounded-3xl divide-y text-sm">
-            {% for event in upcoming_events %}
-            <div class="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                <div class="flex-1 min-w-0">
-                    <div class="font-medium text-gray-900 text-sm sm:text-base">{{ event.name }}</div>
-                    <div class="text-gray-500 text-xs mt-0.5 truncate flex items-center gap-1.5">
-                        <span class="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: {{ event.team.color|default:'#64748b' }}"></span>
-                        <span style="color: {{ event.team.color|default:'#334155' }}; font-weight: 600;">{{ event.team.name }}</span>
-                        <span class="text-gray-400">•</span> {{ event.start_time|date:"D, M j" }} {{ event.start_time|time:"g:i A" }}
-                        {% if event.location %} • {{ event.location }}{% endif %}
+        <div class="fusion-card p-5 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                <i class="fa-solid fa-users text-2xl"></i>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500">Total Athletes</div>
+                <div class="text-3xl font-bold text-gray-900">{{ total_players|default:0 }}</div>
+            </div>
+        </div>
+        <div class="fusion-card p-5 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-violet-100 flex items-center justify-center text-violet-600 flex-shrink-0">
+                <i class="fa-solid fa-handshake text-2xl"></i>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500">Families Reached</div>
+                <div class="text-3xl font-bold text-gray-900">{{ num_families|default:0 }}</div>
+            </div>
+        </div>
+        <div class="fusion-card p-5 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600 flex-shrink-0">
+                <i class="fa-solid fa-calendar text-2xl"></i>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500">This Week</div>
+                <div class="text-3xl font-bold text-gray-900">{{ upcoming_count|default:0 }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        
+        <!-- UPCOMING EVENTS - Main Content -->
+        <div class="xl:col-span-2">
+            <div class="flex items-center justify-between mb-4 px-1">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar text-gray-400"></i> 
+                    Upcoming Events
+                </h2>
+                <a href="{% url 'event_list' %}" class="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center">
+                    View all <i class="fa-solid fa-arrow-right ml-1 text-xs"></i>
+                </a>
+            </div>
+
+            {% if upcoming_events %}
+            <div class="fusion-card overflow-hidden">
+                {% for event in upcoming_events %}
+                <a href="{% url 'team_event_detail' event.id %}" class="block p-4 sm:p-5 hover:bg-gray-50 border-b last:border-b-0 transition-colors group">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <div class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: {{ event.team.color|default:'#64748b' }}"></div>
+                                <span class="font-semibold text-gray-900 group-hover:text-blue-600 transition">{{ event.name }}</span>
+                                {% if event.event_type == 'training' %}
+                                <span class="px-2 py-0.5 text-[10px] font-semibold bg-violet-100 text-violet-700 rounded-full">TRAINING</span>
+                                {% endif %}
+                                {% with s=event.summary %}
+                                <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full">{{ s.accepted_count|default:0 }} going</span>
+                                {% if s.pending_count %}<span class="px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700 rounded-full">{{ s.pending_count }} pending</span>{% endif %}
+                                {% if s.declined_count %}<span class="px-1.5 py-0.5 text-[10px] font-semibold bg-red-100 text-red-600 rounded-full">{{ s.declined_count }} no</span>{% endif %}
+                                {% endwith %}
+                            </div>
+                            <div class="mt-1 text-sm text-gray-600 flex items-center gap-2 flex-wrap">
+                                <span class="font-medium" style="color: {{ event.team.color|default:'#334155' }}">{{ event.team.name|default:"Org" }}</span>
+                                <span class="text-gray-300">•</span>
+                                <span>{{ event.start_time|date:"D, M j" }} at {{ event.start_time|time:"g:i A" }}</span>
+                                {% if event.location %}<span class="text-gray-300">•</span><span class="text-gray-500">{{ event.location }}</span>{% endif %}
+                            </div>
+                        </div>
+
                     </div>
-                </div>
-                <div class="flex items-center gap-2 text-xs flex-wrap">
-                    {% with s=event.summary %}
-                    <span class="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-2xl font-medium">
-                        {{ s.accepted_count|default:0 }} attending
-                    </span>
-                    {% if s.declined_count %}<span class="text-gray-400">{{ s.declined_count }} declined</span>{% endif %}
-                    {% endwith %}
-                    <a href="{% url 'team_event_detail' event.id %}" class="text-blue-600 hover:underline font-medium">Details →</a>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="bg-white border border-dashed border-gray-200 rounded-3xl p-6 sm:p-8 text-center text-sm text-gray-500">
-            <div class="text-3xl mb-2">🗓️</div>
-            No upcoming team events in the next 7 days.<br>
-            <a href="{% url 'add_team_event' %}" class="text-blue-600 hover:underline text-xs mt-1 inline-block">Schedule one →</a>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Action Center: Pending Roster Requests (fully clickable card, number inside to the right, 0 or count) -->
-    <div class="mb-8">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-xl font-semibold text-gray-900">Action Center</h2>
-        </div>
-        <a href="{% url 'notifications' %}" class="block">
-            {% if pending_roster_requests %}
-            <div class="bg-white border border-orange-200 rounded-3xl px-4 py-3 text-sm shadow-sm hover:shadow-md transition flex items-center gap-3">
-                <div class="text-orange-600 flex-shrink-0">
-                    <i class="fa-solid fa-clipboard-list text-xl"></i>
-                </div>
-                <div class="flex-1 font-medium text-orange-700">
-                    Pending roster requests
-                </div>
-                <div class="flex-shrink-0 text-lg font-bold text-orange-700 bg-orange-100 px-3 py-0.5 rounded-2xl">
-                    {{ pending_roster_requests }}
-                </div>
+                </a>
+                {% endfor %}
             </div>
             {% else %}
-            <div class="bg-white border border-gray-200 rounded-3xl px-4 py-3 text-sm shadow-sm hover:shadow-md transition flex items-center gap-3 text-gray-600">
-                <div class="flex-shrink-0">
-                    <i class="fa-solid fa-clipboard-list text-xl"></i>
-                </div>
-                <div class="flex-1">
-                    No pending roster requests
-                </div>
-                <div class="flex-shrink-0 text-lg font-bold bg-gray-100 px-3 py-0.5 rounded-2xl">0</div>
+            <div class="fusion-card p-8 text-center">
+                <i class="fa-solid fa-calendar text-4xl text-gray-300 mb-3"></i>
+                <p class="font-medium text-gray-700">No upcoming events</p>
+                <p class="text-sm text-gray-500 mt-1">Create a team event or training to get started.</p>
             </div>
             {% endif %}
-        </a>
+        </div>
+
+        <!-- SIDE PANEL: Quick Links & Fusion Impact -->
+        <div class="space-y-6">
+            <!-- Quick Actions (moved closer to top) -->
+            <div class="fusion-card p-6">
+                <div class="text-xs uppercase tracking-widest text-gray-500 mb-3">Quick Actions</div>
+                <div class="grid grid-cols-1 gap-2 text-sm">
+                    <a href="{% url 'org_players' %}" class="flex items-center gap-3 p-2.5 -mx-2 rounded-xl hover:bg-gray-50 text-gray-700">
+                        <i class="fa-solid fa-users w-4 text-emerald-500"></i> <span>Manage Roster &amp; Players</span>
+                    </a>
+                    <a href="{% url 'team_list' %}" class="flex items-center gap-3 p-2.5 -mx-2 rounded-xl hover:bg-gray-50 text-gray-700">
+                        <i class="fa-solid fa-people-group w-4 text-blue-500"></i> <span>Manage Teams</span>
+                    </a>
+                    <a href="{% url 'notifications' %}" class="flex items-center gap-3 p-2.5 -mx-2 rounded-xl hover:bg-gray-50 text-gray-700">
+                        <i class="fa-solid fa-bell w-4 text-orange-500"></i> <span>View Notifications</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Fusion Value Card -->
+            <div class="fusion-card p-6 bg-gradient-to-br from-slate-900 to-gray-900 text-white">
+                <div class="text-xs uppercase tracking-widest text-white/60 mb-2">THE FUSION</div>
+                <div class="text-2xl font-bold leading-tight">Connected to {{ num_families|default:0 }} families</div>
+                <div class="mt-3 text-sm text-white/70">Direct, instant communication. No more texts or group chats.</div>
+                <div class="mt-4 text-xs px-3 py-1 bg-white/10 rounded-full inline-block">This is how pros run youth sports</div>
+            </div>
+
+            <!-- Always-visible tip to fill space when events short -->
+            <div class="fusion-card p-5 bg-blue-50 border border-blue-100">
+                <div class="text-xs font-semibold text-blue-700">PRO TIP</div>
+                <div class="text-sm text-blue-800 mt-1">Use Training Sessions to run skill-focused groups without notifying the whole team. Perfect for targeted development.</div>
+            </div>
+        </div>
     </div>
 
-    <!-- My Teams section removed per request (teams accessible via Teams nav) -->
-
-    <!-- Recent Activity (bottom) -->
+    <!-- Recent Activity -->
     {% if recent_activity %}
-    <div>
-        <div class="flex items-center justify-between mb-3">
+    <div class="mt-8">
+        <div class="flex items-center justify-between mb-4 px-1">
             <h2 class="text-xl font-semibold text-gray-900">Recent Activity</h2>
-            <a href="{% url 'org_players' %}" class="text-sm text-blue-600 hover:underline">View roster →</a>
         </div>
-        <div class="bg-white rounded-3xl border border-gray-200 divide-y text-sm">
+        <div class="fusion-card divide-y text-sm">
             {% for item in recent_activity %}
-            {% if item.link %}
-            <a href="{{ item.link }}" class="block px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition">
-            {% else %}
-            <div class="px-4 py-3 flex items-center gap-3">
-            {% endif %}
-                <div class="w-7 h-7 flex-shrink-0 rounded-2xl bg-gray-100 flex items-center justify-center text-base">
-                    {% if item.type == 'registration' %}👶{% else %}📅{% endif %}
+            <a href="{{ item.link }}" class="flex items-start gap-4 px-5 py-3.5 hover:bg-gray-50 transition group">
+                <div class="w-9 h-9 rounded-2xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-500">
+                    {% if item.type == 'registration' %}<i class="fa-solid fa-user-plus"></i>{% else %}<i class="fa-solid fa-calendar"></i>{% endif %}
                 </div>
                 <div class="flex-1 min-w-0">
-                    <span class="text-gray-700">{{ item.text }}</span>
-                    <span class="text-gray-400 text-xs ml-1">{{ item.when|timesince }} ago</span>
+                    <div class="text-gray-700 group-hover:text-gray-900">{{ item.text }}</div>
+                    <div class="text-xs text-gray-400 mt-0.5">{{ item.when|timesince }} ago</div>
                 </div>
-            {% if item.link %}
             </a>
-            {% else %}
-            </div>
-            {% endif %}
             {% endfor %}
         </div>
     </div>
     {% endif %}
-</div>
 
+</div>
 {% endblock %}

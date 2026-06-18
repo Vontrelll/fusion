@@ -3,9 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Fusion{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.2/dist/htmx.min.js"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+    <!-- HTMX + CSRF configuration -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+            if (csrfTokenMeta && window.htmx) {
+                htmx.on('htmx:configRequest', function(evt) {
+                    evt.detail.headers['X-CSRFToken'] = csrfTokenMeta.getAttribute('content');
+                });
+            }
+        });
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     
     <script>
@@ -14,11 +28,44 @@
                 extend: {
                     fontFamily: {
                         sans: ['Inter', 'system-ui', 'sans-serif']
+                    },
+                    boxShadow: {
+                        'soft': '0 2px 8px -2px rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06)',
+                        'card': '0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05)',
+                        'elevated': '0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05)'
                     }
                 }
             }
         }
     </script>
+
+    <style>
+        /* Fusion Design System - Base tokens */
+        .fusion-card {
+            @apply bg-white rounded-3xl shadow-card border border-gray-100 transition-all hover:shadow-elevated;
+        }
+        .fusion-section {
+            @apply space-y-4;
+        }
+        .status-pill {
+            @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full;
+        }
+        .status-accepted { @apply bg-emerald-100 text-emerald-700; }
+        .status-pending { @apply bg-amber-100 text-amber-700; }
+        .status-declined { @apply bg-red-100 text-red-700; }
+        .team-accent {
+            /* Use via style or dynamically */
+        }
+        .value-stat {
+            @apply text-3xl font-semibold tracking-tighter;
+        }
+        .mini-label {
+            @apply text-[10px] font-medium tracking-widest uppercase text-gray-500;
+        }
+        .action-btn {
+            @apply px-4 py-2.5 rounded-2xl font-semibold flex items-center justify-center gap-2 transition active:scale-[0.985];
+        }
+    </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
 
@@ -45,30 +92,27 @@
                         <a href="{% url 'owner_dashboard' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'owner_dashboard' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
                             <i class="fa-solid fa-home mr-1"></i> Home
                         </a>
+                        <a href="{% url 'my_organization' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'my_organization' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-sitemap mr-1"></i> Org
+                        </a>
                         <a href="{% url 'team_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'team_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
                             <i class="fa-solid fa-people-group mr-1"></i> Teams
                         </a>
                         <a href="{% url 'event_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'event_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
                             <i class="fa-solid fa-calendar mr-1"></i> Events
                         </a>
-                        <a href="{% url 'org_players' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'org_players' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                            <i class="fa-solid fa-users mr-1"></i> Players
-                        </a>
-                        <a href="{% url 'my_organization' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'my_organization' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                            <i class="fa-solid fa-sitemap mr-1"></i> Org
-                        </a>
                     {% else %}
                         <a href="{% url 'dashboard' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'dashboard' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
                             <i class="fa-solid fa-home mr-1"></i> Home
                         </a>
-                        <a href="{% url 'event_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'event_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                            <i class="fa-solid fa-calendar mr-1"></i> Events
+                        <a href="{% url 'my_family' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'my_family' or current == 'family_detail' or current == 'create_first_family' or current == 'join_family' or current == 'setup_family' or current == 'add_family' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-users mr-1"></i> Family
                         </a>
                         <a href="{% url 'parent_teams' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'parent_teams' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
                             <i class="fa-solid fa-people-group mr-1"></i> Teams
                         </a>
-                        <a href="{% url 'my_family' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'my_family' or current == 'family_detail' or current == 'create_first_family' or current == 'join_family' or current == 'setup_family' or current == 'add_family' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                            <i class="fa-solid fa-users mr-1"></i> Family
+                        <a href="{% url 'event_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'event_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-calendar mr-1"></i> Events
                         </a>
                     {% endif %}
                 </div>
@@ -128,15 +172,14 @@
                 {% with current=request.resolver_match.url_name %}
                 {% if current_role == 'owner' %}
                     <a href="{% url 'owner_dashboard' %}" class="block px-3 py-2 rounded {% if current == 'owner_dashboard' or current == 'owner_onboarding' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Home</a>
+                    <a href="{% url 'my_organization' %}" class="block px-3 py-2 rounded {% if current == 'my_organization' or current == 'create_organization' or current == 'organization_details' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Org</a>
                     <a href="{% url 'team_list' %}" class="block px-3 py-2 rounded {% if current == 'team_list' or current == 'team_detail' or current == 'create_team' or current == 'edit_team' or current == 'delete_team' or current == 'team_to_parent_invite_search' or current == 'review_roster_request' or current == 'select_kids_for_team_roster' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Teams</a>
                     <a href="{% url 'event_list' %}" class="block px-3 py-2 rounded {% if current == 'event_list' or current == 'add_event' or current == 'edit_event' or current == 'delete_event' or current == 'event_detail' or current == 'add_team_event' or current == 'edit_team_event' or current == 'delete_team_event' or current == 'team_event_detail' or current == 'resolve_team_event_conflict' or current == 'review_team_event_update' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Events</a>
-                    <a href="{% url 'org_players' %}" class="block px-3 py-2 rounded {% if current == 'org_players' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Players</a>
-                    <a href="{% url 'my_organization' %}" class="block px-3 py-2 rounded {% if current == 'my_organization' or current == 'create_organization' or current == 'organization_details' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">My Organization</a>
                 {% else %}
                     <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded {% if current == 'dashboard' or current == 'parent_onboarding' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Home</a>
-                    <a href="{% url 'event_list' %}" class="block px-3 py-2 rounded {% if current == 'event_list' or current == 'add_event' or current == 'edit_event' or current == 'delete_event' or current == 'event_detail' or current == 'add_team_event' or current == 'edit_team_event' or current == 'delete_team_event' or current == 'team_event_detail' or current == 'resolve_team_event_conflict' or current == 'review_team_event_update' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Events</a>
-                    <a href="{% url 'parent_teams' %}" class="block px-3 py-2 rounded {% if current == 'parent_teams' or current == 'parent_to_team_request' or current == 'team_invite_response' or current == 'select_kids_for_team_join_request' or current == 'find_teams' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">My Teams</a>
                     <a href="{% url 'my_family' %}" class="block px-3 py-2 rounded {% if current == 'my_family' or current == 'family_detail' or current == 'create_first_family' or current == 'join_family' or current == 'setup_family' or current == 'add_family' or current == 'kid_list' or current == 'add_kid' or current == 'edit_kid' or current == 'delete_kid' or current == 'invite_parent' or current == 'remove_parent' or current == 'family_invite_response' or current == 'accept_family_invite' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">My Family</a>
+                    <a href="{% url 'parent_teams' %}" class="block px-3 py-2 rounded {% if current == 'parent_teams' or current == 'parent_to_team_request' or current == 'team_invite_response' or current == 'select_kids_for_team_join_request' or current == 'find_teams' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">My Teams</a>
+                    <a href="{% url 'event_list' %}" class="block px-3 py-2 rounded {% if current == 'event_list' or current == 'add_event' or current == 'edit_event' or current == 'delete_event' or current == 'event_detail' or current == 'add_team_event' or current == 'edit_team_event' or current == 'delete_team_event' or current == 'team_event_detail' or current == 'resolve_team_event_conflict' or current == 'review_team_event_update' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Events</a>
                 {% endif %}
                 {% endwith %}
                 {% if request.user.is_authenticated %}
@@ -171,7 +214,7 @@
     {% endif %}
 
     <!-- Main Content - unified wide container (pt for fixed floating nav) -->
-    <div id="main-content" class="max-w-7xl mx-auto px-5 sm:px-6 pt-16 pb-6">
+    <div id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-4 sm:pb-6">
         {% block content %}
         {% endblock %}
     </div>
@@ -210,10 +253,6 @@
                 <a href="{% url 'team_list' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'team_list' or current == 'team_detail' or current == 'create_team' or current == 'edit_team' or current == 'delete_team' or current == 'team_to_parent_invite_search' or current == 'review_roster_request' or current == 'select_kids_for_team_roster' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
                     <i class="fa-solid fa-futbol text-lg"></i>
                     <span class="text-[10px]">Teams</span>
-                </a>
-                <a href="{% url 'org_players' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'org_players' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
-                    <i class="fa-solid fa-users text-lg"></i>
-                    <span class="text-[10px]">Players</span>
                 </a>
                 <a href="{% url 'event_list' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'event_list' or current == 'add_event' or current == 'edit_event' or current == 'delete_event' or current == 'event_detail' or current == 'add_team_event' or current == 'edit_team_event' or current == 'delete_team_event' or current == 'team_event_detail' or current == 'resolve_team_event_conflict' or current == 'review_team_event_update' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
                     <i class="fa-solid fa-calendar text-lg"></i>

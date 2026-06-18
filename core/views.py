@@ -23,6 +23,7 @@ from django.db.models import Q
 from collections import defaultdict
 import json
 import logging
+import pytz
 
 # Audit logger for privacy-sensitive actions (account deletion)
 deletion_logger = logging.getLogger('fusion.deletion')
@@ -53,6 +54,14 @@ def dashboard(request):
         now = timezone.now()
         today = timezone.localdate()
 
+        # Use user's timezone for greeting
+        user_tz_str = profile.timezone if profile and profile.timezone else 'America/Chicago'
+        try:
+            user_tz = pytz.timezone(user_tz_str)
+            local_now = now.astimezone(user_tz)
+        except:
+            local_now = now
+
         # Proper today range (fixes the off-by-one day bug)
 
         # Family/personal events today
@@ -79,9 +88,11 @@ def dashboard(request):
                 ).select_related('team').order_by('start_time')
                 team_events_today = list(team_events_qs)
                 for ev in team_events_today:
+                    # Scope to this parent's family only (do not show other families' kids to parents)
                     ev.attending_kids = Kid.objects.filter(
                         teameventattendance__team_event=ev,
-                        teameventattendance__status='accepted'
+                        teameventattendance__status='accepted',
+                        family=user_family
                     ).distinct()
 
         # Combine + sort
@@ -101,13 +112,21 @@ def dashboard(request):
             start_time__gte=week_ago
         ).order_by('start_time')
 
+        # Get parent's teams for "Fusion Connections" section
+        parent_teams = Team.objects.filter(
+            memberships__user=request.user,
+            memberships__role='parent'
+        ).select_related('organization').distinct()[:4]
+
         context = {
             "num_of_kids": kids.count(),
             "num_of_events": len(combined_today),
             "weeks_events_count": this_weeks_events.count(),
             "user_events": combined_today,
             "kids": kids,
-    }
+            "parent_teams": parent_teams,
+            "now": local_now,
+        }
 
     return render(request, "core/dashboard.html", context)
 
@@ -388,47 +407,59 @@ def add_team_event(request):
 
             team_event.created_by = request.user
 
-            # === CONFLICT CHECK FOR TEAM ===
-            if has_conflict(team_event, team=team_event.team):
+            if not team_event.event_type:
+                team_event.event_type = 'team'
+
+            # For training sessions, team is optional (sent to individual players)
+            if team_event.event_type == 'training' and not team_event.team:
+                team_event.team = None
+
+            # === CONFLICT CHECK FOR TEAM (skip if no team for training) ===
+            if team_event.team and has_conflict(team_event, team=team_event.team):
                 messages.error(request, "Time conflict detected. This team already has an event at this time.")
                 return render(request, "core/add_team_event.html", {"form": form})
 
             team_event.save()
 
-            # Create invitations...
-            memberships = TeamMembership.objects.filter(
-                team=team_event.team,
-                role='parent'
-            ).select_related('user')
+            # === Branch: Team Event (broadcast) vs Training Session (selective invites) ===
+            if team_event.event_type == 'training':
+                messages.success(request, f"Training session '{team_event.name}' created. Now select which players to invite.")
+                return redirect('select_players_for_training', event_id=team_event.id)
+            else:
+                # Create invitations for ALL parents on the team (existing behavior)
+                memberships = TeamMembership.objects.filter(
+                    team=team_event.team,
+                    role='parent'
+                ).select_related('user')
 
-            count = 0
-            for membership in memberships:
-                invitation, created = TeamEventInvitation.objects.get_or_create(
-                    team_event=team_event,
-                    user=membership.user,
-                    defaults={'status': 'pending'}
-                )
-                if created:
-                    count += 1
-                    # Send notification only for newly created invitations (one per parent)
-                    # Use get_or_create to strongly prevent any duplicate notifs for same (user, type, event)
-                    Notification.objects.get_or_create(
+                count = 0
+                for membership in memberships:
+                    invitation, created = TeamEventInvitation.objects.get_or_create(
+                        team_event=team_event,
                         user=membership.user,
-                        notification_type='team_event_invitation',
-                        extra_data__team_event_id=team_event.id,
-                        defaults={
-                            'title': f"Invitation: {team_event.name}",
-                            'message': f"You have been invited to the team event '{team_event.name}' by {team_event.team.name}.",
-                            'extra_data': {
-                                'team_event_id': team_event.id,
-                                'invitation_id': invitation.id,
-                                'team_id': team_event.team.id
-                            }
-                        }
+                        defaults={'status': 'pending'}
                     )
+                    if created:
+                        count += 1
+                        # Send notification only for newly created invitations (one per parent)
+                        # Use get_or_create to strongly prevent any duplicate notifs for same (user, type, event)
+                        Notification.objects.get_or_create(
+                            user=membership.user,
+                            notification_type='team_event_invitation',
+                            extra_data__team_event_id=team_event.id,
+                            defaults={
+                                'title': f"Invitation: {team_event.name}",
+                                'message': f"You have been invited to the team event '{team_event.name}' by {team_event.team.name}.",
+                                'extra_data': {
+                                    'team_event_id': team_event.id,
+                                    'invitation_id': invitation.id,
+                                    'team_id': team_event.team.id
+                                }
+                            }
+                        )
 
-            messages.success(request, f"Team event '{team_event.name}' created and {count} parents invited.")
-            return redirect('event_list')
+                messages.success(request, f"Team event '{team_event.name}' created and {count} parents invited.")
+                return redirect('event_list')
         else:
             messages.error(request, "Form has errors.")
     else:
@@ -440,8 +471,125 @@ def add_team_event(request):
                 form.fields['team'].initial = int(preselect_team_id)
             except (ValueError, TypeError):
                 pass
+        # Support type preselect for training sessions
+        preselect_type = request.GET.get('type')
+        if preselect_type in ('team', 'training'):
+            form.fields['event_type'].initial = preselect_type
 
     return render(request, 'core/add_team_event.html', {'form': form})
+
+
+@login_required
+def select_players_for_training(request, event_id):
+    """Owner selects specific kids/players to invite to a training session.
+    Creates invitations (per parent) + pre-creates 'pending' attendances (per kid)
+    so the owner can later see exactly who was invited and their response status.
+    Parents experience the exact same invitation flow as team events.
+    """
+    profile = _safe_get_user_profile(request)
+    if profile.role != "owner":
+        messages.error(request, "Only team owners can invite players to training sessions.")
+        return redirect('dashboard')
+
+    try:
+        team_event = TeamEvent.objects.get(
+            id=event_id,
+            created_by=request.user
+        )
+    except TeamEvent.DoesNotExist:
+        messages.error(request, "Training session not found or you do not have access.")
+        return redirect('event_list')
+
+    if team_event.event_type != 'training':
+        messages.error(request, "This event is not a training session.")
+        return redirect('team_event_detail', event_id=event_id)
+
+    # For training without team, use owner's org
+    organization = None
+    if team_event.team:
+        organization = team_event.team.organization
+    else:
+        organization = Organization.objects.filter(owner=request.user).first()
+
+    if request.method == "POST":
+        selected_kid_ids = request.POST.getlist('kids')
+
+        if not selected_kid_ids:
+            messages.error(request, "Please select at least one player to invite.")
+        else:
+            # Validate kids belong to this owner's organization rosters
+            selected_kids = list(
+                Kid.objects.filter(
+                    id__in=selected_kid_ids,
+                    playerregistration__team_membership__team__organization=organization
+                ).select_related('parent').distinct()
+            )
+
+            if not selected_kids:
+                messages.error(request, "Invalid player selection.")
+            else:
+                invited_kid_count = 0
+                notified_parent_ids = set()
+
+                for kid in selected_kids:
+                    parent = kid.parent
+
+                    # Create (or get) invitation for the parent (parents get the request)
+                    invitation, _ = TeamEventInvitation.objects.get_or_create(
+                        team_event=team_event,
+                        user=parent,
+                        defaults={'status': 'pending'}
+                    )
+
+                    # Pre-create pending attendance for THIS specific invited kid.
+                    # This lets owners see exactly who they invited + current status.
+                    TeamEventAttendance.objects.get_or_create(
+                        team_event=team_event,
+                        kid=kid,
+                        defaults={'status': 'pending'}
+                    )
+
+                    invited_kid_count += 1
+
+                    # Notify parent once (even if multiple of their kids invited)
+                    if parent.id not in notified_parent_ids:
+                        notified_parent_ids.add(parent.id)
+                        Notification.objects.get_or_create(
+                            user=parent,
+                            notification_type='team_event_invitation',
+                            extra_data__team_event_id=team_event.id,
+                            defaults={
+                                'title': f"Training Invitation: {team_event.name}",
+                                'message': f"You have been invited to the training session '{team_event.name}' by {team_event.team.name}.",
+                                'extra_data': {
+                                    'team_event_id': team_event.id,
+                                    'invitation_id': invitation.id,
+                                    'team_id': team_event.team.id
+                                }
+                            }
+                        )
+
+                messages.success(
+                    request,
+                    f"Training session '{team_event.name}' ready. Invited {invited_kid_count} player(s). Parents have received requests."
+                )
+                return redirect('team_event_detail', event_id=team_event.id)
+
+    # GET: list eligible players from the org
+    if organization:
+        registrations = PlayerRegistration.objects.filter(
+            team_membership__team__organization=organization
+        ).select_related(
+            'kid', 'kid__parent', 'team_membership__team'
+        ).order_by('kid__last_name', 'kid__first_name')
+    else:
+        registrations = PlayerRegistration.objects.none()
+
+    context = {
+        'team_event': team_event,
+        'registrations': registrations,
+    }
+    return render(request, "core/training_player_selection.html", context)
 
 
 
@@ -574,6 +722,11 @@ def edit_team_event(request, event_id):
         team_event.location = location
         team_event.description = description
         team_event.team = team
+
+        # Preserve or update event type (team vs training)
+        new_event_type = request.POST.get('event_type')
+        if new_event_type in ('team', 'training'):
+            team_event.event_type = new_event_type
 
         if has_conflict(team_event, team=team):
             messages.error(request, "Time conflict detected with another team event.")
@@ -732,17 +885,21 @@ def get_conflicts_for_kids(selected_kids, proposed_event):
 def get_attendance_summary(team_event):
     """Safe summary for team event attendance (used by owners for roster planning and visibility).
     Returns counts + filtered lists. Does not leak across families.
+    Now includes 'pending' (used for training sessions to show invited but not-yet-responded players).
     """
     qs = team_event.attendances.select_related('kid', 'kid__family').all()
     accepted = [a for a in qs if a.status == 'accepted']
     declined = [a for a in qs if a.status == 'declined']
+    pending = [a for a in qs if a.status == 'pending']
     needs_review = [a for a in qs if getattr(a, 'needs_review', False)]
     return {
         'accepted_count': len(accepted),
         'declined_count': len(declined),
+        'pending_count': len(pending),
         'needs_review_count': len(needs_review),
         'accepted': accepted,
         'declined': declined,
+        'pending': pending,
         'total': len(qs),
     }
 
@@ -1048,6 +1205,8 @@ def event_list(request):
         for event in events:
             event.attendances_list = list(event.attendances.select_related('kid').filter(status='accepted')[:10])
             event.attendance_count = event.attendances.filter(status='accepted').count()
+            # For training visibility in list
+            event.pending_count = event.attendances.filter(status='pending').count() if getattr(event, 'event_type', None) == 'training' else 0
         
         context = {'events': events, 'is_parent': False}
 
@@ -1058,6 +1217,13 @@ def event_list(request):
 #This section below is the AUTHENTICATION section 
 
 def login_view(request):
+    # If already logged in, don't show login form (prevents back-button issues after login)
+    if request.user.is_authenticated:
+        profile = _safe_get_user_profile(request)
+        if profile and profile.role == 'owner':
+            return redirect('owner_dashboard')
+        return redirect('dashboard')
+
     if request.method == "POST":
         username = (request.POST.get("username") or "").strip()
         password = request.POST.get("password")
@@ -1073,7 +1239,11 @@ def login_view(request):
 
         if user:
             login(request, user)
-            return redirect("dashboard")
+            # Use role-aware redirect
+            profile = _safe_get_user_profile(request)
+            if profile and profile.role == 'owner':
+                return redirect('owner_dashboard')
+            return redirect('dashboard')
 
         else:
             return render(request, "core/login.html", context={
@@ -1085,7 +1255,13 @@ def login_view(request):
     context = {}
     if deleted:
         context['success'] = "Your account and all associated data have been permanently deleted. We're sorry to see you go."
-    return render(request, "core/login.html", context)
+
+    response = render(request, "core/login.html", context)
+    # Prevent browser caching the login page to avoid stale CSRF tokens and pre-filled forms on back button
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
 
 @login_required
 def logout_view(request):
@@ -2473,14 +2649,25 @@ def team_event_detail(request, event_id):
         return redirect('event_list')
 
     # Get attendances for display + summary (for owners to see at-a-glance who is going)
-    attendances = team_event.attendances.select_related('kid').all()
-    summary = get_attendance_summary(team_event)
+    is_owner = (team_event.team.organization.owner == request.user)
+    if is_owner:
+        attendances = team_event.attendances.select_related('kid').all()
+    else:
+        # Parents only ever see their own kids' attendance status here (no cross-family leak)
+        attendances = TeamEventAttendance.objects.filter(
+            team_event=team_event,
+            kid__family=user_family,
+            status='accepted'
+        ).select_related('kid')
+
+    summary = get_attendance_summary(team_event) if is_owner else None
 
     context = {
         "team_event": team_event,
         "attendances": attendances,
         "attendance_summary": summary,
         "is_team_event": True,
+        "is_owner": is_owner,
     }
     return render(request, "core/team_event_detail.html", context)
 
@@ -3777,6 +3964,7 @@ def delete_account(request):
         "has_family": bool(getattr(profile, 'family', None)),
     }
     return render(request, "core/delete_account.html", context)
+
 
 
 def privacy_policy(request):

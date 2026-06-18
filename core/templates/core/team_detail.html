@@ -18,7 +18,11 @@
             <div class="flex flex-wrap gap-2 sm:gap-3">
                 <a href="{% url 'add_team_event' %}?team={{ team.id }}" 
                    class="px-3 py-1.5 sm:px-4 sm:py-2 bg-white border border-blue-200 hover:bg-blue-50 text-blue-600 rounded-2xl text-xs sm:text-sm font-medium transition">
-                    + Event
+                    + Team Event
+                </a>
+                <a href="{% url 'add_team_event' %}?team={{ team.id }}&type=training" 
+                   class="px-3 py-1.5 sm:px-4 sm:py-2 bg-white border border-violet-200 hover:bg-violet-50 text-violet-600 rounded-2xl text-xs sm:text-sm font-medium transition">
+                    + Training
                 </a>
                 <a href="{% url 'team_to_parent_invite_search' team.id %}" 
                    class="px-3 py-1.5 sm:px-5 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs sm:text-sm font-semibold transition">

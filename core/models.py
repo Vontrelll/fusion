@@ -182,14 +182,25 @@ class TeamEvent(models.Model):
     location = models.CharField(max_length=200, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     
-    team = models.ForeignKey('Team', on_delete=models.CASCADE, related_name='team_events')
+    EVENT_TYPE_CHOICES = [
+        ('team', 'Team Event'),
+        ('training', 'Training Session'),
+    ]
+    event_type = models.CharField(
+        max_length=20,
+        choices=EVENT_TYPE_CHOICES,
+        default='team'
+    )
+    
+    team = models.ForeignKey('Team', on_delete=models.CASCADE, related_name='team_events', null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.name} - {self.team.name}"
+        team_name = self.team.name if self.team else "No Team"
+        return f"{self.name} - {team_name}"
 
     def save(self, *args, **kwargs):
         if self.name:
@@ -204,7 +215,11 @@ class TeamEventAttendance(models.Model):
     kid = models.ForeignKey('Kid', on_delete=models.CASCADE)
     status = models.CharField(
         max_length=20,
-        choices=[('accepted', 'Accepted'), ('declined', 'Declined')],
+        choices=[
+            ('pending', 'Pending'),
+            ('accepted', 'Accepted'),
+            ('declined', 'Declined'),
+        ],
         default='accepted')
     created_at = models.DateTimeField(auto_now_add=True)
     needs_review = models.BooleanField(default=False)   

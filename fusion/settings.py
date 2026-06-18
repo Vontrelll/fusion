@@ -32,7 +32,17 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if h.strip()]
 
-CSRF_TRUSTED_ORIGINS = ['https://fusionbeta.com','https://www.fusionbeta.com',]
+CSRF_TRUSTED_ORIGINS = [
+    'https://fusionbeta.com',
+    'https://www.fusionbeta.com',
+]
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS += [
+        'http://127.0.0.1:8000',
+        'http://localhost:8000',
+        'http://127.0.0.1',
+        'http://localhost',
+    ]
 
 # ==================== PRODUCTION SECURITY (Fixed for Railway) ====================
 if not DEBUG:

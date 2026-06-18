@@ -58,6 +58,7 @@ urlpatterns = [
     path('edit_organization/<int:org_id>/', views.edit_organization, name='edit_organization'),
     path('my-organization/', views.my_organization, name='my_organization'),
     path('add_team_event/', views.add_team_event, name='add_team_event'),
+    path('select_players_for_training/<int:event_id>/', views.select_players_for_training, name='select_players_for_training'),
     path('decline_team_event_invite/<int:team_event_invitation_id>/<int:kid_id>/', views.decline_team_event_invite, name='decline_team_event_invite'),
     path('resolve_team_event_conflict/<int:team_event_invitation_id>/', views.resolve_team_event_conflict, name='resolve_team_event_conflict'),
     path('select_kids_for_team_roster/<int:invite_id>/', views.select_kids_for_team_roster, name='select_kids_for_team_roster'),

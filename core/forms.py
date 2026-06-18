@@ -186,10 +186,11 @@ from .models import TeamEvent, Team
 class TeamEventForm(forms.ModelForm):
     class Meta:
         model = TeamEvent
-        fields = ['name', 'start_time', 'end_time', 'location', 'description', 'team']
+        fields = ['name', 'start_time', 'end_time', 'location', 'description', 'team', 'event_type']
         widgets = {
             'start_time': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'end_time': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'event_type': forms.RadioSelect(),
         }
 
     def clean_name(self):
@@ -214,3 +215,17 @@ class TeamEventForm(forms.ModelForm):
             )
         else:
             self.fields['team'].queryset = Team.objects.none()
+
+        # event_type is not strictly required from POST (defaults to team)
+        if 'event_type' in self.fields:
+            self.fields['event_type'].required = False
+
+        # Team not required for training sessions (sent individually)
+        if 'team' in self.fields:
+            self.fields['team'].required = False
+
+    def clean_event_type(self):
+        val = self.cleaned_data.get('event_type') or self.initial.get('event_type')
+        if val not in ('team', 'training'):
+            val = 'team'
+        return val

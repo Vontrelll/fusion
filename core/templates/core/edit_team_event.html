@@ -34,6 +34,21 @@
                 </select>
             </div>
 
+            <!-- Event Type -->
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Event Type</label>
+                <div class="flex gap-4 text-sm">
+                    <label class="flex items-center gap-2">
+                        <input type="radio" name="event_type" value="team" {% if event.event_type != 'training' %}checked{% endif %}>
+                        <span>Team Event</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="radio" name="event_type" value="training" {% if event.event_type == 'training' %}checked{% endif %}>
+                        <span>Training Session</span>
+                    </label>
+                </div>
+            </div>
+
             <!-- Start Time -->
             <div class="mb-6">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Start Time</label>

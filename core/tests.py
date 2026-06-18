@@ -390,6 +390,7 @@ class TeamEventTests(TestCase):
             "location": "Main Field",
             "team": str(self.team.id),
             "description": "Bring water",
+            "event_type": "team",
         })
         self.assertEqual(resp.status_code, 302)
 
@@ -449,6 +450,71 @@ class TeamEventTests(TestCase):
         invitation.refresh_from_db()
         self.assertEqual(invitation.status, "accepted")
 
+    def test_owner_creates_training_then_selects_specific_players(self):
+        """Test the new training session flow:
+        - Owner creates with event_type=training (no auto whole-team invites)
+        - Redirects to player selector
+        - Selecting kids creates invitation(s) + pending attendances
+        - Parent can accept via same kid_selection flow
+        - Owner sees the pending -> accepted statuses
+        """
+        self.client.login(username="coach_te", password="testpass123")
+        start = timezone.now() + timedelta(days=4)
+        end = start + timedelta(hours=1)
+
+        # Create as training
+        resp = self.client.post(reverse("add_team_event"), {
+            "name": "Skill Drills Small Group",
+            "start_time": start.strftime("%Y-%m-%dT%H:%M"),
+            "end_time": end.strftime("%Y-%m-%dT%H:%M"),
+            "location": "Side Field",
+            "team": str(self.team.id),
+            "event_type": "training",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("select_players_for_training", resp["Location"])
+
+        te = TeamEvent.objects.filter(name="Skill Drills Small Group", team=self.team).first()
+        self.assertIsNotNone(te)
+        self.assertEqual(te.event_type, "training")
+
+        # No whole team invitations yet
+        self.assertEqual(TeamEventInvitation.objects.filter(team_event=te).count(), 0)
+        self.assertEqual(TeamEventAttendance.objects.filter(team_event=te).count(), 0)
+
+        # Now owner selects the player
+        resp2 = self.client.post(reverse("select_players_for_training", args=[te.id]), {
+            "kids": [str(self.kid.id)],
+        })
+        self.assertEqual(resp2.status_code, 302)
+
+        # Invitation + pending attendance created
+        self.assertEqual(TeamEventInvitation.objects.filter(team_event=te).count(), 1)
+        att = TeamEventAttendance.objects.filter(team_event=te, kid=self.kid).first()
+        self.assertIsNotNone(att)
+        self.assertEqual(att.status, "pending")
+
+        # Parent accepts via the exact same flow as team events
+        self.client.login(username="te_parent", password="testpass123")
+        invitation = TeamEventInvitation.objects.get(team_event=te, user=self.parent)
+
+        # Direct accept (no conflict path)
+        resp3 = self.client.post(reverse("team_event_kid_selection", args=[invitation.id]), {
+            "kids": [str(self.kid.id)]
+        })
+        self.assertEqual(resp3.status_code, 302)
+
+        att.refresh_from_db()
+        self.assertEqual(att.status, "accepted")
+
+        invitation.refresh_from_db()
+        self.assertEqual(invitation.status, "accepted")
+
+        # Owner now sees accepted (not just pending)
+        self.client.login(username="coach_te", password="testpass123")
+        detail_resp = self.client.get(reverse("team_event_detail", args=[te.id]))
+        self.assertEqual(detail_resp.status_code, 200)
+        self.assertContains(detail_resp, "accepted")  # status visible to owner
 
 # =============================================================================
 # CONFLICT RESOLUTION TESTS (the key user-requested area)
