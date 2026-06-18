@@ -14,15 +14,19 @@
                 <p class="mt-1 text-lg text-gray-600">The complete platform for running your teams and connecting with families.</p>
             </div>
 
-            <!-- Prominent Create Buttons - side by side, alive, mobile friendly -->
-            <div class="flex flex-row gap-2 sm:gap-3 w-full lg:w-auto">
+            <!-- Action Buttons - side by side, responsive, mobile friendly -->
+            <div class="flex flex-wrap gap-2 sm:gap-3 w-full lg:flex-nowrap lg:w-auto">
                 <a href="{% url 'add_team_event' %}" 
-                   class="action-btn bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg px-4 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base rounded-3xl flex-1 justify-center transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap">
-                    <i class="fa-solid fa-calendar-plus mr-2"></i> New Team Event
+                   class="action-btn bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm rounded-3xl flex-1 min-w-[90px] justify-center transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap">
+                    <i class="fa-solid fa-calendar-plus mr-1 sm:mr-2"></i> Team Event
                 </a>
                 <a href="{% url 'add_team_event' %}?type=training" 
-                   class="action-btn bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white shadow-md hover:shadow-lg px-4 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base rounded-3xl flex-1 justify-center transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap">
-                    <i class="fa-solid fa-dumbbell mr-2"></i> New Training Session
+                   class="action-btn bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white shadow-md hover:shadow-lg px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm rounded-3xl flex-1 min-w-[90px] justify-center transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap">
+                    <i class="fa-solid fa-dumbbell mr-1 sm:mr-2"></i> Training
+                </a>
+                <a href="{% url 'team_list' %}?from=invite_parent" 
+                   class="action-btn bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white shadow-md hover:shadow-lg px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm rounded-3xl flex-1 min-w-[90px] justify-center transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap">
+                    <i class="fa-solid fa-user-plus mr-1 sm:mr-2"></i> Invite
                 </a>
             </div>
         </div>
