@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.views.decorators.cache import never_cache
 from .models import (
     Kid, Event, Family, Invite, PlayerRegistration, Team, TeamEventInvitation,
     TeamMembership, Profile, Organization, TeamEvent, TeamEventAttendance,
@@ -1216,6 +1217,7 @@ def event_list(request):
 
 #This section below is the AUTHENTICATION section 
 
+@never_cache
 def login_view(request):
     # If already logged in, don't show login form (prevents back-button issues after login)
     if request.user.is_authenticated:
@@ -1239,6 +1241,9 @@ def login_view(request):
 
         if user:
             login(request, user)
+            # Rotate the CSRF token after login to invalidate any old tokens from cached forms
+            from django.middleware.csrf import rotate_token
+            rotate_token(request)
             # Use role-aware redirect
             profile = _safe_get_user_profile(request)
             if profile and profile.role == 'owner':
@@ -1257,8 +1262,8 @@ def login_view(request):
         context['success'] = "Your account and all associated data have been permanently deleted. We're sorry to see you go."
 
     response = render(request, "core/login.html", context)
-    # Prevent browser caching the login page to avoid stale CSRF tokens and pre-filled forms on back button
-    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    # Extra strong no-cache to defeat browser back-button cache of stale CSRF token
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response['Pragma'] = 'no-cache'
     response['Expires'] = '0'
     return response
