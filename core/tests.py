@@ -1010,6 +1010,67 @@ class AdditionalCoverageTests(TestCase):
         m = create_team_membership(self.team, self.parent)
         PlayerRegistration.objects.create(team_membership=m, kid=self.k)
 
+    def test_owner_event_list_past_filter_hides_upcoming_events(self):
+        self.client.login(username="smoke_owner", password="testpass123")
+        create_team_event(
+            "Future Game",
+            self.team,
+            self.owner,
+            timezone.now() + timedelta(days=5),
+            timezone.now() + timedelta(days=5, hours=2),
+        )
+        create_team_event(
+            "Old Game",
+            self.team,
+            self.owner,
+            timezone.now() - timedelta(days=5),
+            timezone.now() - timedelta(days=5) + timedelta(hours=2),
+        )
+
+        resp = self.client.get(reverse("event_list") + "?range=past")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, "Future Game")
+        self.assertContains(resp, "Old Game")
+
+    def test_owner_event_list_defaults_to_upcoming(self):
+        self.client.login(username="smoke_owner", password="testpass123")
+        create_team_event(
+            "Future Game",
+            self.team,
+            self.owner,
+            timezone.now() + timedelta(days=5),
+            timezone.now() + timedelta(days=5, hours=2),
+        )
+        create_team_event(
+            "Old Game",
+            self.team,
+            self.owner,
+            timezone.now() - timedelta(days=5),
+            timezone.now() - timedelta(days=5) + timedelta(hours=2),
+        )
+
+        resp = self.client.get(reverse("event_list"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Future Game")
+        self.assertNotContains(resp, "Old Game")
+        self.assertContains(resp, "Upcoming")
+
+    def test_owner_event_list_shows_attendance_counts(self):
+        self.client.login(username="smoke_owner", password="testpass123")
+        te = create_team_event(
+            "Owner Practice",
+            self.team,
+            self.owner,
+            timezone.now() + timedelta(days=2),
+            timezone.now() + timedelta(days=2, hours=2),
+        )
+        TeamEventAttendance.objects.create(team_event=te, kid=self.k, status="accepted")
+
+        resp = self.client.get(reverse("event_list"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Owner Practice")
+        self.assertContains(resp, "1 going")
+
     def test_event_list_shows_both_personal_and_accepted_team_events(self):
         self.client.login(username="smoke_parent", password="testpass123")
 

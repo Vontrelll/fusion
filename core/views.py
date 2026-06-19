@@ -20,8 +20,11 @@ from django.contrib.auth.models import User  # for family transfer logic in dele
 from core.forms import CustomUserCreationForm, OrganizationForm, TeamEventForm, TIMEZONE_CHOICES
 from . forms import TeamForm
 from datetime import date, timedelta
-from django.db.models import Q
+from django.db.models import Q, Count
+from django.core.paginator import Paginator
 from collections import defaultdict
+
+EVENTS_PER_PAGE = 10
 import json
 import logging
 import pytz
@@ -1154,6 +1157,22 @@ def delete_event(request, event_id=None, attendance_id=None, team_event_id=None)
 
 
 
+def _event_list_range(request):
+    """Validate ?range= for owner event list filters."""
+    range_param = request.GET.get('range', 'upcoming')
+    if range_param not in ('upcoming', 'past'):
+        return 'upcoming'
+    return range_param
+
+
+def _apply_event_time_range(queryset, range_param):
+    """Filter events by upcoming or past."""
+    now = timezone.now()
+    if range_param == 'upcoming':
+        return queryset.filter(end_time__gte=now)
+    return queryset.filter(end_time__lt=now)
+
+
 @login_required
 def event_list(request):
     # Mark specific notif as read if clicked from notifications (e.g. for canceled team events)
@@ -1167,30 +1186,32 @@ def event_list(request):
         user_family = profile.family
         user_families = [user_family] if user_family else []
 
-        # Personal Events
         personal_events = list(Event.objects.filter(
             family__in=user_families,
         ).prefetch_related('kids', 'family', 'created_by'))
 
-        # Accepted Team Events (family-wide for all kids in the family)
         accepted_team_events = list(TeamEvent.objects.filter(
             attendances__kid__family=user_family,
-            attendances__status='accepted'
+            attendances__status='accepted',
         ).select_related('team').distinct())
 
-        # Combine both
+        team_event_ids = [event.id for event in accepted_team_events]
+        attendances_by_event = defaultdict(list)
+        if team_event_ids:
+            for attendance in TeamEventAttendance.objects.filter(
+                team_event_id__in=team_event_ids,
+                kid__family=user_family,
+                status='accepted',
+            ).select_related('kid'):
+                attendances_by_event[attendance.team_event_id].append(attendance)
+
+        for event in accepted_team_events:
+            user_attendances = attendances_by_event.get(event.id, [])
+            if user_attendances:
+                event.user_attendances = user_attendances
+
         all_events = personal_events + accepted_team_events
         all_events.sort(key=lambda x: x.start_time)
-
-        # Attach attendances for team events (for delete button) - supports multiple kids
-        for event in all_events:
-            if hasattr(event, 'attendances'):  # This is a TeamEvent
-                user_attendances = list(event.attendances.filter(
-                    kid__family=user_family,
-                    status='accepted'
-                ).select_related('kid'))
-                if user_attendances:
-                    event.user_attendances = user_attendances
 
         context = {
             'events': all_events,
@@ -1198,18 +1219,32 @@ def event_list(request):
         }
 
     else:  # Owner
-        events = TeamEvent.objects.filter(
+        range_param = _event_list_range(request)
+        events_qs = TeamEvent.objects.filter(
             team__organization__owner=request.user
-        ).select_related('team').order_by('start_time')
-        
-        # Enhance for owners: attach attendance data for visibility into who's going
-        for event in events:
-            event.attendances_list = list(event.attendances.select_related('kid').filter(status='accepted')[:10])
-            event.attendance_count = event.attendances.filter(status='accepted').count()
-            # For training visibility in list
-            event.pending_count = event.attendances.filter(status='pending').count() if getattr(event, 'event_type', None) == 'training' else 0
-        
-        context = {'events': events, 'is_parent': False}
+        ).select_related('team').annotate(
+            attendance_count=Count(
+                'attendances',
+                filter=Q(attendances__status='accepted'),
+            ),
+            pending_count=Count(
+                'attendances',
+                filter=Q(attendances__status='pending'),
+            ),
+        )
+        events_qs = _apply_event_time_range(events_qs, range_param)
+        if range_param == 'past':
+            events_qs = events_qs.order_by('-start_time')
+        else:
+            events_qs = events_qs.order_by('start_time')
+
+        page_obj = Paginator(events_qs, EVENTS_PER_PAGE).get_page(request.GET.get('page'))
+        context = {
+            'events': page_obj,
+            'page_obj': page_obj,
+            'range_filter': range_param,
+            'is_parent': False,
+        }
 
     return render(request, 'core/event_list.html', context)
 

@@ -1,82 +1,88 @@
 {% extends 'core/base.html' %}
 {% block title %}Owner Dashboard - Fusion{% endblock %}
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
 
-    <!-- PROFESSIONAL HEADER -->
-    <div class="mb-8">
-        <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-            <div>
-                <div class="text-xs font-semibold tracking-[2px] text-gray-500 uppercase mb-1">Operations Center</div>
-                <h1 class="text-4xl lg:text-5xl font-bold tracking-tight text-gray-900">
-                    {{ user_organization.name|default:"Your Organization" }}
-                </h1>
-                <p class="mt-1 text-lg text-gray-600">The complete platform for running your teams and connecting with families.</p>
-            </div>
-
-            <!-- Action Buttons - side by side, responsive, mobile friendly -->
-            <div class="flex flex-wrap gap-2 sm:gap-3 w-full lg:flex-nowrap lg:w-auto">
-                <a href="{% url 'add_team_event' %}" 
-                   class="action-btn bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm rounded-3xl flex-1 min-w-[90px] justify-center transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap">
-                    <i class="fa-solid fa-calendar-plus mr-1 sm:mr-2"></i> Team Event
-                </a>
-                <a href="{% url 'add_team_event' %}?type=training" 
-                   class="action-btn bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white shadow-md hover:shadow-lg px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm rounded-3xl flex-1 min-w-[90px] justify-center transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap">
-                    <i class="fa-solid fa-dumbbell mr-1 sm:mr-2"></i> Training
-                </a>
-                <a href="{% url 'team_list' %}?from=invite_parent" 
-                   class="action-btn bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white shadow-md hover:shadow-lg px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm rounded-3xl flex-1 min-w-[90px] justify-center transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap">
-                    <i class="fa-solid fa-user-plus mr-1 sm:mr-2"></i> Invite
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- KEY METRICS - Professional Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="fusion-card p-5 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
-                <i class="fa-solid fa-people-group text-2xl"></i>
-            </div>
-            <div>
-                <div class="text-sm text-gray-500">Active Teams</div>
-                <div class="text-3xl font-bold text-gray-900">{{ total_teams|default:0 }}</div>
-            </div>
-        </div>
-        <div class="fusion-card p-5 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
-                <i class="fa-solid fa-users text-2xl"></i>
-            </div>
-            <div>
-                <div class="text-sm text-gray-500">Total Athletes</div>
-                <div class="text-3xl font-bold text-gray-900">{{ total_players|default:0 }}</div>
-            </div>
-        </div>
-        <div class="fusion-card p-5 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-violet-100 flex items-center justify-center text-violet-600 flex-shrink-0">
-                <i class="fa-solid fa-handshake text-2xl"></i>
-            </div>
-            <div>
-                <div class="text-sm text-gray-500">Families Reached</div>
-                <div class="text-3xl font-bold text-gray-900">{{ num_families|default:0 }}</div>
-            </div>
-        </div>
-        <div class="fusion-card p-5 flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600 flex-shrink-0">
-                <i class="fa-solid fa-calendar text-2xl"></i>
-            </div>
-            <div>
-                <div class="text-sm text-gray-500">This Week</div>
-                <div class="text-3xl font-bold text-gray-900">{{ upcoming_count|default:0 }}</div>
-            </div>
-        </div>
+    <!-- Title -->
+    <div class="mb-4 text-center">
+        <div class="text-xs font-semibold tracking-[2px] text-gray-500 uppercase mb-1">Operations Center</div>
+        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-gray-900">
+            {{ user_organization.name|default:"Your Organization" }}
+        </h1>
+        <p class="mt-2 text-base sm:text-lg text-gray-700 font-medium">Welcome back.</p>
+        <p class="mt-1 text-sm sm:text-base text-gray-600 max-w-2xl mx-auto">
+            Fusion is family and team sports scheduling that connects your organization with every roster <span class="whitespace-nowrap">and family you serve.</span>
+        </p>
     </div>
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        
-        <!-- UPCOMING EVENTS - Main Content -->
-        <div class="xl:col-span-2">
-            <div class="flex items-center justify-between mb-4 px-1">
+        <!-- Main column: metrics, buttons, events (aligned width) -->
+        <div class="xl:col-span-2 flex flex-col gap-4">
+
+            <!-- KEY METRICS -->
+            <div class="grid grid-cols-4 gap-2 sm:gap-4 items-stretch">
+                <div class="fusion-card p-3 sm:p-4 flex flex-col items-center text-center min-w-0">
+                    <div class="h-12 w-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                        <i class="fa-solid fa-people-group text-xl leading-none"></i>
+                    </div>
+                    <div class="min-h-[2.75rem] flex items-center justify-center w-full px-0.5 mt-2">
+                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight">Active Teams</div>
+                    </div>
+                    <div class="text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 leading-none h-8 flex items-center justify-center w-full">
+                        {{ total_teams|default:0 }}
+                    </div>
+                </div>
+                <div class="fusion-card p-3 sm:p-4 flex flex-col items-center text-center min-w-0">
+                    <div class="h-12 w-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                        <i class="fa-solid fa-users text-xl leading-none"></i>
+                    </div>
+                    <div class="min-h-[2.75rem] flex items-center justify-center w-full px-0.5 mt-2">
+                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight">Total Athletes</div>
+                    </div>
+                    <div class="text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 leading-none h-8 flex items-center justify-center w-full">
+                        {{ total_players|default:0 }}
+                    </div>
+                </div>
+                <div class="fusion-card p-3 sm:p-4 flex flex-col items-center text-center min-w-0">
+                    <div class="h-12 w-12 rounded-2xl bg-violet-100 flex items-center justify-center text-violet-600 flex-shrink-0">
+                        <i class="fa-solid fa-handshake text-xl leading-none"></i>
+                    </div>
+                    <div class="min-h-[2.75rem] flex items-center justify-center w-full px-0.5 mt-2">
+                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight">Families Reached</div>
+                    </div>
+                    <div class="text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 leading-none h-8 flex items-center justify-center w-full">
+                        {{ num_families|default:0 }}
+                    </div>
+                </div>
+                <div class="fusion-card p-3 sm:p-4 flex flex-col items-center text-center min-w-0">
+                    <div class="h-12 w-12 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600 flex-shrink-0">
+                        <i class="fa-solid fa-calendar text-xl leading-none"></i>
+                    </div>
+                    <div class="min-h-[2.75rem] flex items-center justify-center w-full px-0.5 mt-2">
+                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight">This Week</div>
+                    </div>
+                    <div class="text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 leading-none h-8 flex items-center justify-center w-full">
+                        {{ upcoming_count|default:0 }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-2 gap-2 sm:gap-4 w-full">
+                <a href="{% url 'add_team_event' %}"
+                   class="action-btn w-full min-h-[3.25rem] inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg px-5 py-3.5 text-base font-semibold rounded-2xl transition-all duration-200 hover:-translate-y-0.5">
+                    <i class="fa-solid fa-calendar-plus flex-shrink-0 text-lg"></i>
+                    <span class="whitespace-nowrap">Team Event</span>
+                </a>
+                <a href="{% url 'team_list' %}?from=invite_parent"
+                   class="action-btn w-full min-h-[3.25rem] inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white shadow-md hover:shadow-lg px-5 py-3.5 text-base font-semibold rounded-2xl transition-all duration-200 hover:-translate-y-0.5">
+                    <i class="fa-solid fa-user-plus flex-shrink-0 text-lg"></i>
+                    <span class="whitespace-nowrap">Invite Parent</span>
+                </a>
+            </div>
+
+            <!-- UPCOMING EVENTS -->
+            <div class="flex items-center justify-between">
                 <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2">
                     <i class="fa-solid fa-calendar text-gray-400"></i> 
                     Upcoming Events
@@ -92,17 +98,18 @@
                 <a href="{% url 'team_event_detail' event.id %}" class="block p-4 sm:p-5 hover:bg-gray-50 border-b last:border-b-0 transition-colors group">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-3">
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 flex-wrap">
+                            <div class="flex items-center gap-2 min-w-0">
                                 <div class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: {{ event.team.color|default:'#64748b' }}"></div>
-                                <span class="font-semibold text-gray-900 group-hover:text-blue-600 transition">{{ event.name }}</span>
-                                {% if event.event_type == 'training' %}
-                                <span class="px-2 py-0.5 text-[10px] font-semibold bg-violet-100 text-violet-700 rounded-full">TRAINING</span>
-                                {% endif %}
-                                {% with s=event.summary %}
-                                <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full">{{ s.accepted_count|default:0 }} going</span>
-                                {% if s.pending_count %}<span class="px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700 rounded-full">{{ s.pending_count }} pending</span>{% endif %}
-                                {% if s.declined_count %}<span class="px-1.5 py-0.5 text-[10px] font-semibold bg-red-100 text-red-600 rounded-full">{{ s.declined_count }} no</span>{% endif %}
-                                {% endwith %}
+                                <div class="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+                                    <span class="font-semibold text-gray-900 group-hover:text-blue-600 transition truncate min-w-0" title="{{ event.name }}">{{ event.name }}</span>
+                                    {% if event.event_type == 'training' %}
+                                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800 rounded-full whitespace-nowrap flex-shrink-0">TRAINING</span>
+                                    {% endif %}
+                                    {% with s=event.summary %}
+                                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full whitespace-nowrap flex-shrink-0">{{ s.accepted_count|default:0 }} going</span>
+                                    {% if s.declined_count %}<span class="px-1.5 py-0.5 text-[10px] font-semibold bg-red-100 text-red-600 rounded-full whitespace-nowrap flex-shrink-0">{{ s.declined_count }} no</span>{% endif %}
+                                    {% endwith %}
+                                </div>
                             </div>
                             <div class="mt-1 text-sm text-gray-600 flex items-center gap-2 flex-wrap">
                                 <span class="font-medium" style="color: {{ event.team.color|default:'#334155' }}">{{ event.team.name|default:"Org" }}</span>
@@ -120,7 +127,7 @@
             <div class="fusion-card p-8 text-center">
                 <i class="fa-solid fa-calendar text-4xl text-gray-300 mb-3"></i>
                 <p class="font-medium text-gray-700">No upcoming events</p>
-                <p class="text-sm text-gray-500 mt-1">Create a team event or training to get started.</p>
+                <p class="text-sm text-gray-500 mt-1">Create a team event to get started.</p>
             </div>
             {% endif %}
         </div>

@@ -2,7 +2,7 @@
 {% block title %}My Events - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 py-6 flex gap-6">
+<div class="max-w-7xl mx-auto px-4 py-6 flex gap-6 min-w-0 overflow-x-hidden">
 
     <!-- LEFT SIDEBAR -->
     <div class="w-64 hidden lg:block">
@@ -45,32 +45,95 @@
     </div>
 
     <!-- MAIN CONTENT -->
-    <div class="flex-1 max-w-2xl mx-auto">
+    <div class="flex-1 max-w-2xl mx-auto min-w-0 w-full">
+        {% if is_parent %}
         <div class="flex justify-between items-center mb-8">
             <div>
-                {% if is_parent %}
-                    <h1 class="text-3xl font-bold text-gray-900">My Family Schedule</h1>
-                    <p class="text-gray-600 mt-1">Personal & Team events</p>
-                {% else %}
-                    <h1 class="text-3xl font-bold text-gray-900">Team Events</h1>
-                    <p class="text-gray-600 mt-1">Events for your teams</p>
-                {% endif %}
+                <h1 class="text-3xl font-bold text-gray-900">My Family Schedule</h1>
+                <p class="text-gray-600 mt-1">Personal & Team events</p>
             </div>
-
-            {% if is_parent %}
-                <a href="{% url 'add_event' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl font-semibold flex items-center gap-1.5 sm:gap-2 shadow whitespace-nowrap text-sm sm:text-base">
-                    <span class="text-xl sm:text-2xl leading-none">+</span> New Event
-                </a>
-            {% else %}
-                <a href="{% url 'add_team_event' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl font-semibold flex items-center gap-1.5 sm:gap-2 shadow whitespace-nowrap text-sm sm:text-base">
+            <a href="{% url 'add_event' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl font-semibold flex items-center gap-1.5 sm:gap-2 shadow whitespace-nowrap text-sm sm:text-base">
+                <span class="text-xl sm:text-2xl leading-none">+</span> New Event
+            </a>
+        </div>
+        {% else %}
+        <div class="mb-6">
+            <div class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-900">Team Events</h1>
+                <p class="text-gray-600 mt-1 text-base sm:text-lg">Team events and training sessions in one place.</p>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="{% url 'event_list' %}?range=upcoming"
+                       class="px-3 py-1.5 rounded-xl text-sm font-medium {% if range_filter == 'upcoming' %}bg-blue-600 text-white{% else %}bg-white text-gray-600 border border-gray-200 hover:bg-gray-50{% endif %}">
+                        Upcoming
+                    </a>
+                    <a href="{% url 'event_list' %}?range=past"
+                       class="px-3 py-1.5 rounded-xl text-sm font-medium {% if range_filter == 'past' %}bg-blue-600 text-white{% else %}bg-white text-gray-600 border border-gray-200 hover:bg-gray-50{% endif %}">
+                        Past
+                    </a>
+                </div>
+                <a href="{% url 'add_team_event' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl font-semibold flex items-center gap-1.5 sm:gap-2 shadow whitespace-nowrap text-sm sm:text-base flex-shrink-0">
                     <span class="text-xl sm:text-2xl leading-none">+</span> New Team Event
                 </a>
-            {% endif %}
+            </div>
         </div>
+        {% endif %}
 
         {% if events %}
         <div class="space-y-4">
             {% for event in events %}
+            {% if not is_parent %}
+            <a href="{% url 'team_event_detail' event.id %}"
+               class="fusion-card p-4 sm:p-5 flex gap-3 sm:gap-5 hover:shadow-elevated transition-all group border-l-4 min-w-0 max-w-full overflow-hidden"
+               style="border-color: {{ event.team.color|default:'#64748b' }}40">
+                <div class="flex-shrink-0">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center text-center text-white shadow-sm"
+                         style="background-color: {{ event.team.color|default:'#64748b' }}">
+                        <span class="text-[9px] font-medium tracking-widest opacity-75">{{ event.start_time|date:"M" }}</span>
+                        <span class="text-2xl sm:text-3xl font-bold leading-none mt-0.5">{{ event.start_time|date:"d" }}</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0 pt-0.5 overflow-hidden">
+                    <div class="flex items-center gap-1.5 min-w-0 w-full overflow-hidden">
+                        <h2 class="font-semibold text-base sm:text-lg text-gray-900 truncate min-w-0 flex-1 group-hover:text-blue-600 transition-colors" title="{{ event.name }}">{{ event.name }}</h2>
+                        {% if event.event_type == 'training' %}
+                        <span class="px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800 rounded-full whitespace-nowrap flex-shrink-0">TRAINING</span>
+                        {% endif %}
+                    </div>
+                    <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 max-w-full overflow-hidden">
+                        {% if event.team %}
+                        <span class="inline-block min-w-0 max-w-[9rem] sm:max-w-[11rem] truncate px-2.5 py-0.5 text-xs font-semibold rounded-full"
+                              style="background-color: {{ event.team.color|default:'#64748b' }}20; color: {{ event.team.color|default:'#334155' }};"
+                              title="{{ event.team.name }}">
+                            {{ event.team.name }}
+                        </span>
+                        {% endif %}
+                        <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full whitespace-nowrap flex-shrink-0">{{ event.attendance_count|default:0 }} going</span>
+                        {% if event.event_type == 'training' and event.pending_count %}
+                        <span class="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-700 rounded-full whitespace-nowrap flex-shrink-0">{{ event.pending_count }} pending</span>
+                        {% endif %}
+                    </div>
+                    <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-gray-600 min-w-0 max-w-full overflow-hidden">
+                        <span class="flex items-center gap-1 font-medium text-gray-700 whitespace-nowrap flex-shrink-0">
+                            <span class="text-gray-400">🕒</span>
+                            <span>{{ event.start_time|time:"g:i" }}</span><span class="text-[10px] ml-0.5">{{ event.start_time|time:"A" }}</span>
+                            <span class="text-gray-300 mx-0.5">–</span>
+                            <span>{{ event.end_time|time:"g:i" }}</span><span class="text-[10px] ml-0.5">{{ event.end_time|time:"A" }}</span>
+                        </span>
+                        {% if event.location %}
+                        <span class="flex items-center gap-1 text-gray-500 min-w-0 flex-1 overflow-hidden">
+                            <span class="text-gray-400 flex-shrink-0">📍</span>
+                            <span class="truncate">{{ event.location }}</span>
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="hidden sm:flex items-center flex-shrink-0 text-gray-300 group-hover:text-blue-400 transition-colors pl-1">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </div>
+            </a>
+            {% else %}
             <div class="fusion-card p-4 sm:p-6 flex gap-4 sm:gap-6 hover:shadow-elevated transition-all {% if event.team %}border-l-4{% endif %}" {% if event.team and event.team.color %}style="border-color: {{ event.team.color }}40"{% endif %}>
 
                 <!-- Date + Color accent -->
@@ -83,23 +146,23 @@
                 </a>
 
                 <div class="flex-1 min-w-0 pt-1">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <h2 class="font-semibold text-2xl text-gray-900">{{ event.name }}</h2>
+                    <div class="flex items-start justify-between min-w-0">
+                        <div class="min-w-0 flex-1">
+                            <h2 class="font-semibold text-2xl text-gray-900 truncate" title="{{ event.name }}">{{ event.name }}</h2>
                             {% if event.team %}
-                            <div class="mt-1 flex items-center gap-2 flex-wrap">
-                                <span class="inline-block px-3 py-0.5 text-xs font-semibold rounded-full"
-                                      style="background-color: {{ event.team.color|default:'#64748b' }}20; color: {{ event.team.color|default:'#334155' }};">
+                            <div class="mt-1 flex items-center gap-2 min-w-0 overflow-hidden">
+                                <span class="inline-block max-w-full truncate px-3 py-0.5 text-xs font-semibold rounded-full"
+                                      style="background-color: {{ event.team.color|default:'#64748b' }}20; color: {{ event.team.color|default:'#334155' }};"
+                                      title="{{ event.team.name }}">
                                     {{ event.team.name }}
                                 </span>
                                 {% if event.event_type == 'training' %}
-                                <span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-violet-100 text-violet-700">Training Session</span>
+                                <span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 whitespace-nowrap flex-shrink-0">Training Session</span>
                                 {% endif %}
                             </div>
                             {% endif %}
                         </div>
                     </div>
-
                     <!-- Kids -->
                     {% if event.kids.all or event.user_attendances %}
                     <div class="flex flex-wrap gap-1.5 mt-2">
@@ -135,34 +198,19 @@
                         {% endif %}
                     </div>
 
-                    {% if not is_parent %}
-                    <div class="mt-2 text-xs flex flex-wrap gap-1">
-                        <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-2xl">{{ event.attendance_count|default:0 }} attending</span>
-                        {% if event.event_type == 'training' and event.pending_count %}
-                        <span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-2xl">{{ event.pending_count }} pending</span>
-                        {% endif %}
-                    </div>
-                    {% endif %}
+
                 </div>
 
                 <!-- Actions -->
                 <div class="flex flex-col sm:items-end justify-between gap-2 text-right text-xs sm:text-sm">
-                    {% if not is_parent %}
-                    <a href="{% url 'team_event_detail' event.id %}" class="text-blue-600 hover:underline font-medium">Manage</a>
-                    {% else %}
                     <span class="text-emerald-600 font-medium">Confirmed</span>
-                    {% endif %}
 
                     <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 text-right">
                         {% if event.team %}
-                            {% if is_parent %}
-                                {% if event.attendance_id %}
-                                <a href="{% url 'delete_attendance' event.attendance_id %}" class="text-red-600 hover:text-red-700 font-medium">Remove</a>
-                                {% else %}
-                                <a href="{% url 'team_event_detail' event.id %}" class="text-blue-600 hover:underline font-medium">View</a>
-                                {% endif %}
+                            {% if event.attendance_id %}
+                            <a href="{% url 'delete_attendance' event.attendance_id %}" class="text-red-600 hover:text-red-700 font-medium">Remove</a>
                             {% else %}
-                                <a href="{% url 'team_event_detail' event.id %}" class="text-blue-600 hover:underline font-medium">Details</a>
+                            <a href="{% url 'team_event_detail' event.id %}" class="text-blue-600 hover:underline font-medium">View</a>
                             {% endif %}
                         {% else %}
                             <a href="{% url 'edit_event' event.id %}" class="text-blue-600 hover:underline font-medium">Edit</a>
@@ -171,13 +219,42 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
             {% endfor %}
         </div>
+
+        {% if not is_parent and page_obj.has_other_pages %}
+        <nav class="mt-8 flex items-center justify-center gap-3 text-sm" aria-label="Event list pagination">
+            {% if page_obj.has_previous %}
+            <a href="{% url 'event_list' %}?range={{ range_filter }}&amp;page={{ page_obj.previous_page_number }}"
+               class="px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 font-medium">
+                Previous
+            </a>
+            {% endif %}
+            <span class="text-gray-500">
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </span>
+            {% if page_obj.has_next %}
+            <a href="{% url 'event_list' %}?range={{ range_filter }}&amp;page={{ page_obj.next_page_number }}"
+               class="px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 font-medium">
+                Next
+            </a>
+            {% endif %}
+        </nav>
+        {% endif %}
         {% else %}
             <div class="bg-white rounded-3xl border border-dashed border-gray-200 p-12 text-center">
                 <div class="text-6xl mb-4">📅</div>
+                {% if not is_parent and range_filter == 'past' %}
+                <p class="text-xl font-semibold text-gray-700">No past events</p>
+                <p class="text-gray-500 mt-1">Past team events will appear here.</p>
+                {% elif not is_parent and range_filter == 'upcoming' %}
+                <p class="text-xl font-semibold text-gray-700">No upcoming events</p>
+                <p class="text-gray-500 mt-1">Create a team event to get started.</p>
+                {% else %}
                 <p class="text-xl font-semibold text-gray-700">No events yet</p>
                 <p class="text-gray-500 mt-1">Create your first family or team event to get started.</p>
+                {% endif %}
                 {% if is_parent %}
                 <a href="{% url 'add_event' %}" class="mt-5 inline-block action-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 text-sm font-semibold">+ New Family Event</a>
                 {% else %}

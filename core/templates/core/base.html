@@ -79,7 +79,10 @@
                 <a href="{% if current_role == 'owner' %}{% url 'owner_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" 
                    class="flex items-center gap-2 text-2xl font-bold text-blue-600"
                    hx-boost="true" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML">
-                    <span>Fusion</span>
+                    <span class="flex items-baseline gap-1">
+                        <span>Fusion</span>
+                        <span class="text-[10px] font-semibold uppercase tracking-wider text-blue-500/80 leading-none">beta</span>
+                    </span>
                 </a>
 
                 <!-- Desktop Center Nav (role aware, kept liked style) -->
@@ -92,14 +95,14 @@
                         <a href="{% url 'owner_dashboard' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'owner_dashboard' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
                             <i class="fa-solid fa-home mr-1"></i> Home
                         </a>
-                        <a href="{% url 'my_organization' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'my_organization' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                            <i class="fa-solid fa-sitemap mr-1"></i> Org
+                        <a href="{% url 'event_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'event_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-calendar mr-1"></i> Events
                         </a>
                         <a href="{% url 'team_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'team_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
                             <i class="fa-solid fa-people-group mr-1"></i> Teams
                         </a>
-                        <a href="{% url 'event_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'event_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                            <i class="fa-solid fa-calendar mr-1"></i> Events
+                        <a href="{% url 'my_organization' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'my_organization' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                            <i class="fa-solid fa-sitemap mr-1"></i> Org
                         </a>
                     {% else %}
                         <a href="{% url 'dashboard' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'dashboard' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
@@ -172,9 +175,9 @@
                 {% with current=request.resolver_match.url_name %}
                 {% if current_role == 'owner' %}
                     <a href="{% url 'owner_dashboard' %}" class="block px-3 py-2 rounded {% if current == 'owner_dashboard' or current == 'owner_onboarding' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Home</a>
-                    <a href="{% url 'my_organization' %}" class="block px-3 py-2 rounded {% if current == 'my_organization' or current == 'create_organization' or current == 'organization_details' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Org</a>
-                    <a href="{% url 'team_list' %}" class="block px-3 py-2 rounded {% if current == 'team_list' or current == 'team_detail' or current == 'create_team' or current == 'edit_team' or current == 'delete_team' or current == 'team_to_parent_invite_search' or current == 'review_roster_request' or current == 'select_kids_for_team_roster' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Teams</a>
                     <a href="{% url 'event_list' %}" class="block px-3 py-2 rounded {% if current == 'event_list' or current == 'add_event' or current == 'edit_event' or current == 'delete_event' or current == 'event_detail' or current == 'add_team_event' or current == 'edit_team_event' or current == 'delete_team_event' or current == 'team_event_detail' or current == 'resolve_team_event_conflict' or current == 'review_team_event_update' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Events</a>
+                    <a href="{% url 'team_list' %}" class="block px-3 py-2 rounded {% if current == 'team_list' or current == 'team_detail' or current == 'create_team' or current == 'edit_team' or current == 'delete_team' or current == 'team_to_parent_invite_search' or current == 'review_roster_request' or current == 'select_kids_for_team_roster' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Teams</a>
+                    <a href="{% url 'my_organization' %}" class="block px-3 py-2 rounded {% if current == 'my_organization' or current == 'create_organization' or current == 'organization_details' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Org</a>
                 {% else %}
                     <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded {% if current == 'dashboard' or current == 'parent_onboarding' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Home</a>
                     <a href="{% url 'my_family' %}" class="block px-3 py-2 rounded {% if current == 'my_family' or current == 'family_detail' or current == 'create_first_family' or current == 'join_family' or current == 'setup_family' or current == 'add_family' or current == 'kid_list' or current == 'add_kid' or current == 'edit_kid' or current == 'delete_kid' or current == 'invite_parent' or current == 'remove_parent' or current == 'family_invite_response' or current == 'accept_family_invite' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">My Family</a>
@@ -220,16 +223,16 @@
     </div>
 
     <!-- Footer with legal links (Step 3 privacy compliance) -->
-    <footer class="border-t border-gray-200 bg-white mt-12">
-        <div class="max-w-6xl mx-auto px-6 py-5 text-xs text-gray-500 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-2">
-            <div>
+    <footer class="border-t border-gray-200 bg-white mt-12{% if request.user.is_authenticated %} pb-16 md:pb-0{% endif %}">
+        <div class="max-w-6xl mx-auto px-6 py-5 text-xs text-gray-500 flex flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div class="whitespace-nowrap">
                 &copy; {% now "Y" %} Fusion. Family &amp; team scheduling.
             </div>
-            <div class="flex flex-wrap gap-x-4 gap-y-1">
-                <a href="{% url 'privacy_policy' %}" class="hover:text-gray-700">Privacy Policy</a>
-                <a href="{% url 'terms_of_service' %}" class="hover:text-gray-700">Terms of Service</a>
+            <div class="flex flex-row flex-wrap items-center gap-x-4 gap-y-1">
+                <a href="{% url 'privacy_policy' %}" class="hover:text-gray-700 whitespace-nowrap">Privacy Policy</a>
+                <a href="{% url 'terms_of_service' %}" class="hover:text-gray-700 whitespace-nowrap">Terms of Service</a>
                 <span class="text-gray-300">•</span>
-                <span class="text-[10px]">We protect children's data. Export or delete your data anytime from Account Settings.</span>
+                <span class="text-[10px] sm:text-xs">We protect children's data. Export or delete your data anytime from Account Settings.</span>
             </div>
         </div>
     </footer>
@@ -246,17 +249,17 @@
                     <i class="fa-solid fa-home text-lg"></i>
                     <span class="text-[10px]">Home</span>
                 </a>
-                <a href="{% url 'my_organization' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'my_organization' or current == 'create_organization' or current == 'organization_details' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
-                    <i class="fa-solid fa-sitemap text-lg"></i>
-                    <span class="text-[10px]">Org</span>
-                </a>
-                <a href="{% url 'team_list' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'team_list' or current == 'team_detail' or current == 'create_team' or current == 'edit_team' or current == 'delete_team' or current == 'team_to_parent_invite_search' or current == 'review_roster_request' or current == 'select_kids_for_team_roster' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
-                    <i class="fa-solid fa-futbol text-lg"></i>
-                    <span class="text-[10px]">Teams</span>
-                </a>
                 <a href="{% url 'event_list' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'event_list' or current == 'add_event' or current == 'edit_event' or current == 'delete_event' or current == 'event_detail' or current == 'add_team_event' or current == 'edit_team_event' or current == 'delete_team_event' or current == 'team_event_detail' or current == 'resolve_team_event_conflict' or current == 'review_team_event_update' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
                     <i class="fa-solid fa-calendar text-lg"></i>
                     <span class="text-[10px]">Events</span>
+                </a>
+                <a href="{% url 'team_list' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'team_list' or current == 'team_detail' or current == 'create_team' or current == 'edit_team' or current == 'delete_team' or current == 'team_to_parent_invite_search' or current == 'review_roster_request' or current == 'select_kids_for_team_roster' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
+                    <i class="fa-solid fa-people-group text-lg"></i>
+                    <span class="text-[10px]">Teams</span>
+                </a>
+                <a href="{% url 'my_organization' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'my_organization' or current == 'create_organization' or current == 'organization_details' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
+                    <i class="fa-solid fa-sitemap text-lg"></i>
+                    <span class="text-[10px]">Org</span>
                 </a>
             {% else %}
                 <a href="{% url 'dashboard' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'dashboard' or current == 'parent_onboarding' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
@@ -268,7 +271,7 @@
                     <span class="text-[10px]">Events</span>
                 </a>
                 <a href="{% url 'parent_teams' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'parent_teams' or current == 'parent_to_team_request' or current == 'team_invite_response' or current == 'select_kids_for_team_join_request' or current == 'find_teams' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
-                    <i class="fa-solid fa-futbol text-lg"></i>
+                    <i class="fa-solid fa-people-group text-lg"></i>
                     <span class="text-[10px]">Teams</span>
                 </a>
                 <a href="{% url 'my_family' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'my_family' or current == 'family_detail' or current == 'create_first_family' or current == 'join_family' or current == 'setup_family' or current == 'add_family' or current == 'kid_list' or current == 'add_kid' or current == 'edit_kid' or current == 'delete_kid' or current == 'invite_parent' or current == 'remove_parent' or current == 'family_invite_response' or current == 'accept_family_invite' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">

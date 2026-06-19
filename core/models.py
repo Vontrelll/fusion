@@ -68,6 +68,9 @@ class Event(models.Model):
     
     class Meta:
         ordering = ['start_time']
+        indexes = [
+            models.Index(fields=['start_time']),
+        ]
 #------------------------------------------------------------------------------------------------------------------------------
 class Kid(models.Model):
     first_name = models.CharField(max_length=100)
@@ -209,6 +212,12 @@ class TeamEvent(models.Model):
             self.location = self.location.strip().title()
         super().save(*args, **kwargs)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['start_time']),
+            models.Index(fields=['team', 'start_time']),
+        ]
+
 #------------------------------------------------------------------------------------------------------------------------------
 class TeamEventAttendance(models.Model):
     team_event = models.ForeignKey('TeamEvent', on_delete=models.CASCADE, related_name='attendances')
@@ -227,6 +236,10 @@ class TeamEventAttendance(models.Model):
 
     class Meta:
         unique_together = ('team_event', 'kid')
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['team_event', 'status']),
+        ]
 
     def __str__(self):
         return f"{self.kid} attending {self.team_event.name}"
