@@ -26,7 +26,7 @@ class Command(BaseCommand):
         try:
             org = Organization.objects.get(owner=owner)
         except Organization.DoesNotExist:
-            org, _ = Organization.objects.get_or_create(name='Onefit', owner=owner)
+            org, _ = Organization.objects.get_or_create(name='Pinnacle Performance', owner=owner)
 
         self.stdout.write(f"Using Org: {org.name}")
 
