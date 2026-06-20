@@ -450,6 +450,37 @@ class TeamEventTests(TestCase):
         invitation.refresh_from_db()
         self.assertEqual(invitation.status, "accepted")
 
+    def test_org_wide_training_invite_without_team(self):
+        """Training with no team must not 500 when sending invites or viewing detail."""
+        self.client.login(username="coach_te", password="testpass123")
+        start = timezone.now() + timedelta(days=5)
+        end = start + timedelta(hours=1)
+
+        resp = self.client.post(reverse("add_team_event"), {
+            "name": "Org Wide Skills",
+            "start_time": start.strftime("%Y-%m-%dT%H:%M"),
+            "end_time": end.strftime("%Y-%m-%dT%H:%M"),
+            "location": "Training Center",
+            "event_type": "training",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("select_players_for_training", resp["Location"])
+
+        te = TeamEvent.objects.filter(name="Org Wide Skills", event_type="training").first()
+        self.assertIsNotNone(te)
+        self.assertIsNone(te.team)
+
+        resp2 = self.client.post(reverse("select_players_for_training", args=[te.id]), {
+            "kids": [str(self.kid.id)],
+        })
+        self.assertEqual(resp2.status_code, 302)
+        self.assertIn("/team-event/", resp2["Location"])
+
+        detail = self.client.get(reverse("team_event_detail", args=[te.id]))
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, "Org Wide Skills")
+        self.assertEqual(TeamEventInvitation.objects.filter(team_event=te).count(), 1)
+
     def test_owner_creates_training_then_selects_specific_players(self):
         """Test the new training session flow:
         - Owner creates with event_type=training (no auto whole-team invites)
@@ -1370,8 +1401,12 @@ class OwnerDashboardTodayEventsTests(TestCase):
         resp = self.client.get(reverse("owner_dashboard"))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Live Practice")
+        self.assertContains(resp, "Now")
         self.assertContains(resp, "Happening Now")
         self.assertContains(resp, "story-card-live")
+        self.assertContains(resp, "from-sky-300")
+        self.assertContains(resp, "story-live-badge")
+        self.assertContains(resp, "story-live-dot-ping")
         self.assertContains(resp, 'data-is-live="1"')
 
     def test_todays_events_render_in_stories_section(self):
@@ -1453,6 +1488,45 @@ class OwnerDashboardTodayEventsTests(TestCase):
         self.assertContains(resp, "Tomorrow's Events")
         tomorrow_names = [e.name for e in resp.context["tomorrow_events"]]
         self.assertEqual(tomorrow_names, ["Tomorrow Game"])
+
+    def test_org_wide_training_today_appears_in_stories(self):
+        today = timezone.localdate()
+        start = timezone.now() + timedelta(hours=3)
+        TeamEvent.objects.create(
+            name="Warehouse Practice",
+            team=None,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+            created_by=self.owner,
+            location="Warehouse",
+            event_type="training",
+        )
+        self.client.login(username="dash_owner", password="testpass123")
+        resp = self.client.get(reverse("owner_dashboard"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Today's Events")
+        self.assertContains(resp, "Warehouse Practice")
+
+    def test_newly_created_today_team_event_appears_in_stories(self):
+        today = timezone.localdate()
+        start = timezone.make_aware(datetime.combine(today, time(18, 0)))
+        end = start + timedelta(hours=1)
+        self.client.login(username="dash_owner", password="testpass123")
+        resp = self.client.post(reverse("add_team_event"), {
+            "name": "Late Day Scrimmage",
+            "event_type": "team",
+            "team": self.team.id,
+            "start_time": start.strftime("%Y-%m-%dT%H:%M"),
+            "end_time": end.strftime("%Y-%m-%dT%H:%M"),
+            "location": "Field 2",
+            "description": "",
+        })
+        self.assertEqual(resp.status_code, 302)
+        dash = self.client.get(reverse("owner_dashboard"))
+        self.assertEqual(dash.status_code, 200)
+        self.assertContains(dash, "Late Day Scrimmage")
+        story_names = [e.name for e in dash.context["story_events"]]
+        self.assertIn("Late Day Scrimmage", story_names)
 
     def test_stories_switch_to_tomorrow_when_today_is_over(self):
         today = timezone.localdate()

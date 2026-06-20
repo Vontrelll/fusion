@@ -134,6 +134,7 @@ def dashboard(request):
 
     return render(request, "core/dashboard.html", context)
 
+@never_cache
 @login_required
 def owner_dashboard(request):
     # Support ?read= for marking notifications when linked
@@ -194,10 +195,9 @@ def owner_dashboard(request):
             for ev in events:
                 ev.summary = get_attendance_summary(ev)
 
-        today_qs = TeamEvent.objects.filter(
-            team__organization=organization,
-            start_time__date=today,
-        ).select_related('team').order_by('start_time')
+        org_events = _owner_team_event_queryset(request.user).select_related('team')
+
+        today_qs = org_events.filter(start_time__date=today).order_by('start_time')
         today_events = list(today_qs)
         _attach_summaries(today_events)
 
@@ -218,11 +218,9 @@ def owner_dashboard(request):
                     break
             else:
                 has_live_today = any(ev.is_happening_now() for ev in story_events)
-                tomorrow_qs = TeamEvent.objects.filter(
-                    team__organization=organization,
-                    start_time__date=tomorrow,
-                ).select_related('team').order_by('start_time')
-                tomorrow_story = list(tomorrow_qs)
+                tomorrow_story = list(
+                    org_events.filter(start_time__date=tomorrow).order_by('start_time')
+                )
                 if has_live_today:
                     story_focus_index = next(
                         i for i, ev in enumerate(story_events) if ev.is_happening_now()
@@ -235,15 +233,12 @@ def owner_dashboard(request):
                 elif story_events:
                     story_focus_index = len(story_events) - 1
 
-        tomorrow_qs = TeamEvent.objects.filter(
-            team__organization=organization,
-            start_time__date=tomorrow,
-        ).select_related('team').order_by('start_time')[:5]
-        tomorrow_events = list(tomorrow_qs)
+        tomorrow_events = list(
+            org_events.filter(start_time__date=tomorrow).order_by('start_time')[:5]
+        )
         _attach_summaries(tomorrow_events)
 
-        upcoming_count = TeamEvent.objects.filter(
-            team__organization=organization,
+        upcoming_count = org_events.filter(
             start_time__gte=now,
             start_time__lte=in_one_week,
         ).count()
@@ -264,15 +259,14 @@ def owner_dashboard(request):
                 'link': reverse('org_players'),
             })
 
-        # Recent team events
-        recent_ev = TeamEvent.objects.filter(
-            team__organization=organization
-        ).select_related('team').order_by('-created_at')[:3]
+        # Recent team events (team-based + org-wide training)
+        recent_ev = _owner_team_event_queryset(request.user).select_related('team').order_by('-created_at')[:3]
         for e in recent_ev:
+            team_label = e.team.name if e.team else organization.name
             recent_activity.append({
                 'type': 'event',
                 'when': e.created_at,
-                'text': f"New event '{e.name}' for {e.team.name}",
+                'text': f"New event '{e.name}' for {team_label}",
                 'link': reverse('team_event_detail', args=[e.id]),
             })
 
@@ -615,18 +609,24 @@ def select_players_for_training(request, event_id):
                     # Notify parent once (even if multiple of their kids invited)
                     if parent.id not in notified_parent_ids:
                         notified_parent_ids.add(parent.id)
+                        source_label = _training_invite_source_label(team_event, organization)
+                        extra_data = {
+                            'team_event_id': team_event.id,
+                            'invitation_id': invitation.id,
+                        }
+                        if team_event.team_id:
+                            extra_data['team_id'] = team_event.team_id
                         Notification.objects.get_or_create(
                             user=parent,
                             notification_type='team_event_invitation',
                             extra_data__team_event_id=team_event.id,
                             defaults={
                                 'title': f"Training Invitation: {team_event.name}",
-                                'message': f"You have been invited to the training session '{team_event.name}' by {team_event.team.name}.",
-                                'extra_data': {
-                                    'team_event_id': team_event.id,
-                                    'invitation_id': invitation.id,
-                                    'team_id': team_event.team.id
-                                }
+                                'message': (
+                                    f"You have been invited to the training session "
+                                    f"'{team_event.name}' by {source_label}."
+                                ),
+                                'extra_data': extra_data,
                             }
                         )
 
@@ -941,6 +941,28 @@ def get_conflicts_for_kids(selected_kids, proposed_event):
         if kid_conflicts:
             conflicts[kid] = kid_conflicts
     return conflicts
+
+
+def _owner_team_event_queryset(user):
+    """Team events an owner can manage (team-based or org-wide training they created)."""
+    return TeamEvent.objects.filter(
+        Q(team__organization__owner=user) |
+        Q(created_by=user, team__isnull=True)
+    )
+
+
+def _user_owns_team_event(team_event, user):
+    if team_event.team_id:
+        return team_event.team.organization.owner_id == user.id
+    return team_event.created_by_id == user.id
+
+
+def _training_invite_source_label(team_event, organization=None):
+    if team_event.team_id:
+        return team_event.team.name
+    if organization:
+        return organization.name
+    return "your organization"
 
 
 def get_attendance_summary(team_event):
@@ -2709,44 +2731,26 @@ def team_event_detail(request, event_id):
     profile = _safe_get_user_profile(request)
     user_family = profile.family
 
-    # For owners: scope to their org's teams only. For parents: we'll validate via attendance after.
-    team_event = None
-    if profile.role == "owner":
-        try:
-            team_event = TeamEvent.objects.get(
-                id=event_id,
-                team__organization__owner=request.user
-            )
-        except TeamEvent.DoesNotExist:
-            messages.error(request, "Team event not found.")
-            return redirect('event_list')
-    else:
-        try:
-            team_event = TeamEvent.objects.get(id=event_id)
-        except TeamEvent.DoesNotExist:
-            messages.error(request, "Team event not found.")
-            return redirect('event_list')
+    try:
+        team_event = TeamEvent.objects.select_related(
+            'team', 'team__organization', 'created_by'
+        ).get(id=event_id)
+    except TeamEvent.DoesNotExist:
+        messages.error(request, "Team event not found.")
+        return redirect('event_list')
 
-    # Permission: owner of the team OR has an accepted attendance for one of their family kids
-    has_access = False
-
-    if team_event.team.organization.owner == request.user:
-        has_access = True
-    elif user_family:
-        has_attendance = TeamEventAttendance.objects.filter(
+    is_owner = _user_owns_team_event(team_event, request.user)
+    has_access = is_owner
+    if not has_access and user_family:
+        has_access = TeamEventAttendance.objects.filter(
             team_event=team_event,
             kid__family=user_family,
             status='accepted'
         ).exists()
-        if has_attendance:
-            has_access = True
 
     if not has_access:
         messages.error(request, "You do not have access to this team event.")
         return redirect('event_list')
-
-    # Get attendances for display + summary (for owners to see at-a-glance who is going)
-    is_owner = (team_event.team.organization.owner == request.user)
     if is_owner:
         attendances = team_event.attendances.select_related('kid').all()
     else:

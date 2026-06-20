@@ -229,7 +229,7 @@ class Command(BaseCommand):
         live_team = teams[0]
         live_start = now - timedelta(minutes=20)
         live_end = now + timedelta(minutes=40)
-        TeamEvent.objects.update_or_create(
+        live_event, _ = TeamEvent.objects.update_or_create(
             team=live_team,
             name='Happening Now Demo',
             defaults={
@@ -241,6 +241,10 @@ class Command(BaseCommand):
                 'event_type': 'team',
             },
         )
+        # Always refresh the window so the demo stays live on re-seed
+        live_event.start_time = live_start
+        live_event.end_time = live_end
+        live_event.save(update_fields=['start_time', 'end_time'])
 
         # Personal events for darvin
         for i in range(2):
