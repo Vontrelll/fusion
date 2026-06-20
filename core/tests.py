@@ -1314,3 +1314,32 @@ class OrganizationEditTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.other_org.refresh_from_db()
         self.assertEqual(self.other_org.name, "Other Org")
+
+
+class KidDisplayInitialsTests(TestCase):
+    def setUp(self):
+        self.parent, _ = create_parent_user("initials_parent")
+        self.family = create_family("Initials Family", self.parent)
+
+    def test_full_name_uses_first_and_last_initial(self):
+        kid = create_kid("Jordan", "Smith", self.family, self.parent)
+        self.assertEqual(kid.display_initials(), "JS")
+
+    def test_missing_last_name_uses_first_two_letters(self):
+        kid = create_kid("Jordan", "", self.family, self.parent)
+        self.assertEqual(kid.display_initials(), "JO")
+
+    def test_single_letter_first_name_duplicates_initial(self):
+        kid = create_kid("J", "", self.family, self.parent)
+        self.assertEqual(kid.display_initials(), "JJ")
+
+    def test_missing_names_falls_back_to_question_mark(self):
+        kid = Kid.objects.create(
+            first_name="",
+            last_name="",
+            date_of_birth="2015-06-15",
+            gender="M",
+            family=self.family,
+            parent=self.parent,
+        )
+        self.assertEqual(kid.display_initials(), "?")

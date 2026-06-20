@@ -104,9 +104,9 @@
             <div class="grid grid-cols-1 gap-4">
                 {% for reg in org_family_regs %}
                 <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex items-center gap-4">
-                    <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0 text-white"
+                    <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-base font-semibold flex-shrink-0 text-white"
                          style="background-color: {{ reg.kid.color|default:'#f59e0b' }}">
-                        {% if reg.kid.gender == 'M' %}👦{% else %}👧{% endif %}
+                        {{ reg.kid.display_initials }}
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between">

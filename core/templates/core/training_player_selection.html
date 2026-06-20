@@ -41,9 +41,9 @@
                     <input type="checkbox" name="kids" value="{{ reg.kid.id }}"
                            class="w-5 h-5 text-violet-600 rounded focus:ring-violet-500">
                     <div class="flex-1 min-w-0 flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-2xl flex items-center justify-center text-lg flex-shrink-0 text-white" 
+                        <span class="w-8 h-8 rounded-2xl flex items-center justify-center text-xs font-semibold flex-shrink-0 text-white" 
                               style="background-color: {{ reg.kid.color|default:'#3b82f6' }}">
-                            {% if reg.kid.gender == 'M' %}👦{% else %}👧{% endif %}
+                            {{ reg.kid.display_initials }}
                         </span>
                         <div class="min-w-0 flex-1">
                             <div class="font-medium">{{ reg.kid.first_name }} {{ reg.kid.last_name }}</div>

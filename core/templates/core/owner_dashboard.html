@@ -10,7 +10,7 @@
             {{ user_organization.name|default:"Your Organization" }}
         </h1>
         <p class="mt-2 text-sm sm:text-base text-gray-600 max-w-2xl mx-auto">
-            Fusion is family and team sports scheduling that connects your organization with every roster <span class="whitespace-nowrap">and family you serve.</span>
+            Connect your organization with every roster and family you serve.
         </p>
     </div>
 
@@ -20,47 +20,47 @@
 
             <!-- KEY METRICS -->
             <div class="grid grid-cols-4 gap-2 sm:gap-4 items-stretch">
-                <div class="fusion-card p-3 sm:p-4 flex flex-col items-center text-center min-w-0">
-                    <div class="h-12 w-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
-                        <i class="fa-solid fa-people-group text-xl leading-none"></i>
+                <div class="fusion-card p-4 sm:p-5 flex flex-col items-center text-center min-w-0">
+                    <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                        <i class="fa-solid fa-people-group text-2xl sm:text-3xl leading-none"></i>
                     </div>
-                    <div class="min-h-[2.75rem] flex items-center justify-center w-full px-0.5 mt-2">
-                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight">Active Teams</div>
+                    <div class="min-h-[2.75rem] sm:min-h-[3rem] flex items-center justify-center w-full px-0.5 mt-2.5">
+                        <div class="text-xs sm:text-sm text-gray-500 leading-tight">Active Teams</div>
                     </div>
-                    <div class="text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 leading-none h-8 flex items-center justify-center w-full">
+                    <div class="text-3xl sm:text-4xl font-bold tabular-nums text-gray-900 leading-none h-9 sm:h-10 flex items-center justify-center w-full">
                         {{ total_teams|default:0 }}
                     </div>
                 </div>
-                <div class="fusion-card p-3 sm:p-4 flex flex-col items-center text-center min-w-0">
-                    <div class="h-12 w-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
-                        <i class="fa-solid fa-users text-xl leading-none"></i>
+                <div class="fusion-card p-4 sm:p-5 flex flex-col items-center text-center min-w-0">
+                    <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                        <i class="fa-solid fa-users text-2xl sm:text-3xl leading-none"></i>
                     </div>
-                    <div class="min-h-[2.75rem] flex items-center justify-center w-full px-0.5 mt-2">
-                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight">Total Athletes</div>
+                    <div class="min-h-[2.75rem] sm:min-h-[3rem] flex items-center justify-center w-full px-0.5 mt-2.5">
+                        <div class="text-xs sm:text-sm text-gray-500 leading-tight">Total Athletes</div>
                     </div>
-                    <div class="text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 leading-none h-8 flex items-center justify-center w-full">
+                    <div class="text-3xl sm:text-4xl font-bold tabular-nums text-gray-900 leading-none h-9 sm:h-10 flex items-center justify-center w-full">
                         {{ total_players|default:0 }}
                     </div>
                 </div>
-                <div class="fusion-card p-3 sm:p-4 flex flex-col items-center text-center min-w-0">
-                    <div class="h-12 w-12 rounded-2xl bg-violet-100 flex items-center justify-center text-violet-600 flex-shrink-0">
-                        <i class="fa-solid fa-handshake text-xl leading-none"></i>
+                <div class="fusion-card p-4 sm:p-5 flex flex-col items-center text-center min-w-0">
+                    <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-violet-100 flex items-center justify-center text-violet-600 flex-shrink-0">
+                        <i class="fa-solid fa-handshake text-2xl sm:text-3xl leading-none"></i>
                     </div>
-                    <div class="min-h-[2.75rem] flex items-center justify-center w-full px-0.5 mt-2">
-                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight">Families Reached</div>
+                    <div class="min-h-[2.75rem] sm:min-h-[3rem] flex items-center justify-center w-full px-0.5 mt-2.5">
+                        <div class="text-xs sm:text-sm text-gray-500 leading-tight">Families Reached</div>
                     </div>
-                    <div class="text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 leading-none h-8 flex items-center justify-center w-full">
+                    <div class="text-3xl sm:text-4xl font-bold tabular-nums text-gray-900 leading-none h-9 sm:h-10 flex items-center justify-center w-full">
                         {{ num_families|default:0 }}
                     </div>
                 </div>
-                <div class="fusion-card p-3 sm:p-4 flex flex-col items-center text-center min-w-0">
-                    <div class="h-12 w-12 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600 flex-shrink-0">
-                        <i class="fa-solid fa-calendar text-xl leading-none"></i>
+                <div class="fusion-card p-4 sm:p-5 flex flex-col items-center text-center min-w-0">
+                    <div class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600 flex-shrink-0">
+                        <i class="fa-solid fa-calendar text-2xl sm:text-3xl leading-none"></i>
                     </div>
-                    <div class="min-h-[2.75rem] flex items-center justify-center w-full px-0.5 mt-2">
-                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight">This Week</div>
+                    <div class="min-h-[2.75rem] sm:min-h-[3rem] flex items-center justify-center w-full px-0.5 mt-2.5">
+                        <div class="text-xs sm:text-sm text-gray-500 leading-tight">This Week</div>
                     </div>
-                    <div class="text-2xl sm:text-3xl font-bold tabular-nums text-gray-900 leading-none h-8 flex items-center justify-center w-full">
+                    <div class="text-3xl sm:text-4xl font-bold tabular-nums text-gray-900 leading-none h-9 sm:h-10 flex items-center justify-center w-full">
                         {{ upcoming_count|default:0 }}
                     </div>
                 </div>
@@ -69,13 +69,13 @@
             <!-- Action Buttons -->
             <div class="grid grid-cols-2 gap-2 sm:gap-4 w-full">
                 <a href="{% url 'add_team_event' %}"
-                   class="action-btn w-full min-h-[3.25rem] inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg px-5 py-3.5 text-base font-semibold rounded-2xl transition-all duration-200 hover:-translate-y-0.5">
-                    <i class="fa-solid fa-calendar-plus flex-shrink-0 text-lg"></i>
+                   class="action-btn w-full min-h-[3.75rem] sm:min-h-[4rem] inline-flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg px-6 py-4 text-base sm:text-lg font-semibold rounded-2xl transition-all duration-200 hover:-translate-y-0.5">
+                    <i class="fa-solid fa-calendar-plus flex-shrink-0 text-xl"></i>
                     <span class="whitespace-nowrap">Team Event</span>
                 </a>
                 <a href="{% url 'team_list' %}?from=invite_parent"
-                   class="action-btn w-full min-h-[3.25rem] inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white shadow-md hover:shadow-lg px-5 py-3.5 text-base font-semibold rounded-2xl transition-all duration-200 hover:-translate-y-0.5">
-                    <i class="fa-solid fa-user-plus flex-shrink-0 text-lg"></i>
+                   class="action-btn w-full min-h-[3.75rem] sm:min-h-[4rem] inline-flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white shadow-md hover:shadow-lg px-6 py-4 text-base sm:text-lg font-semibold rounded-2xl transition-all duration-200 hover:-translate-y-0.5">
+                    <i class="fa-solid fa-user-plus flex-shrink-0 text-xl"></i>
                     <span class="whitespace-nowrap">Invite Parent</span>
                 </a>
             </div>
@@ -134,17 +134,17 @@
         <!-- SIDE PANEL: Quick Links & Fusion Impact -->
         <div class="space-y-6">
             <!-- Quick Actions (moved closer to top) -->
-            <div class="fusion-card p-6">
-                <div class="text-xs uppercase tracking-widest text-gray-500 mb-3">Quick Actions</div>
-                <div class="grid grid-cols-1 gap-2 text-sm">
-                    <a href="{% url 'org_players' %}" class="flex items-center gap-3 p-2.5 -mx-2 rounded-xl hover:bg-gray-50 text-gray-700">
-                        <i class="fa-solid fa-users w-4 text-emerald-500"></i> <span>Manage Roster &amp; Players</span>
+            <div class="fusion-card p-6 sm:p-7">
+                <div class="text-sm uppercase tracking-widest text-gray-500 mb-4">Quick Actions</div>
+                <div class="grid grid-cols-1 gap-2.5 text-base">
+                    <a href="{% url 'org_players' %}" class="flex items-center gap-3.5 p-3.5 -mx-2 rounded-xl hover:bg-gray-50 text-gray-700">
+                        <i class="fa-solid fa-users w-5 text-lg text-emerald-500"></i> <span>Manage Roster &amp; Players</span>
                     </a>
-                    <a href="{% url 'team_list' %}" class="flex items-center gap-3 p-2.5 -mx-2 rounded-xl hover:bg-gray-50 text-gray-700">
-                        <i class="fa-solid fa-people-group w-4 text-blue-500"></i> <span>Manage Teams</span>
+                    <a href="{% url 'team_list' %}" class="flex items-center gap-3.5 p-3.5 -mx-2 rounded-xl hover:bg-gray-50 text-gray-700">
+                        <i class="fa-solid fa-people-group w-5 text-lg text-blue-500"></i> <span>Manage Teams</span>
                     </a>
-                    <a href="{% url 'notifications' %}" class="flex items-center gap-3 p-2.5 -mx-2 rounded-xl hover:bg-gray-50 text-gray-700">
-                        <i class="fa-solid fa-bell w-4 text-orange-500"></i> <span>View Notifications</span>
+                    <a href="{% url 'notifications' %}" class="flex items-center gap-3.5 p-3.5 -mx-2 rounded-xl hover:bg-gray-50 text-gray-700">
+                        <i class="fa-solid fa-bell w-5 text-lg text-orange-500"></i> <span>View Notifications</span>
                     </a>
                 </div>
             </div>

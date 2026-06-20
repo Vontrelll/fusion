@@ -71,7 +71,7 @@
 
     <!-- Navigation Bar -->
     {% block navigation %}
-    <nav class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 shadow-md backdrop-blur bg-white/95">
+    <nav class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 shadow-md backdrop-blur bg-white/95 overflow-x-hidden">
         <div class="max-w-6xl mx-auto px-6">
             <div class="h-14 flex items-center justify-between">
                 
@@ -85,26 +85,13 @@
                     </span>
                 </a>
 
-                <!-- Desktop Center Nav (role aware, kept liked style) -->
+                <!-- Desktop Center Nav (parents only; owners use sub-nav below) -->
                 {% with current=request.resolver_match.url_name %}
-                {% if request.user.is_authenticated %}
+                {% if request.user.is_authenticated and current_role != 'owner' %}
                 <div id="desktop-nav" class="hidden md:flex items-center gap-1"
                      {% if request.META.HTTP_HX_REQUEST %}hx-swap-oob="true"{% endif %}
                      hx-boost="true" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML">
-                    {% if current_role == 'owner' %}
-                        <a href="{% url 'owner_dashboard' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'owner_dashboard' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                            <i class="fa-solid fa-home mr-1"></i> Home
-                        </a>
-                        <a href="{% url 'event_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'event_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                            <i class="fa-solid fa-calendar mr-1"></i> Events
-                        </a>
-                        <a href="{% url 'team_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'team_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                            <i class="fa-solid fa-people-group mr-1"></i> Teams
-                        </a>
-                        <a href="{% url 'my_organization' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'my_organization' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
-                            <i class="fa-solid fa-sitemap mr-1"></i> Org
-                        </a>
-                    {% else %}
+                    {% if current_role == 'parent' %}
                         <a href="{% url 'dashboard' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'dashboard' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
                             <i class="fa-solid fa-home mr-1"></i> Home
                         </a>
@@ -119,7 +106,7 @@
                         </a>
                     {% endif %}
                 </div>
-                {% else %}
+                {% elif not request.user.is_authenticated %}
                 <!-- Anon: no main nav items (or could link to marketing) -->
                 <div class="hidden md:flex items-center gap-1 text-sm text-gray-400">
                     <span class="px-3">Family &amp; Team Scheduling</span>
@@ -165,6 +152,31 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Owner nav: directly under Fusion beta + top bar -->
+            {% if request.user.is_authenticated and current_role == 'owner' %}
+            {% with current=request.resolver_match.url_name %}
+            <div id="owner-sub-nav" class="border-t border-gray-100 grid grid-cols-5 items-stretch -mx-2 sm:mx-0"
+                 {% if request.META.HTTP_HX_REQUEST %}hx-swap-oob="true"{% endif %}
+                 hx-boost="true" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML">
+                <a href="{% url 'owner_dashboard' %}" class="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-0 px-1 sm:px-3 py-2 rounded-xl hover:bg-gray-100 text-[10px] sm:text-sm font-medium text-center min-w-0 {% if current == 'owner_dashboard' or current == 'owner_onboarding' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                    <i class="fa-solid fa-home text-sm sm:text-base sm:mr-1"></i><span>Home</span>
+                </a>
+                <a href="{% url 'event_list' %}" class="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-0 px-1 sm:px-3 py-2 rounded-xl hover:bg-gray-100 text-[10px] sm:text-sm font-medium text-center min-w-0 {% if current == 'event_list' or current == 'add_event' or current == 'edit_event' or current == 'delete_event' or current == 'event_detail' or current == 'add_team_event' or current == 'edit_team_event' or current == 'delete_team_event' or current == 'team_event_detail' or current == 'resolve_team_event_conflict' or current == 'review_team_event_update' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                    <i class="fa-solid fa-calendar text-sm sm:text-base sm:mr-1"></i><span>Events</span>
+                </a>
+                <a href="{% url 'team_list' %}" class="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-0 px-1 sm:px-3 py-2 rounded-xl hover:bg-gray-100 text-[10px] sm:text-sm font-medium text-center min-w-0 {% if current == 'team_list' or current == 'team_detail' or current == 'create_team' or current == 'edit_team' or current == 'delete_team' or current == 'team_to_parent_invite_search' or current == 'review_roster_request' or current == 'select_kids_for_team_roster' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                    <i class="fa-solid fa-people-group text-sm sm:text-base sm:mr-1"></i><span>Teams</span>
+                </a>
+                <a href="{% url 'org_players' %}" class="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-0 px-1 sm:px-3 py-2 rounded-xl hover:bg-gray-100 text-[10px] sm:text-sm font-medium text-center min-w-0 {% if current == 'org_players' or current == 'family_details' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                    <i class="fa-solid fa-users text-sm sm:text-base sm:mr-1"></i><span>Players</span>
+                </a>
+                <a href="{% url 'my_organization' %}" class="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-0 px-1 sm:px-3 py-2 rounded-xl hover:bg-gray-100 text-[10px] sm:text-sm font-medium text-center min-w-0 {% if current == 'my_organization' or current == 'create_organization' or current == 'organization_details' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                    <i class="fa-solid fa-sitemap text-sm sm:text-base sm:mr-1"></i><span>Org</span>
+                </a>
+            </div>
+            {% endwith %}
+            {% endif %}
         </div>
 
         <!-- Mobile Menu (kept for responsiveness) -->
@@ -173,12 +185,7 @@
                  {% if request.META.HTTP_HX_REQUEST %}hx-swap-oob="true"{% endif %}
                  hx-boost="true" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML">
                 {% with current=request.resolver_match.url_name %}
-                {% if current_role == 'owner' %}
-                    <a href="{% url 'owner_dashboard' %}" class="block px-3 py-2 rounded {% if current == 'owner_dashboard' or current == 'owner_onboarding' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Home</a>
-                    <a href="{% url 'event_list' %}" class="block px-3 py-2 rounded {% if current == 'event_list' or current == 'add_event' or current == 'edit_event' or current == 'delete_event' or current == 'event_detail' or current == 'add_team_event' or current == 'edit_team_event' or current == 'delete_team_event' or current == 'team_event_detail' or current == 'resolve_team_event_conflict' or current == 'review_team_event_update' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Events</a>
-                    <a href="{% url 'team_list' %}" class="block px-3 py-2 rounded {% if current == 'team_list' or current == 'team_detail' or current == 'create_team' or current == 'edit_team' or current == 'delete_team' or current == 'team_to_parent_invite_search' or current == 'review_roster_request' or current == 'select_kids_for_team_roster' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Teams</a>
-                    <a href="{% url 'my_organization' %}" class="block px-3 py-2 rounded {% if current == 'my_organization' or current == 'create_organization' or current == 'organization_details' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Org</a>
-                {% else %}
+                {% if current_role == 'parent' %}
                     <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded {% if current == 'dashboard' or current == 'parent_onboarding' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Home</a>
                     <a href="{% url 'my_family' %}" class="block px-3 py-2 rounded {% if current == 'my_family' or current == 'family_detail' or current == 'create_first_family' or current == 'join_family' or current == 'setup_family' or current == 'add_family' or current == 'kid_list' or current == 'add_kid' or current == 'edit_kid' or current == 'delete_kid' or current == 'invite_parent' or current == 'remove_parent' or current == 'family_invite_response' or current == 'accept_family_invite' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">My Family</a>
                     <a href="{% url 'parent_teams' %}" class="block px-3 py-2 rounded {% if current == 'parent_teams' or current == 'parent_to_team_request' or current == 'team_invite_response' or current == 'select_kids_for_team_join_request' or current == 'find_teams' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">My Teams</a>
@@ -203,7 +210,7 @@
 
     <!-- Messages (consistent, role-aware friendly) -->
     {% if messages %}
-    <div class="max-w-7xl mx-auto px-5 sm:px-6 pt-16">
+    <div class="max-w-7xl mx-auto px-5 sm:px-6 {% if request.user.is_authenticated and current_role == 'owner' %}pt-28{% else %}pt-16{% endif %}">
         {% for message in messages %}
         <div class="flash-message px-4 py-3 rounded-2xl mb-4 text-sm font-medium border transition-opacity duration-500
             {% if message.tags == 'success' %}bg-green-50 text-green-800 border-green-200{% endif %}
@@ -217,13 +224,13 @@
     {% endif %}
 
     <!-- Main Content - unified wide container (pt for fixed floating nav) -->
-    <div id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-4 sm:pb-6">
+    <div id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 {% if request.user.is_authenticated and current_role == 'owner' %}pt-28{% else %}pt-16{% endif %} pb-4 sm:pb-6">
         {% block content %}
         {% endblock %}
     </div>
 
     <!-- Footer with legal links (Step 3 privacy compliance) -->
-    <footer class="border-t border-gray-200 bg-white mt-12{% if request.user.is_authenticated %} pb-16 md:pb-0{% endif %}">
+    <footer class="border-t border-gray-200 bg-white mt-12{% if request.user.is_authenticated and current_role != 'owner' %} pb-16 md:pb-0{% endif %}">
         <div class="max-w-6xl mx-auto px-6 py-5 text-xs text-gray-500 flex flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div class="whitespace-nowrap">
                 &copy; {% now "Y" %} Fusion. Family &amp; team scheduling.
@@ -237,31 +244,14 @@
         </div>
     </footer>
 
-    <!-- Mobile Bottom Navigation (kept for responsiveness) -->
-    {% if request.user.is_authenticated %}
+    <!-- Mobile Bottom Navigation (parents only; owners use sub-nav under header) -->
+    {% if request.user.is_authenticated and current_role != 'owner' %}
     <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
         <div id="bottom-nav" class="flex justify-around items-center h-14 text-xs"
              {% if request.META.HTTP_HX_REQUEST %}hx-swap-oob="true"{% endif %}
              hx-boost="true" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML">
             {% with current=request.resolver_match.url_name %}
-            {% if current_role == 'owner' %}
-                <a href="{% url 'owner_dashboard' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'owner_dashboard' or current == 'owner_onboarding' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
-                    <i class="fa-solid fa-home text-lg"></i>
-                    <span class="text-[10px]">Home</span>
-                </a>
-                <a href="{% url 'event_list' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'event_list' or current == 'add_event' or current == 'edit_event' or current == 'delete_event' or current == 'event_detail' or current == 'add_team_event' or current == 'edit_team_event' or current == 'delete_team_event' or current == 'team_event_detail' or current == 'resolve_team_event_conflict' or current == 'review_team_event_update' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
-                    <i class="fa-solid fa-calendar text-lg"></i>
-                    <span class="text-[10px]">Events</span>
-                </a>
-                <a href="{% url 'team_list' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'team_list' or current == 'team_detail' or current == 'create_team' or current == 'edit_team' or current == 'delete_team' or current == 'team_to_parent_invite_search' or current == 'review_roster_request' or current == 'select_kids_for_team_roster' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
-                    <i class="fa-solid fa-people-group text-lg"></i>
-                    <span class="text-[10px]">Teams</span>
-                </a>
-                <a href="{% url 'my_organization' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'my_organization' or current == 'create_organization' or current == 'organization_details' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
-                    <i class="fa-solid fa-sitemap text-lg"></i>
-                    <span class="text-[10px]">Org</span>
-                </a>
-            {% else %}
+            {% if current_role == 'parent' %}
                 <a href="{% url 'dashboard' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'dashboard' or current == 'parent_onboarding' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
                     <i class="fa-solid fa-home text-lg"></i>
                     <span class="text-[10px]">Home</span>
@@ -358,9 +348,24 @@
             }
         });
 
+        // Always start at the top on reload and HTMX page changes
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+        window.scrollTo(0, 0);
+        window.addEventListener('pageshow', function(e) {
+            if (e.persisted) window.scrollTo(0, 0);
+        });
+        document.body.addEventListener('htmx:afterSwap', function(e) {
+            if (e.detail.target && e.detail.target.id === 'main-content') {
+                window.scrollTo(0, 0);
+            }
+        });
+
         // Auto-dismiss flash messages (success/warning/error/info) after a few seconds
         // So they don't linger too long on parent or owner pages.
         document.addEventListener('DOMContentLoaded', function() {
+            window.scrollTo(0, 0);
             document.querySelectorAll('.flash-message').forEach(function(el) {
                 setTimeout(function() {
                     el.style.transition = 'opacity 400ms ease';

@@ -92,6 +92,18 @@ class Kid(models.Model):
             self.last_name = self.last_name.strip().title()
         super().save(*args, **kwargs)
 
+    def display_initials(self):
+        """Two-character initials for org roster avatars."""
+        first = (self.first_name or '').strip()
+        last = (self.last_name or '').strip()
+        if first and last:
+            return f"{first[0]}{last[0]}".upper()
+        if len(first) >= 2:
+            return first[:2].upper()
+        if first:
+            return f"{first[0]}{first[0]}".upper()
+        return '?'
+
 #------------------------------------------------------------------------------------------------------------------------------
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

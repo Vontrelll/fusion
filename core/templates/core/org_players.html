@@ -39,9 +39,9 @@
                 <!-- Player -->
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-xl flex-shrink-0 text-white" 
+                        <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-semibold flex-shrink-0 text-white" 
                              style="background-color: {{ reg.kid.color|default:'#10b981' }}">
-                            {% if reg.kid.gender == 'M' %}👦{% else %}👧{% endif %}
+                            {{ reg.kid.display_initials }}
                         </div>
                         <div class="min-w-0">
                             <div class="font-semibold text-lg text-gray-900 truncate">{{ reg.kid.first_name|title }} {{ reg.kid.last_name|title }}</div>

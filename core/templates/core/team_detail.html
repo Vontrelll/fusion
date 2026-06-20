@@ -52,8 +52,9 @@
                 {% for player in players %}
                 <div class="px-3 py-3 sm:px-5 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white hover:bg-gray-50 transition">
                     <div class="flex items-center gap-4">
-                        <div class="w-9 h-9 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-sm font-semibold">
-                            {{ player.kid.first_name|slice:":1" }}{{ player.kid.last_name|slice:":1" }}
+                        <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white"
+                             style="background-color: {{ player.kid.color|default:'#10b981' }}">
+                            {{ player.kid.display_initials }}
                         </div>
                         <div>
                             <div class="font-medium">{{ player.kid.first_name|title }} {{ player.kid.last_name|title }}</div>
