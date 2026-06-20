@@ -22,7 +22,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 from django.db.models import Q
 
 from core.models import (
@@ -1314,6 +1314,181 @@ class OrganizationEditTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.other_org.refresh_from_db()
         self.assertEqual(self.other_org.name, "Other Org")
+
+
+class TeamEventHappeningNowTests(TestCase):
+    def setUp(self):
+        self.owner, _ = create_owner_user("happening_owner")
+        self.org = create_org("Pinnacle Performance", self.owner)
+        self.team = create_team("U10 Boys", self.org)
+
+    def test_is_happening_now_true_during_event_window(self):
+        now = timezone.now()
+        event = TeamEvent.objects.create(
+            name="Live Window",
+            team=self.team,
+            start_time=now - timedelta(minutes=10),
+            end_time=now + timedelta(minutes=50),
+            created_by=self.owner,
+            event_type="team",
+        )
+        self.assertTrue(event.is_happening_now())
+
+    def test_is_happening_now_false_before_start(self):
+        now = timezone.now()
+        event = TeamEvent.objects.create(
+            name="Future Window",
+            team=self.team,
+            start_time=now + timedelta(hours=1),
+            end_time=now + timedelta(hours=2),
+            created_by=self.owner,
+            event_type="team",
+        )
+        self.assertFalse(event.is_happening_now())
+
+
+class OwnerDashboardTodayEventsTests(TestCase):
+    def setUp(self):
+        self.owner, _ = create_owner_user("dash_owner")
+        self.org = create_org("Pinnacle Performance", self.owner)
+        self.team = create_team("U10 Boys", self.org)
+        self.client = Client()
+
+    def test_live_event_gets_blue_depth_of_field_class(self):
+        now = timezone.now()
+        live_start = now - timedelta(minutes=30)
+        live_end = now + timedelta(hours=1)
+        TeamEvent.objects.create(
+            name="Live Practice",
+            team=self.team,
+            start_time=live_start,
+            end_time=live_end,
+            created_by=self.owner,
+            event_type="team",
+        )
+        self.client.login(username="dash_owner", password="testpass123")
+        resp = self.client.get(reverse("owner_dashboard"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Live Practice")
+        self.assertContains(resp, "Happening Now")
+        self.assertContains(resp, "story-card-live")
+        self.assertContains(resp, 'data-is-live="1"')
+
+    def test_todays_events_render_in_stories_section(self):
+        today = timezone.localdate()
+        start = timezone.make_aware(datetime.combine(today, time(9, 0)))
+        TeamEvent.objects.create(
+            name="Today Practice",
+            team=self.team,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+            created_by=self.owner,
+            location="Main Gym",
+            event_type="team",
+        )
+        self.client.login(username="dash_owner", password="testpass123")
+        resp = self.client.get(reverse("owner_dashboard"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Today's Events")
+        self.assertContains(resp, "Today Practice")
+        self.assertContains(resp, "openStoryEventModal")
+        self.assertContains(resp, "story-event-modal")
+        self.assertContains(resp, "story-slot-create")
+        self.assertContains(resp, "story-focus-index")
+
+    def test_tomorrow_events_limited_to_five(self):
+        today = timezone.localdate()
+        tomorrow = today + timedelta(days=1)
+        for hour in range(8, 16):
+            start = timezone.make_aware(datetime.combine(tomorrow, time(hour, 0)))
+            TeamEvent.objects.create(
+                name=f"Tomorrow Slot {hour}",
+                team=self.team,
+                start_time=start,
+                end_time=start + timedelta(hours=1),
+                created_by=self.owner,
+                event_type="team",
+            )
+        self.client.login(username="dash_owner", password="testpass123")
+        resp = self.client.get(reverse("owner_dashboard"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.context["tomorrow_events"]), 5)
+
+    def test_tomorrow_events_in_upcoming_section_only(self):
+        today = timezone.localdate()
+        tomorrow = today + timedelta(days=1)
+        week_out = today + timedelta(days=5)
+
+        today_start = timezone.now() + timedelta(hours=2)
+        TeamEvent.objects.create(
+            name="Today Only",
+            team=self.team,
+            start_time=today_start,
+            end_time=today_start + timedelta(hours=1),
+            created_by=self.owner,
+            event_type="team",
+        )
+        tomorrow_start = timezone.make_aware(datetime.combine(tomorrow, time(14, 0)))
+        TeamEvent.objects.create(
+            name="Tomorrow Game",
+            team=self.team,
+            start_time=tomorrow_start,
+            end_time=tomorrow_start + timedelta(hours=2),
+            created_by=self.owner,
+            event_type="team",
+        )
+        week_start = timezone.make_aware(datetime.combine(week_out, time(9, 0)))
+        TeamEvent.objects.create(
+            name="Next Week Meet",
+            team=self.team,
+            start_time=week_start,
+            end_time=week_start + timedelta(hours=1),
+            created_by=self.owner,
+            event_type="team",
+        )
+
+        self.client.login(username="dash_owner", password="testpass123")
+        resp = self.client.get(reverse("owner_dashboard"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Tomorrow's Events")
+        tomorrow_names = [e.name for e in resp.context["tomorrow_events"]]
+        self.assertEqual(tomorrow_names, ["Tomorrow Game"])
+
+    def test_stories_switch_to_tomorrow_when_today_is_over(self):
+        today = timezone.localdate()
+        tomorrow = today + timedelta(days=1)
+
+        past_end = timezone.now() - timedelta(hours=1)
+        past_start = past_end - timedelta(hours=1)
+        TeamEvent.objects.create(
+            name="Morning Done",
+            team=self.team,
+            start_time=past_start,
+            end_time=past_end,
+            created_by=self.owner,
+            event_type="team",
+        )
+        tomorrow_start = timezone.make_aware(datetime.combine(tomorrow, time(15, 0)))
+        TeamEvent.objects.create(
+            name="Tomorrow Practice",
+            team=self.team,
+            start_time=tomorrow_start,
+            end_time=tomorrow_start + timedelta(hours=1),
+            created_by=self.owner,
+            event_type="team",
+        )
+
+        self.client.login(username="dash_owner", password="testpass123")
+        resp = self.client.get(reverse("owner_dashboard"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Tomorrow's Events")
+        self.assertContains(resp, "Tomorrow Practice")
+        content = resp.content.decode()
+        stories_pos = content.find("story-stage")
+        upcoming_pos = content.find("Tomorrow's Events")
+        self.assertGreater(stories_pos, -1)
+        self.assertGreater(upcoming_pos, -1)
+        self.assertIn("Tomorrow Practice", content[stories_pos:upcoming_pos])
 
 
 class KidDisplayInitialsTests(TestCase):

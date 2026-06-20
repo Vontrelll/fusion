@@ -178,21 +178,75 @@ def owner_dashboard(request):
         team_membership__team__organization=organization
     ).values('kid__family').distinct().count() if organization else 0
 
-    # NEW: Upcoming team events this week (for header stat + dedicated section)
-    upcoming_events = []
+    # Stories row (today or tomorrow if today is done) + tomorrow's events list
+    story_events = []
+    story_section_label = "Today's Events"
+    story_focus_index = 0
+    tomorrow_events = []
     upcoming_count = 0
     if organization:
         now = timezone.now()
+        today = timezone.localdate()
+        tomorrow = today + timedelta(days=1)
         in_one_week = now + timedelta(days=7)
-        qs = TeamEvent.objects.filter(
+
+        def _attach_summaries(events):
+            for ev in events:
+                ev.summary = get_attendance_summary(ev)
+
+        today_qs = TeamEvent.objects.filter(
+            team__organization=organization,
+            start_time__date=today,
+        ).select_related('team').order_by('start_time')
+        today_events = list(today_qs)
+        _attach_summaries(today_events)
+
+        story_events = today_events
+        story_section_label = "Today's Events"
+        story_focus_index = 0
+        live_index = next((i for i, ev in enumerate(story_events) if ev.is_happening_now()), None)
+        if live_index is not None:
+            story_focus_index = live_index
+        else:
+            for i, ev in enumerate(story_events):
+                if ev.end_time:
+                    still_upcoming = ev.end_time >= now
+                else:
+                    still_upcoming = ev.start_time >= now
+                if still_upcoming:
+                    story_focus_index = i
+                    break
+            else:
+                has_live_today = any(ev.is_happening_now() for ev in story_events)
+                tomorrow_qs = TeamEvent.objects.filter(
+                    team__organization=organization,
+                    start_time__date=tomorrow,
+                ).select_related('team').order_by('start_time')
+                tomorrow_story = list(tomorrow_qs)
+                if has_live_today:
+                    story_focus_index = next(
+                        i for i, ev in enumerate(story_events) if ev.is_happening_now()
+                    )
+                elif tomorrow_story:
+                    story_events = tomorrow_story
+                    story_section_label = "Tomorrow's Events"
+                    story_focus_index = 0
+                    _attach_summaries(story_events)
+                elif story_events:
+                    story_focus_index = len(story_events) - 1
+
+        tomorrow_qs = TeamEvent.objects.filter(
+            team__organization=organization,
+            start_time__date=tomorrow,
+        ).select_related('team').order_by('start_time')[:5]
+        tomorrow_events = list(tomorrow_qs)
+        _attach_summaries(tomorrow_events)
+
+        upcoming_count = TeamEvent.objects.filter(
             team__organization=organization,
             start_time__gte=now,
-            start_time__lte=in_one_week
-        ).select_related('team').order_by('start_time')[:7]
-        upcoming_events = list(qs)
-        upcoming_count = len(upcoming_events)
-        for ev in upcoming_events:
-            ev.summary = get_attendance_summary(ev)
+            start_time__lte=in_one_week,
+        ).count()
 
     # For dashboard suggestions / making it useful: real recent activity using existing models
     # (implements "live team feeds" idea from vision without new models or breakage)
@@ -219,7 +273,7 @@ def owner_dashboard(request):
                 'type': 'event',
                 'when': e.created_at,
                 'text': f"New event '{e.name}' for {e.team.name}",
-                'link': reverse('event_list'),
+                'link': reverse('team_event_detail', args=[e.id]),
             })
 
         # Sort combined by recency (simple)
@@ -236,8 +290,11 @@ def owner_dashboard(request):
         'pending_invites': pending_invites,
         'my_teams': teams,
         'recent_activity': recent_activity,
-        'upcoming_events': upcoming_events,
+        'tomorrow_events': tomorrow_events,
         'upcoming_count': upcoming_count,
+        'story_events': story_events,
+        'story_section_label': story_section_label,
+        'story_focus_index': story_focus_index,
     }
     
     return render(request, "core/owner_dashboard.html", context)

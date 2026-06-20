@@ -6,7 +6,7 @@ from core.models import (
     Event
 )
 from django.utils import timezone
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime, time
 import random
 
 class Command(BaseCommand):
@@ -153,45 +153,94 @@ class Command(BaseCommand):
                     defaults={'jersey_number': str(random.randint(1, 99))}
                 )
 
-        # Team Events
-        for team in teams[:5]:
-            for i in range(2):
-                start = timezone.now() + timedelta(days=random.randint(1, 25), hours=random.randint(8, 19))
-                TeamEvent.objects.get_or_create(
-                    name=f"{'Practice' if i%2==0 else 'Game'} - {team.name}",
-                    team=team,
-                    start_time=start,
-                    end_time=start + timedelta(hours=1.5),
-                    location="Main Field",
-                    created_by=owner,
-                    defaults={'description': 'Demo event.', 'event_type': 'team'}
-                )
+        # Dashboard demo events: 7 per day for today + next 7 days (Pinnacle Performance)
+        today = timezone.localdate()
+        end_day = today + timedelta(days=7)
+        TeamEvent.objects.filter(
+            team__organization=org,
+            start_time__date__gte=today,
+            start_time__date__lte=end_day,
+        ).delete()
 
-        # Training sessions with invites
-        for team in teams:
-            for j in range(2):
-                start = timezone.now() + timedelta(days=random.randint(3, 18), hours=10)
-                training, _ = TeamEvent.objects.get_or_create(
-                    name=f"Skill Training - {team.name}",
+        daily_slots = [
+            ('Morning Practice', 'team', 8, 0, 'Main Gym'),
+            ('Skills Session', 'training', 10, 0, 'Training Center'),
+            ('Midday Scrimmage', 'team', 12, 0, 'Court A'),
+            ('Agility Training', 'training', 14, 0, 'Fitness Lab'),
+            ('Film Review', 'team', 16, 0, 'Team Room'),
+            ('Shootaround', 'team', 18, 0, 'Court B'),
+            ('Recovery Session', 'training', 19, 30, 'Wellness Studio'),
+        ]
+        demo_events_created = 0
+        for day_offset in range(8):
+            day = today + timedelta(days=day_offset)
+            for idx, (label, event_type, hour, minute, location) in enumerate(daily_slots):
+                team = teams[idx % len(teams)]
+                start = timezone.make_aware(datetime.combine(day, time(hour, minute)))
+                end = start + (timedelta(hours=1, minutes=30) if event_type == 'team' else timedelta(hours=1))
+                event, created = TeamEvent.objects.get_or_create(
                     team=team,
                     start_time=start,
-                    end_time=start + timedelta(hours=1),
-                    location="Training Center",
-                    created_by=owner,
-                    defaults={'description': 'Focused skill session.', 'event_type': 'training'}
+                    defaults={
+                        'name': label,
+                        'end_time': end,
+                        'location': location,
+                        'created_by': owner,
+                        'description': (
+                            f'[Dashboard Demo] {label} for {team.name} on '
+                            f'{day.strftime("%A, %b %d")}.'
+                        ),
+                        'event_type': event_type,
+                    },
                 )
-                sample = random.sample(created_kids, min(5, len(created_kids)))
-                for kid in sample:
-                    TeamEventInvitation.objects.get_or_create(
-                        team_event=training,
-                        user=kid.parent,
-                        defaults={'status': random.choice(['pending', 'accepted'])}
+                if created:
+                    demo_events_created += 1
+                if event_type == 'training':
+                    sample = random.sample(created_kids, min(6, len(created_kids)))
+                    for kid in sample:
+                        TeamEventInvitation.objects.get_or_create(
+                            team_event=event,
+                            user=kid.parent,
+                            defaults={'status': random.choice(['pending', 'accepted'])},
+                        )
+                        TeamEventAttendance.objects.get_or_create(
+                            team_event=event,
+                            kid=kid,
+                            defaults={'status': random.choice(['pending', 'accepted', 'accepted'])},
+                        )
+                else:
+                    roster_kids = list(
+                        Kid.objects.filter(
+                            id__in=PlayerRegistration.objects.filter(
+                                team_membership__team=team
+                            ).values_list('kid_id', flat=True)
+                        )[:8]
                     )
-                    TeamEventAttendance.objects.get_or_create(
-                        team_event=training,
-                        kid=kid,
-                        defaults={'status': random.choice(['pending', 'accepted', 'accepted'])}
-                    )
+                    for kid in roster_kids:
+                        TeamEventAttendance.objects.get_or_create(
+                            team_event=event,
+                            kid=kid,
+                            defaults={'status': random.choice(['accepted', 'accepted', 'pending'])},
+                        )
+        self.stdout.write(f"Dashboard demo events: {demo_events_created} new ({8 * 7} slots across 8 days)")
+
+        # One event always in progress now so "Happening Now" is visible on the dashboard
+        now = timezone.now()
+        live_team = teams[0]
+        live_start = now - timedelta(minutes=20)
+        live_end = now + timedelta(minutes=40)
+        TeamEvent.objects.update_or_create(
+            team=live_team,
+            name='Happening Now Demo',
+            defaults={
+                'start_time': live_start,
+                'end_time': live_end,
+                'location': 'Main Gym',
+                'created_by': owner,
+                'description': '[Dashboard Demo] Live event for Happening Now indicator.',
+                'event_type': 'team',
+            },
+        )
 
         # Personal events for darvin
         for i in range(2):
