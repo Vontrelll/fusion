@@ -2,13 +2,18 @@
 {% block title %}Owner Dashboard - Fusion{% endblock %}
 {% block content %}
 
-    <!-- Title + glanceable metrics -->
-    <div class="pt-3 pb-2 text-center">
+    <!-- Title -->
+    <div class="pt-3 pb-3 text-center">
         <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase mb-1.5">Operations Center</div>
         <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900">
             {{ user_organization.name|default:"Your Organization" }}
         </h1>
-        <div class="mt-4 max-w-xl mx-auto grid grid-cols-4 gap-1 sm:gap-3">
+    </div>
+
+    <!-- Glanceable metrics — full-width subtle depth panel -->
+    <div class="metrics-panel-dof relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] py-4 sm:py-5 mb-6">
+        <div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-4 gap-1 sm:gap-3">
             <div class="flex flex-col items-center min-w-0 px-0.5">
                 <div class="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
                     <i class="fa-solid fa-people-group text-lg leading-none"></i>
@@ -37,6 +42,7 @@
                 <div class="mt-2 h-[2.125rem] w-full flex items-center justify-center text-[10px] sm:text-[11px] text-gray-500 leading-[1.2] text-center">This<br>Week</div>
                 <div class="mt-0.5 text-lg font-semibold tabular-nums text-gray-800 leading-none">{{ upcoming_count|default:0 }}</div>
             </div>
+        </div>
         </div>
     </div>
 
@@ -120,7 +126,7 @@
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 pb-4">
         <!-- Main column: buttons, events (aligned width) -->
-        <div class="xl:col-span-2 flex flex-col gap-4">
+        <div class="xl:col-span-2 flex flex-col gap-3">
 
             <!-- Story event modal -->
             <div id="story-event-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true" role="dialog">
@@ -191,7 +197,7 @@
             </div>
 
             <!-- Quick Actions -->
-            <div>
+            <div class="mt-2 sm:mt-3">
                 <div class="text-sm uppercase tracking-widest text-gray-500 mb-3">Quick Actions</div>
                 <div class="flex flex-col gap-2">
                     <a href="{% url 'notifications' %}" class="panel-card-dof quick-action-item flex items-center gap-3 px-4 py-3.5 rounded-2xl group">
@@ -246,7 +252,8 @@
             </div>
 
             <!-- TOMORROW'S EVENTS -->
-            <div class="flex items-center justify-between mb-3">
+            <div class="mt-4 sm:mt-5">
+            <div class="flex items-center justify-between mb-2">
                 <div class="text-sm uppercase tracking-widest text-gray-500">Tomorrow's Events</div>
                 <a href="{% url 'event_list' %}" class="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center">
                     View all <i class="fa-solid fa-arrow-right ml-1 text-xs"></i>
@@ -254,7 +261,7 @@
             </div>
 
             {% if tomorrow_events %}
-            <div class="tomorrow-events-list flex flex-col gap-2">
+            <div class="tomorrow-events-list flex flex-col gap-1.5">
                 {% for event in tomorrow_events %}
                 <a href="{% url 'team_event_detail' event.id %}" class="tomorrow-event-item block bg-white rounded-2xl px-4 py-3.5 sm:px-5 sm:py-4 hover:bg-gray-50/80 transition-colors group">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-2">
@@ -284,12 +291,13 @@
                 {% endfor %}
             </div>
             {% else %}
-            <div class="fusion-card p-8 text-center">
-                <i class="fa-solid fa-calendar text-4xl text-gray-300 mb-3"></i>
+            <div class="fusion-card p-6 text-center">
+                <i class="fa-solid fa-calendar text-4xl text-gray-300 mb-2"></i>
                 <p class="font-medium text-gray-700">No events tomorrow</p>
                 <p class="text-sm text-gray-500 mt-1">Create a team event to get started.</p>
             </div>
             {% endif %}
+            </div>
         </div>
 
         <!-- SIDE PANEL: Quick Links & Fusion Impact -->
@@ -337,6 +345,40 @@
     @keyframes fadeIn {
         from { opacity: 0; transform: scale(0.97); }
         to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Metrics strip — full-width lighter depth panel below org name */
+    .metrics-panel-dof {
+        position: relative;
+        isolation: isolate;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 250, 252, 0.96) 100%);
+        border-top: 1px solid rgba(148, 163, 184, 0.14);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+        box-shadow:
+            0 1px 2px rgba(15, 23, 42, 0.025),
+            0 4px 14px -6px rgba(15, 23, 42, 0.045);
+    }
+    .metrics-panel-dof::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(ellipse 85% 60% at 50% 0%, rgba(255, 255, 255, 0.65), transparent 72%);
+        pointer-events: none;
+        z-index: 0;
+    }
+    .metrics-panel-dof::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        pointer-events: none;
+        z-index: 0;
+    }
+    .metrics-panel-dof > * {
+        position: relative;
+        z-index: 1;
     }
 
     /* 2.5 slots across full row; create pinned, events scroll beside it */
