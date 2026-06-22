@@ -3,15 +3,12 @@
 {% block content %}
 
     <!-- Title -->
-    <div class="pt-3 pb-3 text-center">
-        <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase mb-1.5">Operations Center</div>
-        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900">
-            {{ user_organization.name|default:"Your Organization" }}
-        </h1>
+    <div class="pt-3 pb-2 text-center">
+        <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase">Operations Center</div>
     </div>
 
     <!-- Glanceable metrics — full-width subtle depth panel -->
-    <div class="metrics-panel-dof relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] py-4 sm:py-5 mb-6">
+    <div class="metrics-panel-dof relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] py-4 sm:py-5">
         <div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-4 gap-1 sm:gap-3">
             <div class="flex flex-col items-center min-w-0 px-0.5">
@@ -47,7 +44,7 @@
     </div>
 
     <!-- Today's Events — full-width grey depth-of-field band -->
-    <section class="story-stage relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/50 via-gray-50/40 to-gray-100/45 py-4 sm:py-5 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)] border-y border-gray-200/30 mb-6">
+    <section class="story-stage relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/50 via-gray-50/40 to-gray-100/45 py-4 sm:py-5 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)] border-y border-gray-200/30">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between mb-3">
                 <div class="text-sm uppercase tracking-widest text-gray-500">{{ story_section_label }}</div>
@@ -126,7 +123,7 @@
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 pb-4">
         <!-- Main column: buttons, events (aligned width) -->
-        <div class="xl:col-span-2 flex flex-col gap-3">
+        <div class="xl:col-span-2 flex flex-col gap-0">
 
             <!-- Story event modal -->
             <div id="story-event-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true" role="dialog">
@@ -183,21 +180,33 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="grid grid-cols-2 gap-2 sm:gap-4 w-full">
+            <div class="grid grid-cols-2 gap-2 w-full">
                 <a href="{% url 'add_team_event' %}"
-                   class="action-btn w-full min-h-[3.75rem] sm:min-h-[4rem] inline-flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg px-6 py-4 text-base sm:text-lg font-semibold rounded-2xl transition-all duration-200 hover:-translate-y-0.5">
-                    <i class="fa-solid fa-calendar-plus flex-shrink-0 text-xl"></i>
-                    <span class="whitespace-nowrap">Team Event</span>
+                   class="panel-card-dof quick-action-item flex items-center gap-3 px-3 py-3.5 sm:px-4 sm:py-4 rounded-2xl group min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-calendar-plus text-blue-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0 text-left">
+                        <div class="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition truncate">Team Event</div>
+                        <div class="text-[11px] text-gray-500 truncate">Schedule for a team</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-blue-300 group-hover:text-blue-600 flex-shrink-0 transition"></i>
                 </a>
                 <a href="{% url 'team_list' %}?from=invite_parent"
-                   class="action-btn w-full min-h-[3.75rem] sm:min-h-[4rem] inline-flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white shadow-md hover:shadow-lg px-6 py-4 text-base sm:text-lg font-semibold rounded-2xl transition-all duration-200 hover:-translate-y-0.5">
-                    <i class="fa-solid fa-user-plus flex-shrink-0 text-xl"></i>
-                    <span class="whitespace-nowrap">Invite Parent</span>
+                   class="panel-card-dof quick-action-item flex items-center gap-3 px-3 py-3.5 sm:px-4 sm:py-4 rounded-2xl group min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-user-plus text-emerald-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0 text-left">
+                        <div class="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition truncate">Invite Parent</div>
+                        <div class="text-[11px] text-gray-500 truncate">Add a family to a team</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-emerald-300 group-hover:text-emerald-600 flex-shrink-0 transition"></i>
                 </a>
             </div>
 
             <!-- Quick Actions -->
-            <div class="mt-2 sm:mt-3">
+            <div class="mt-6">
                 <div class="text-sm uppercase tracking-widest text-gray-500 mb-3">Quick Actions</div>
                 <div class="flex flex-col gap-2">
                     <a href="{% url 'notifications' %}" class="panel-card-dof quick-action-item flex items-center gap-3 px-4 py-3.5 rounded-2xl group">
@@ -252,7 +261,7 @@
             </div>
 
             <!-- TOMORROW'S EVENTS -->
-            <div class="mt-4 sm:mt-5">
+            <div class="mt-6">
             <div class="flex items-center justify-between mb-2">
                 <div class="text-sm uppercase tracking-widest text-gray-500">Tomorrow's Events</div>
                 <a href="{% url 'event_list' %}" class="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center">
@@ -320,7 +329,7 @@
 
     <!-- Recent Activity -->
     {% if recent_activity %}
-    <div class="mt-8">
+    <div class="mt-6">
         <div class="flex items-center justify-between mb-3 px-1">
             <div class="text-sm uppercase tracking-widest text-gray-500">Recent Activity</div>
         </div>

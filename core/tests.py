@@ -1324,6 +1324,7 @@ class OrganizationEditTests(TestCase):
         resp = self.client.get(reverse("edit_organization", args=[self.org.id]))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Edit Organization")
+        self.assertContains(resp, "Save Changes")
 
     def test_owner_can_edit_organization(self):
         self.client.login(username="org_owner", password="testpass123")

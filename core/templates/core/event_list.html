@@ -2,6 +2,7 @@
 {% block title %}My Events - Fusion{% endblock %}
 
 {% block content %}
+{% if is_parent %}
 <div class="max-w-7xl mx-auto px-4 py-6 flex gap-6 min-w-0 overflow-x-hidden">
 
     <!-- LEFT SIDEBAR -->
@@ -10,7 +11,6 @@
             <h3 class="font-semibold mb-4 flex items-center gap-2">
                 <span class="text-2xl">📅</span> Schedule
             </h3>
-            {% if is_parent %}
             <div class="space-y-1 text-sm">
                 <a href="{% url 'event_list' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-blue-50 text-blue-600 font-semibold">
                     All Events
@@ -19,34 +19,13 @@
                     + New Event
                 </a>
             </div>
-            {% else %}
-            <div class="space-y-1 text-sm">
-                <a href="{% url 'event_list' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-blue-50 text-blue-600 font-semibold">
-                    All Team Events
-                </a>
-                <a href="{% url 'add_team_event' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-gray-100 transition text-gray-600 hover:text-gray-900">
-                    + New Team Event
-                </a>
-                <a href="{% url 'team_list' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-gray-100 transition text-gray-600 hover:text-gray-900">
-                    Manage Teams
-                </a>
-                <a href="{% url 'org_players' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-gray-100 transition text-gray-600 hover:text-gray-900">
-                    Search Players
-                </a>
-            </div>
-            {% endif %}
             <div class="border-t border-gray-200 my-6"></div>
-            {% if is_parent %}
             <a href="{% url 'dashboard' %}" class="text-sm text-blue-600 hover:underline">← Back to Home</a>
-            {% else %}
-            <a href="{% url 'owner_dashboard' %}" class="text-sm text-blue-600 hover:underline">← Back to Home</a>
-            {% endif %}
         </div>
     </div>
 
     <!-- MAIN CONTENT -->
     <div class="flex-1 max-w-2xl mx-auto min-w-0 w-full">
-        {% if is_parent %}
         <div class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900">My Family Schedule</h1>
@@ -56,84 +35,10 @@
                 <span class="text-xl sm:text-2xl leading-none">+</span> New Event
             </a>
         </div>
-        {% else %}
-        <div class="mb-6">
-            <div class="text-center mb-6">
-                <h1 class="text-3xl font-bold text-gray-900">Team Events</h1>
-                <p class="text-gray-600 mt-1 text-base sm:text-lg">Team events and training sessions in one place.</p>
-            </div>
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex flex-wrap items-center gap-2">
-                    <a href="{% url 'event_list' %}?range=upcoming"
-                       class="px-3 py-1.5 rounded-xl text-sm font-medium {% if range_filter == 'upcoming' %}bg-blue-600 text-white{% else %}bg-white text-gray-600 border border-gray-200 hover:bg-gray-50{% endif %}">
-                        Upcoming
-                    </a>
-                    <a href="{% url 'event_list' %}?range=past"
-                       class="px-3 py-1.5 rounded-xl text-sm font-medium {% if range_filter == 'past' %}bg-blue-600 text-white{% else %}bg-white text-gray-600 border border-gray-200 hover:bg-gray-50{% endif %}">
-                        Past
-                    </a>
-                </div>
-                <a href="{% url 'add_team_event' %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl font-semibold flex items-center gap-1.5 sm:gap-2 shadow whitespace-nowrap text-sm sm:text-base flex-shrink-0">
-                    <span class="text-xl sm:text-2xl leading-none">+</span> New Team Event
-                </a>
-            </div>
-        </div>
-        {% endif %}
 
         {% if events %}
         <div class="space-y-4">
             {% for event in events %}
-            {% if not is_parent %}
-            <a href="{% url 'team_event_detail' event.id %}"
-               class="fusion-card p-4 sm:p-5 flex gap-3 sm:gap-5 hover:shadow-elevated transition-all group border-l-4 min-w-0 max-w-full overflow-hidden"
-               style="border-color: {{ event.team.color|default:'#64748b' }}40">
-                <div class="flex-shrink-0">
-                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center text-center text-white shadow-sm"
-                         style="background-color: {{ event.team.color|default:'#64748b' }}">
-                        <span class="text-[9px] font-medium tracking-widest opacity-75">{{ event.start_time|date:"M" }}</span>
-                        <span class="text-2xl sm:text-3xl font-bold leading-none mt-0.5">{{ event.start_time|date:"d" }}</span>
-                    </div>
-                </div>
-                <div class="flex-1 min-w-0 pt-0.5 overflow-hidden">
-                    <div class="flex items-center gap-1.5 min-w-0 w-full overflow-hidden">
-                        <h2 class="font-semibold text-base sm:text-lg text-gray-900 truncate min-w-0 flex-1 group-hover:text-blue-600 transition-colors" title="{{ event.name }}">{{ event.name }}</h2>
-                        {% if event.event_type == 'training' %}
-                        <span class="px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800 rounded-full whitespace-nowrap flex-shrink-0">TRAINING</span>
-                        {% endif %}
-                    </div>
-                    <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 max-w-full overflow-hidden">
-                        {% if event.team %}
-                        <span class="inline-block min-w-0 max-w-[9rem] sm:max-w-[11rem] truncate px-2.5 py-0.5 text-xs font-semibold rounded-full"
-                              style="background-color: {{ event.team.color|default:'#64748b' }}20; color: {{ event.team.color|default:'#334155' }};"
-                              title="{{ event.team.name }}">
-                            {{ event.team.name }}
-                        </span>
-                        {% endif %}
-                        <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full whitespace-nowrap flex-shrink-0">{{ event.attendance_count|default:0 }} going</span>
-                        {% if event.event_type == 'training' and event.pending_count %}
-                        <span class="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-700 rounded-full whitespace-nowrap flex-shrink-0">{{ event.pending_count }} pending</span>
-                        {% endif %}
-                    </div>
-                    <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-gray-600 min-w-0 max-w-full overflow-hidden">
-                        <span class="flex items-center gap-1 font-medium text-gray-700 whitespace-nowrap flex-shrink-0">
-                            <span class="text-gray-400">🕒</span>
-                            <span>{{ event.start_time|time:"g:i" }}</span><span class="text-[10px] ml-0.5">{{ event.start_time|time:"A" }}</span>
-                            <span class="text-gray-300 mx-0.5">–</span>
-                            <span>{{ event.end_time|time:"g:i" }}</span><span class="text-[10px] ml-0.5">{{ event.end_time|time:"A" }}</span>
-                        </span>
-                        {% if event.location %}
-                        <span class="flex items-center gap-1 text-gray-500 min-w-0 flex-1 overflow-hidden">
-                            <span class="text-gray-400 flex-shrink-0">📍</span>
-                            <span class="truncate">{{ event.location }}</span>
-                        </span>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="hidden sm:flex items-center flex-shrink-0 text-gray-300 group-hover:text-blue-400 transition-colors pl-1">
-                    <i class="fa-solid fa-chevron-right"></i>
-                </div>
-            </a>
-            {% else %}
             <div class="fusion-card p-4 sm:p-6 flex gap-4 sm:gap-6 hover:shadow-elevated transition-all {% if event.team %}border-l-4{% endif %}" {% if event.team and event.team.color %}style="border-color: {{ event.team.color }}40"{% endif %}>
 
                 <!-- Date + Color accent -->
@@ -186,7 +91,7 @@
 
                     <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600">
                         <span class="flex items-center gap-1.5 font-medium text-gray-700">
-                            <span class="text-gray-400">🕒</span> 
+                            <span class="text-gray-400">🕒</span>
                             <span>{{ event.start_time|time:"g:i" }}</span><span class="text-[10px] ml-0.5">{{ event.start_time|time:"A" }}</span>
                             <span class="text-gray-300 mx-1">–</span>
                             <span>{{ event.end_time|time:"g:i" }}</span><span class="text-[10px] ml-0.5">{{ event.end_time|time:"A" }}</span>
@@ -219,49 +124,236 @@
                     </div>
                 </div>
             </div>
-            {% endif %}
             {% endfor %}
         </div>
-
-        {% if not is_parent and page_obj.has_other_pages %}
-        <nav class="mt-8 flex items-center justify-center gap-3 text-sm" aria-label="Event list pagination">
-            {% if page_obj.has_previous %}
-            <a href="{% url 'event_list' %}?range={{ range_filter }}&amp;page={{ page_obj.previous_page_number }}"
-               class="px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 font-medium">
-                Previous
-            </a>
-            {% endif %}
-            <span class="text-gray-500">
-                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-            </span>
-            {% if page_obj.has_next %}
-            <a href="{% url 'event_list' %}?range={{ range_filter }}&amp;page={{ page_obj.next_page_number }}"
-               class="px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 font-medium">
-                Next
-            </a>
-            {% endif %}
-        </nav>
-        {% endif %}
         {% else %}
             <div class="bg-white rounded-3xl border border-dashed border-gray-200 p-12 text-center">
                 <div class="text-6xl mb-4">📅</div>
-                {% if not is_parent and range_filter == 'past' %}
-                <p class="text-xl font-semibold text-gray-700">No past events</p>
-                <p class="text-gray-500 mt-1">Past team events will appear here.</p>
-                {% elif not is_parent and range_filter == 'upcoming' %}
-                <p class="text-xl font-semibold text-gray-700">No upcoming events</p>
-                <p class="text-gray-500 mt-1">Create a team event to get started.</p>
-                {% else %}
                 <p class="text-xl font-semibold text-gray-700">No events yet</p>
                 <p class="text-gray-500 mt-1">Create your first family or team event to get started.</p>
-                {% endif %}
-                {% if is_parent %}
                 <a href="{% url 'add_event' %}" class="mt-5 inline-block action-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 text-sm font-semibold">+ New Family Event</a>
-                {% else %}
-                <a href="{% url 'add_team_event' %}" class="mt-5 inline-block action-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 text-sm font-semibold">+ New Event</a>
-                {% endif %}
             </div>
         {% endif %}
     </div>
 </div>
+
+{% else %}
+<!-- Owner Event Calendar -->
+<div class="min-w-0 overflow-x-hidden pb-4">
+
+    <!-- Toolbar band -->
+    <section class="event-toolbar-band relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-3 pb-3 sm:pt-4 sm:pb-4 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-3">
+            <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase text-center">Event Calendar</div>
+            <div class="grid grid-cols-2 gap-2 sm:gap-3">
+                <a href="{% url 'add_team_event' %}?type=team"
+                   class="event-create-btn event-create-team flex items-center gap-2.5 sm:gap-3 px-3 py-3.5 sm:px-4 sm:py-4 rounded-2xl group min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-calendar-plus text-blue-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0 text-left">
+                        <div class="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition truncate">New Event</div>
+                        <div class="text-[11px] text-gray-500 truncate hidden sm:block">Invite the whole team</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-blue-300 group-hover:text-blue-600 flex-shrink-0 transition"></i>
+                </a>
+                <a href="{% url 'add_team_event' %}?type=training"
+                   class="event-create-btn event-create-training flex items-center gap-2.5 sm:gap-3 px-3 py-3.5 sm:px-4 sm:py-4 rounded-2xl group min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-bullseye text-amber-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0 text-left">
+                        <div class="text-sm font-semibold text-gray-900 group-hover:text-amber-700 transition truncate">New Training</div>
+                        <div class="text-[11px] text-gray-500 truncate hidden sm:block">Invite specific players</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-amber-300 group-hover:text-amber-600 flex-shrink-0 transition"></i>
+                </a>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <a href="{% url 'event_list' %}?range=upcoming"
+                       class="event-filter-pill px-3.5 py-1.5 rounded-full text-sm font-medium transition {% if range_filter == 'upcoming' %}event-filter-pill-active{% endif %}">
+                        Upcoming
+                    </a>
+                    <a href="{% url 'event_list' %}?range=past"
+                       class="event-filter-pill px-3.5 py-1.5 rounded-full text-sm font-medium transition {% if range_filter == 'past' %}event-filter-pill-active{% endif %}">
+                        Past
+                    </a>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                    {% if page_obj.paginator.count %}
+                    <span class="text-xs text-gray-500 tabular-nums">{{ page_obj.paginator.count }} event{{ page_obj.paginator.count|pluralize }}</span>
+                    {% endif %}
+                    <a href="{% url 'owner_dashboard' %}" class="font-medium text-blue-600 hover:text-blue-700 flex items-center flex-shrink-0">
+                        <i class="fa-solid fa-arrow-left mr-1.5 text-xs"></i> Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-3">
+        {% if events %}
+        <div class="event-timeline flex flex-col gap-2">
+            {% for event in events %}
+            <a href="{% url 'team_event_detail' event.id %}"
+               class="event-timeline-card group block rounded-2xl bg-white ring-1 ring-gray-200/70 overflow-hidden shadow-sm hover:shadow-md hover:ring-gray-300/80 transition-all{% if event.is_happening_now %} event-timeline-card-live{% elif event.event_type == 'training' %} event-timeline-card-training{% endif %}">
+                <div class="h-1 w-full{% if event.is_happening_now %} bg-gradient-to-r from-sky-300 to-blue-400{% elif event.event_type == 'training' %} bg-amber-400{% endif %}"
+                     {% if not event.is_happening_now and event.event_type != 'training' %}style="background-color: {{ event.team.color|default:'#64748b' }}"{% endif %}></div>
+                <div class="px-4 py-3 sm:px-5 flex items-start gap-3">
+                    <div class="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center mt-0.5{% if event.event_type == 'training' %} bg-amber-50 text-amber-600{% else %} text-white{% endif %}"
+                         {% if event.event_type != 'training' %}style="background-color: {{ event.team.color|default:'#64748b' }}"{% endif %}>
+                        {% if event.event_type == 'training' %}
+                        <i class="fa-solid fa-bullseye text-sm"></i>
+                        {% else %}
+                        <i class="fa-solid fa-people-group text-sm"></i>
+                        {% endif %}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                            <h3 class="font-semibold text-gray-900 group-hover:text-blue-600 transition truncate max-w-full" title="{{ event.name }}">{{ event.name }}</h3>
+                            {% if event.is_happening_now %}
+                            <span class="event-live-badge inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200/70 rounded-full leading-none flex-shrink-0">
+                                <span class="event-live-dot relative flex h-1.5 w-1.5 flex-shrink-0" aria-hidden="true">
+                                    <span class="event-live-dot-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                                    <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                </span>
+                                Live
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                            {% if event.event_type == 'training' %}
+                            <span class="px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800 rounded-full">Training</span>
+                            {% endif %}
+                            <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full">{{ event.attendance_count|default:0 }} going</span>
+                            {% if event.event_type == 'training' and event.pending_count %}
+                            <span class="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded-full">{{ event.pending_count }} pending</span>
+                            {% endif %}
+                        </div>
+                        <div class="mt-2 text-sm text-gray-600 space-y-1">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="font-medium truncate" style="color: {{ event.team.color|default:'#334155' }}">{{ event.team.name|default:"Organization" }}</span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-gray-500">
+                                <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                    <i class="fa-solid fa-calendar-day text-[10px] text-gray-400"></i>
+                                    {{ event.start_time|date:"D, M j" }}
+                                </span>
+                                <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                    <i class="fa-solid fa-clock text-[10px] text-gray-400"></i>
+                                    {{ event.start_time|time:"g:i A" }} – {{ event.end_time|time:"g:i A" }}
+                                </span>
+                                {% if event.location %}
+                                <span class="inline-flex items-center gap-1.5 min-w-0 overflow-hidden">
+                                    <i class="fa-solid fa-location-dot text-[10px] text-gray-400 flex-shrink-0"></i>
+                                    <span class="truncate">{{ event.location }}</span>
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 group-hover:text-blue-400 mt-2 flex-shrink-0 transition"></i>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <nav class="mt-5 flex items-center justify-center gap-4 text-sm" aria-label="Event list pagination">
+            {% if page_obj.has_previous %}
+            <a href="{% url 'event_list' %}?range={{ range_filter }}&amp;page={{ page_obj.previous_page_number }}"
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 font-medium transition">
+                <i class="fa-solid fa-chevron-left text-[10px]"></i> Previous
+            </a>
+            {% endif %}
+            <span class="text-gray-500 tabular-nums text-xs sm:text-sm">
+                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            </span>
+            {% if page_obj.has_next %}
+            <a href="{% url 'event_list' %}?range={{ range_filter }}&amp;page={{ page_obj.next_page_number }}"
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 font-medium transition">
+                Next <i class="fa-solid fa-chevron-right text-[10px]"></i>
+            </a>
+            {% endif %}
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="rounded-2xl bg-white ring-1 ring-gray-200/70 p-8 sm:p-10 text-center shadow-sm">
+            <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-calendar-days text-2xl text-gray-300"></i>
+            </div>
+            {% if range_filter == 'past' %}
+            <p class="font-semibold text-gray-800">No past events</p>
+            <p class="text-sm text-gray-500 mt-1">Past events will show up here once they wrap up.</p>
+            {% else %}
+            <p class="font-semibold text-gray-800">Nothing scheduled yet</p>
+            <p class="text-sm text-gray-500 mt-1">Create a team event or training session to get started.</p>
+            {% endif %}
+            <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-md mx-auto">
+                <a href="{% url 'add_team_event' %}?type=team"
+                   class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition">
+                    <i class="fa-solid fa-calendar-plus text-xs"></i> New Event
+                </a>
+                <a href="{% url 'add_team_event' %}?type=training"
+                   class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition">
+                    <i class="fa-solid fa-bullseye text-xs"></i> New Training
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .event-create-btn {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        box-shadow:
+            0 1px 2px rgba(15, 23, 42, 0.04),
+            0 4px 12px rgba(15, 23, 42, 0.05);
+        transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    }
+    .event-create-btn:hover {
+        transform: translateY(-1px);
+        box-shadow:
+            0 2px 4px rgba(15, 23, 42, 0.05),
+            0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+    .event-create-training:hover {
+        border-color: rgba(251, 191, 36, 0.35);
+    }
+    .event-create-team:hover {
+        border-color: rgba(96, 165, 250, 0.35);
+    }
+    .event-filter-pill {
+        color: #6b7280;
+    }
+    .event-filter-pill:hover {
+        background: rgba(255, 255, 255, 0.7);
+        color: #374151;
+    }
+    .event-filter-pill-active {
+        background: #fff;
+        color: #111827;
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    }
+    .event-timeline-card-live {
+        box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.35), 0 4px 14px rgba(56, 189, 248, 0.12);
+    }
+    .event-timeline-card-training:hover .font-semibold {
+        color: #b45309;
+    }
+    @keyframes eventLivePing {
+        0% { transform: scale(1); opacity: 0.55; }
+        75%, 100% { transform: scale(1.8); opacity: 0; }
+    }
+    .event-live-dot-ping {
+        animation: eventLivePing 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+</style>
+{% endif %}
 {% endblock %}

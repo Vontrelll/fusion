@@ -2,38 +2,77 @@
 {% block title %}Edit {{ organization.name }} - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-lg mx-auto px-4 py-8">
-    <div class="mb-6">
-        <a href="{% url 'organization_details' organization.id %}" class="text-sm text-blue-600 hover:underline">← Back to Organization</a>
-    </div>
+<div class="min-w-0 overflow-x-hidden pb-4">
 
-    <div class="text-center mb-6">
-        <div class="inline-flex items-center justify-center w-14 h-14 bg-zinc-100 text-4xl rounded-2xl mb-4">
-            🏢
+    <section class="relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-3 pb-3 sm:pt-4 sm:pb-4 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
+        <div class="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 space-y-3">
+            <div class="flex items-center justify-between gap-3">
+                <a href="{% url 'organization_details' organization.id %}" class="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center flex-shrink-0">
+                    <i class="fa-solid fa-arrow-left mr-1.5 text-xs"></i> Organization
+                </a>
+            </div>
+
+            <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase text-center">Edit Organization</div>
+
+            <div class="panel-card-dof rounded-2xl px-4 py-3 sm:px-5 flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-sitemap text-slate-600"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-gray-900 truncate">{{ organization.name }}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Update your organization details</p>
+                </div>
+            </div>
         </div>
-        <h1 class="text-2xl font-bold tracking-tight">Edit Organization</h1>
-        <p class="text-sm text-zinc-500 mt-1">{{ organization.name }}</p>
-    </div>
+    </section>
 
-    <div class="bg-white rounded-2xl border border-zinc-200 p-6">
-        <form method="POST" class="space-y-6">
-            {% csrf_token %}
+    <div class="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        <div class="panel-card-dof rounded-2xl p-5 sm:p-6">
+            <form method="POST" class="space-y-5">
+                {% csrf_token %}
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Organization Name</label>
-                {{ form.name }}
-            </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Organization Name</label>
+                    {{ form.name }}
+                </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Description <span class="text-gray-400">(optional)</span></label>
-                {{ form.description }}
-            </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Description <span class="text-gray-400 font-normal">(optional)</span></label>
+                    {{ form.description }}
+                </div>
 
-            <button type="submit"
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl transition text-lg">
-                Save Changes
-            </button>
-        </form>
+                <button type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 rounded-2xl transition text-sm">
+                    Save Changes
+                </button>
+            </form>
+        </div>
     </div>
 </div>
+
+<style>
+    .panel-card-dof {
+        position: relative;
+        isolation: isolate;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 250, 252, 0.94) 100%);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        box-shadow:
+            0 1px 2px rgba(15, 23, 42, 0.04),
+            0 3px 10px rgba(15, 23, 42, 0.05),
+            0 10px 22px -10px rgba(15, 23, 42, 0.09);
+    }
+    .panel-card-dof::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(ellipse 90% 55% at 50% 0%, rgba(255, 255, 255, 0.55), transparent 70%);
+        pointer-events: none;
+        z-index: 0;
+    }
+    .panel-card-dof > * {
+        position: relative;
+        z-index: 1;
+    }
+</style>
 {% endblock %}

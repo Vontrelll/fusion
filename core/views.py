@@ -25,6 +25,9 @@ from django.core.paginator import Paginator
 from collections import defaultdict
 
 EVENTS_PER_PAGE = 10
+ROSTER_PLAYERS_PER_PAGE = 3
+TEAMS_PER_PAGE = 5
+PLAYERS_PER_PAGE = 5
 import json
 import logging
 import pytz
@@ -310,16 +313,33 @@ def organization_players(request):
         messages.error(request, "No organization found. Create one first.")
         return redirect('create_organization')
 
-    registrations = PlayerRegistration.objects.filter(
+    registrations_qs = PlayerRegistration.objects.filter(
         team_membership__team__organization=organization
     ).select_related(
         'kid', 'kid__family', 'kid__parent', 'team_membership__team'
-    ).order_by('kid__last_name', 'kid__first_name')
+    ).order_by('kid__last_name', 'kid__first_name', 'kid__id')
+
+    total_players = registrations_qs.count()
+
+    search_q = (request.GET.get('q') or '').strip()
+    if search_q:
+        registrations_qs = registrations_qs.filter(
+            Q(kid__first_name__icontains=search_q) |
+            Q(kid__last_name__icontains=search_q) |
+            Q(team_membership__team__name__icontains=search_q) |
+            Q(kid__family__family_name__icontains=search_q) |
+            Q(kid__parent__first_name__icontains=search_q) |
+            Q(kid__parent__last_name__icontains=search_q) |
+            Q(kid__parent__username__icontains=search_q)
+        )
+
+    page_obj = Paginator(registrations_qs, PLAYERS_PER_PAGE).get_page(request.GET.get('page'))
 
     context = {
         'organization': organization,
-        'registrations': registrations,
-        'total_players': registrations.count(),
+        'page_obj': page_obj,
+        'total_players': total_players,
+        'search_q': search_q,
     }
     return render(request, "core/org_players.html", context)
 
@@ -1299,9 +1319,7 @@ def event_list(request):
 
     else:  # Owner
         range_param = _event_list_range(request)
-        events_qs = TeamEvent.objects.filter(
-            team__organization__owner=request.user
-        ).select_related('team').annotate(
+        events_qs = _owner_team_event_queryset(request.user).select_related('team').annotate(
             attendance_count=Count(
                 'attendances',
                 filter=Q(attendances__status='accepted'),
@@ -2793,14 +2811,31 @@ def team_detail(request, team_id):
         messages.error(request, "You do not have access to this team.")
         return redirect('team_list')
 
-    # Get roster / players
-    players = PlayerRegistration.objects.filter(
+    players_qs = PlayerRegistration.objects.filter(
         team_membership__team=team
-    ).select_related('kid', 'team_membership__user')
+    ).select_related('kid', 'team_membership__user').order_by(
+        'kid__first_name', 'kid__last_name', 'kid__id'
+    )
+    total_roster_count = players_qs.count()
+
+    search_q = (request.GET.get('q') or '').strip()
+    if search_q:
+        players_qs = players_qs.filter(
+            Q(kid__first_name__icontains=search_q) |
+            Q(kid__last_name__icontains=search_q) |
+            Q(team_membership__user__first_name__icontains=search_q) |
+            Q(team_membership__user__last_name__icontains=search_q) |
+            Q(team_membership__user__username__icontains=search_q)
+        )
+
+    page_obj = Paginator(players_qs, ROSTER_PLAYERS_PER_PAGE).get_page(request.GET.get('page'))
 
     context = {
         "team": team,
-        "players": players,
+        "page_obj": page_obj,
+        "total_roster_count": total_roster_count,
+        "search_q": search_q,
+        "is_owner": is_owner,
     }
     return render(request, "core/team_detail.html", context)
 
@@ -2969,30 +3004,49 @@ def team_list(request):
         messages.error(request, "This page is for owners only.")
         return redirect('dashboard')
 
-    teams = Team.objects.filter(organization__owner= request.user).order_by('name')
+    teams_qs = Team.objects.filter(
+        organization__owner=request.user
+    ).annotate(
+        roster_count=Count('memberships__players', distinct=True),
+    ).order_by('name')
 
-    # Annotate roster counts for display (consistent with owner_dashboard)
-    for team in teams:
-        team.roster_count = PlayerRegistration.objects.filter(
-            team_membership__team=team
-        ).count()
-
-        # Backfill distinct colors for older teams (run once per load is cheap)
+    # Backfill distinct colors for older teams (run once per load is cheap)
+    for team in teams_qs:
         if team.color in (None, '', '#3b82f6'):
-            used = set(Team.objects.filter(organization=team.organization).exclude(id=team.id).values_list('color', flat=True))
-            palette = ['#64748b', '#6b7280', '#78716c', '#57534e', '#4b5563', '#9f1239', '#166534', '#1e40af', '#4338ca', '#6b21a8', '#854d0e', '#065f46', '#0f766e', '#1d4ed8', '#5b21b6']
+            used = set(
+                Team.objects.filter(organization=team.organization)
+                .exclude(id=team.id)
+                .values_list('color', flat=True)
+            )
+            palette = [
+                '#64748b', '#6b7280', '#78716c', '#57534e', '#4b5563', '#9f1239',
+                '#166534', '#1e40af', '#4338ca', '#6b21a8', '#854d0e', '#065f46',
+                '#0f766e', '#1d4ed8', '#5b21b6',
+            ]
             for c in palette:
                 if c not in used:
                     team.color = c
                     team.save(update_fields=['color'])
                     break
 
+    total_teams_count = teams_qs.count()
+
+    search_q = (request.GET.get('q') or '').strip()
+    if search_q:
+        teams_qs = teams_qs.filter(
+            Q(name__icontains=search_q) | Q(sport_type__icontains=search_q)
+        )
+
+    page_obj = Paginator(teams_qs, TEAMS_PER_PAGE).get_page(request.GET.get('page'))
+
     # ← Pass this flag that lets teamlist know its present in order to send a parent invite. user has to select team first
     from_invite = request.GET.get('from') == 'invite_parent'
 
     context = {
-        'teams': teams,
-        'from_invite': from_invite,          
+        'page_obj': page_obj,
+        'total_teams_count': total_teams_count,
+        'search_q': search_q,
+        'from_invite': from_invite,
     }
 
     return render(request, "core/team_list.html", context)
@@ -3675,23 +3729,8 @@ def organization_details(request, org_id):
         messages.error(request, "Organization not found.")
         return redirect('owner_dashboard')
 
-    # Compute live stats (fixing the hardcoded 0s)
-    teams_qs = Team.objects.filter(organization=organization)
-    total_players = PlayerRegistration.objects.filter(team_membership__team__organization=organization).count()
-    num_families = PlayerRegistration.objects.filter(
-        team_membership__team__organization=organization
-    ).values('kid__family').distinct().count()
-    pending_invites = Invite.objects.filter(
-        team__organization=organization, status="pending"
-    ).count()
-
     context = {
         'organization': organization,
-        'total_teams': teams_qs.count(),
-        'total_players': total_players,
-        'num_families': num_families,
-        'pending_invites': pending_invites,
-        'teams': list(teams_qs.select_related('organization')),
     }
     return render(request, 'core/organization_details.html', context)
 

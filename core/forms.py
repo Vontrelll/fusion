@@ -128,12 +128,30 @@ class CustomUserCreationForm(UserCreationForm):
         return user
 
 
+_TEAM_FIELD_CLASS = (
+    'w-full px-4 py-3 border border-gray-300 rounded-xl bg-white '
+    'text-gray-900 placeholder:text-gray-400 '
+    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+)
+
+
 class TeamForm(forms.ModelForm):
     class Meta:
         model = Team
         fields = ['name', 'sport_type', 'description']
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 4}),
+            'name': forms.TextInput(attrs={
+                'class': _TEAM_FIELD_CLASS,
+                'placeholder': 'e.g. U12 Hawks',
+            }),
+            'sport_type': forms.Select(attrs={
+                'class': _TEAM_FIELD_CLASS,
+            }),
+            'description': forms.Textarea(attrs={
+                'class': _TEAM_FIELD_CLASS,
+                'rows': 4,
+                'placeholder': 'Optional notes about this team',
+            }),
         }
         labels = {
             'name': 'Team Name',
