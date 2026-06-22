@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import (
     Kid, Event, Family, Invite, PlayerRegistration, Team, TeamEventInvitation,
     TeamMembership, Profile, Organization, TeamEvent, TeamEventAttendance,
@@ -21,6 +22,7 @@ from core.forms import CustomUserCreationForm, OrganizationForm, TeamEventForm, 
 from . forms import TeamForm
 from datetime import date, timedelta
 from django.db.models import Q, Count
+from django.db.models.functions import Lower
 from django.core.paginator import Paginator
 from collections import defaultdict
 
@@ -28,6 +30,8 @@ EVENTS_PER_PAGE = 10
 ROSTER_PLAYERS_PER_PAGE = 3
 TEAMS_PER_PAGE = 5
 PLAYERS_PER_PAGE = 5
+FIND_TEAMS_PER_PAGE = 5
+FIND_TEAMS_MIN_QUERY_LEN = 2
 import json
 import logging
 import pytz
@@ -52,7 +56,6 @@ def dashboard(request):
         return redirect('owner_dashboard')
     
     else:
-        # Get the user's single family
         user_family = profile.family
         user_families = [user_family] if user_family else []
 
@@ -60,79 +63,144 @@ def dashboard(request):
 
         now = timezone.now()
         today = timezone.localdate()
+        tomorrow = today + timedelta(days=1)
+        in_one_week = now + timedelta(days=7)
 
-        # Use user's timezone for greeting
         user_tz_str = profile.timezone if profile and profile.timezone else 'America/Chicago'
         try:
             user_tz = pytz.timezone(user_tz_str)
             local_now = now.astimezone(user_tz)
-        except:
+        except Exception:
             local_now = now
 
-        # Proper today range (fixes the off-by-one day bug)
+        parent_team_ids = list(
+            TeamMembership.objects.filter(user=request.user, role='parent')
+            .values_list('team_id', flat=True)
+        )
 
-        # Family/personal events today
-        family_events = Event.objects.filter(
+        family_events_today = Event.objects.filter(
             family__in=user_families,
-            start_time__date=today
+            start_time__date=today,
         ).prefetch_related('kids').order_by('start_time')
 
-        # Team events today for teams this parent is on (show in Today's Events)
-        # Only include those the parent/kids have *accepted* (do not auto-show unaccepted invitations)
-        parent_team_ids = list(TeamMembership.objects.filter(user=request.user, role='parent').values_list('team_id', flat=True))
-        team_events_today = []
+        team_events_today = _parent_accepted_team_events_for_date(
+            user_family, kids, parent_team_ids, today
+        )
+        combined_today = _combine_parent_day_events(family_events_today, team_events_today)
+
+        story_events = combined_today
+        story_section_label = "Today's Events"
+        story_focus_index = _parent_story_focus_index(story_events, now, [])
+
+        has_live_today = any(_parent_event_is_live(ev) for ev in story_events)
+        family_events_tomorrow = Event.objects.filter(
+            family__in=user_families,
+            start_time__date=tomorrow,
+        ).prefetch_related('kids').order_by('start_time')
+        team_events_tomorrow = _parent_accepted_team_events_for_date(
+            user_family, kids, parent_team_ids, tomorrow
+        )
+        combined_tomorrow = _combine_parent_day_events(
+            family_events_tomorrow, team_events_tomorrow
+        )
+
+        if has_live_today:
+            story_focus_index = next(
+                i for i, ev in enumerate(story_events) if _parent_event_is_live(ev)
+            )
+        elif not any(
+            (ev.end_time >= now if ev.end_time else ev.start_time >= now)
+            for ev in story_events
+        ) and combined_tomorrow:
+            story_events = combined_tomorrow
+            story_section_label = "Tomorrow's Events"
+            story_focus_index = 0
+
+        tomorrow_events = combined_tomorrow[:5]
+
+        family_week_count = Event.objects.filter(
+            family__in=user_families,
+            start_time__gte=now,
+            start_time__lte=in_one_week,
+        ).count()
+        team_week_count = 0
         if parent_team_ids and kids:
             kid_ids = list(kids.values_list('id', flat=True))
-            accepted_event_ids = TeamEventAttendance.objects.filter(
+            team_week_count = TeamEventAttendance.objects.filter(
                 kid_id__in=kid_ids,
                 status='accepted',
                 team_event__team_id__in=parent_team_ids,
-                team_event__start_time__date=today
-            ).values_list('team_event_id', flat=True).distinct()
-            if accepted_event_ids:
-                team_events_qs = TeamEvent.objects.filter(
-                    id__in=accepted_event_ids
-                ).select_related('team').order_by('start_time')
-                team_events_today = list(team_events_qs)
-                for ev in team_events_today:
-                    # Scope to this parent's family only (do not show other families' kids to parents)
-                    ev.attending_kids = Kid.objects.filter(
-                        teameventattendance__team_event=ev,
-                        teameventattendance__status='accepted',
-                        family=user_family
-                    ).distinct()
+                team_event__start_time__gte=now,
+                team_event__start_time__lte=in_one_week,
+            ).values_list('team_event_id', flat=True).distinct().count()
+        upcoming_count = family_week_count + team_week_count
 
-        # Combine + sort
-        combined_today = []
-        for ev in family_events:
-            ev.is_team_event = False
-            combined_today.append(ev)
-        for ev in team_events_today:
-            ev.is_team_event = True
-            combined_today.append(ev)
-        combined_today.sort(key=lambda e: getattr(e, 'start_time', now))
-
-        # This week's events (family-wide count)
-        week_ago = now - timedelta(days=7)
-        this_weeks_events = Event.objects.filter(
-            family__in=user_families,
-            start_time__gte=week_ago
-        ).order_by('start_time')
-
-        # Get parent's teams for "Fusion Connections" section
-        parent_teams = Team.objects.filter(
+        parent_teams_qs = Team.objects.filter(
             memberships__user=request.user,
-            memberships__role='parent'
-        ).select_related('organization').distinct()[:4]
+            memberships__role='parent',
+        ).select_related('organization').distinct()
+        teams_count = parent_teams_qs.count()
+        parent_teams = parent_teams_qs[:4]
+
+        unread_notifications = Notification.objects.filter(
+            user=request.user, is_read=False
+        ).count()
+        recent_activity = []
+        recent_notifs = Notification.objects.filter(user=request.user).order_by('-created_at')[:5]
+        for n in recent_notifs:
+            extra = n.extra_data or {}
+            ntype = n.notification_type
+            if ntype == 'team_event_invitation':
+                invitation_id = extra.get('invitation_id') or extra.get('team_event_id')
+                link = (
+                    reverse('team_event_kid_selection', args=[invitation_id])
+                    if invitation_id else reverse('notifications')
+                )
+            elif ntype == 'team_invite':
+                invite_id = extra.get('invite_id')
+                link = (
+                    reverse('team_invite_response', args=[invite_id])
+                    if invite_id else reverse('notifications')
+                )
+            elif ntype in ('family_invite', 'parent_invite', 'family_join_request'):
+                invite_id = extra.get('invite_id')
+                link = (
+                    reverse('family_invite_response', args=[invite_id])
+                    if invite_id else reverse('notifications')
+                )
+            elif ntype == 'team_event_updated':
+                team_event_id = extra.get('team_event_id') or extra.get('event_id')
+                link = (
+                    reverse('review_team_event_update', args=[team_event_id])
+                    if team_event_id else reverse('event_list')
+                )
+            elif ntype == 'team_event_canceled':
+                link = reverse('event_list')
+            else:
+                link = reverse('notifications')
+            recent_activity.append({
+                'type': 'notification',
+                'when': n.created_at,
+                'text': n.title,
+                'link': link,
+            })
 
         context = {
-            "num_of_kids": kids.count(),
-            "num_of_events": len(combined_today),
-            "weeks_events_count": this_weeks_events.count(),
-            "user_events": combined_today,
-            "kids": kids,
-            "parent_teams": parent_teams,
-            "now": local_now,
+            'num_of_kids': kids.count(),
+            'num_of_events': len(combined_today),
+            'upcoming_count': upcoming_count,
+            'user_events': combined_today,
+            'kids': kids,
+            'parent_teams': parent_teams,
+            'teams_count': teams_count,
+            'family_name': user_family.family_name if user_family else '',
+            'now': local_now,
+            'story_events': story_events,
+            'story_section_label': story_section_label,
+            'story_focus_index': story_focus_index,
+            'tomorrow_events': tomorrow_events,
+            'unread_notifications': unread_notifications,
+            'recent_activity': recent_activity,
         }
 
     return render(request, "core/dashboard.html", context)
@@ -246,37 +314,6 @@ def owner_dashboard(request):
             start_time__lte=in_one_week,
         ).count()
 
-    # For dashboard suggestions / making it useful: real recent activity using existing models
-    # (implements "live team feeds" idea from vision without new models or breakage)
-    recent_activity = []
-    if organization:
-        # Recent new player registrations
-        recent_regs = PlayerRegistration.objects.filter(
-            team_membership__team__organization=organization
-        ).select_related('kid', 'team_membership__team').order_by('-created_at')[:3]
-        for r in recent_regs:
-            recent_activity.append({
-                'type': 'registration',
-                'when': r.created_at,
-                'text': f"{r.kid.first_name} {r.kid.last_name} joined {r.team_membership.team.name}",
-                'link': reverse('org_players'),
-            })
-
-        # Recent team events (team-based + org-wide training)
-        recent_ev = _owner_team_event_queryset(request.user).select_related('team').order_by('-created_at')[:3]
-        for e in recent_ev:
-            team_label = e.team.name if e.team else organization.name
-            recent_activity.append({
-                'type': 'event',
-                'when': e.created_at,
-                'text': f"New event '{e.name}' for {team_label}",
-                'link': reverse('team_event_detail', args=[e.id]),
-            })
-
-        # Sort combined by recency (simple)
-        recent_activity.sort(key=lambda x: x['when'], reverse=True)
-        recent_activity = recent_activity[:5]
-
     context = {
         'user_organization': organization,
         'total_teams': len(teams),
@@ -286,7 +323,6 @@ def owner_dashboard(request):
         'pending_roster_requests': pending_roster_requests,
         'pending_invites': pending_invites,
         'my_teams': teams,
-        'recent_activity': recent_activity,
         'tomorrow_events': tomorrow_events,
         'upcoming_count': upcoming_count,
         'story_events': story_events,
@@ -963,6 +999,77 @@ def get_conflicts_for_kids(selected_kids, proposed_event):
     return conflicts
 
 
+def _parent_event_is_live(event):
+    """True when any parent-dashboard event (family or team) is in progress."""
+    now = timezone.now()
+    return event.start_time <= now <= event.end_time
+
+
+def _parent_accepted_team_events_for_date(user_family, kids, parent_team_ids, target_date):
+    """Team events on a given day where this family's kids have accepted attendance."""
+    if not parent_team_ids or not kids:
+        return []
+    kid_ids = list(kids.values_list('id', flat=True))
+    accepted_event_ids = TeamEventAttendance.objects.filter(
+        kid_id__in=kid_ids,
+        status='accepted',
+        team_event__team_id__in=parent_team_ids,
+        team_event__start_time__date=target_date,
+    ).values_list('team_event_id', flat=True).distinct()
+    if not accepted_event_ids:
+        return []
+    team_events = list(
+        TeamEvent.objects.filter(id__in=accepted_event_ids)
+        .select_related('team')
+        .order_by('start_time')
+    )
+    for ev in team_events:
+        ev.attending_kids = Kid.objects.filter(
+            teameventattendance__team_event=ev,
+            teameventattendance__status='accepted',
+            family=user_family,
+        ).distinct()
+    return team_events
+
+
+def _combine_parent_day_events(family_events_qs, team_events_list):
+    """Merge family + accepted team events for one day, sorted by start time."""
+    combined = []
+    for ev in family_events_qs:
+        ev.is_team_event = False
+        ev.event_type = 'family'
+        ev.attending_kids = list(ev.kids.all())
+        ev.is_live = _parent_event_is_live(ev)
+        combined.append(ev)
+    for ev in team_events_list:
+        ev.is_team_event = True
+        ev.is_live = _parent_event_is_live(ev)
+        combined.append(ev)
+    combined.sort(key=lambda e: e.start_time)
+    return combined
+
+
+def _parent_story_focus_index(story_events, now, tomorrow_story):
+    """Pick the story carousel focus index (live first, else next upcoming)."""
+    story_focus_index = 0
+    live_index = next(
+        (i for i, ev in enumerate(story_events) if _parent_event_is_live(ev)),
+        None,
+    )
+    if live_index is not None:
+        return live_index
+    for i, ev in enumerate(story_events):
+        if ev.end_time:
+            still_upcoming = ev.end_time >= now
+        else:
+            still_upcoming = ev.start_time >= now
+        if still_upcoming:
+            return i
+    if story_events:
+        return len(story_events) - 1
+    return 0
+
+
 def _owner_team_event_queryset(user):
     """Team events an owner can manage (team-based or org-wide training they created)."""
     return TeamEvent.objects.filter(
@@ -1272,23 +1379,17 @@ def _apply_event_time_range(queryset, range_param):
     return queryset.filter(end_time__lt=now)
 
 
-@login_required
-def event_list(request):
-    # Mark specific notif as read if clicked from notifications (e.g. for canceled team events)
-    # If ?read present, this returns redirect to clean URL (no ?read)
-    response = _mark_notification_as_read(request)
-    if response:
-        return response
+def _parent_calendar_events(user_family, range_param):
+    """Merge family events + accepted team events for the parent calendar."""
+    user_families = [user_family] if user_family else []
+    now = timezone.now()
 
-    profile = _safe_get_user_profile(request)
-    if profile.role == "parent":
-        user_family = profile.family
-        user_families = [user_family] if user_family else []
+    personal_events = list(Event.objects.filter(
+        family__in=user_families,
+    ).prefetch_related('kids', 'family', 'created_by'))
 
-        personal_events = list(Event.objects.filter(
-            family__in=user_families,
-        ).prefetch_related('kids', 'family', 'created_by'))
-
+    accepted_team_events = []
+    if user_family:
         accepted_team_events = list(TeamEvent.objects.filter(
             attendances__kid__family=user_family,
             attendances__status='accepted',
@@ -1309,11 +1410,44 @@ def event_list(request):
             if user_attendances:
                 event.user_attendances = user_attendances
 
-        all_events = personal_events + accepted_team_events
-        all_events.sort(key=lambda x: x.start_time)
+    for ev in personal_events:
+        ev.is_team_event = False
+        ev.event_type = 'family'
+        ev.is_happening_now = _parent_event_is_live(ev)
+        ev.attendance_count = ev.kids.count()
+    for ev in accepted_team_events:
+        ev.is_team_event = True
+        ev.is_happening_now = _parent_event_is_live(ev)
+        ev.attendance_count = len(getattr(ev, 'user_attendances', []))
+
+    combined = personal_events + accepted_team_events
+    if range_param == 'upcoming':
+        combined = [e for e in combined if e.end_time >= now]
+        combined.sort(key=lambda x: x.start_time)
+    else:
+        combined = [e for e in combined if e.end_time < now]
+        combined.sort(key=lambda x: x.start_time, reverse=True)
+    return combined
+
+
+@login_required
+def event_list(request):
+    # Mark specific notif as read if clicked from notifications (e.g. for canceled team events)
+    # If ?read present, this returns redirect to clean URL (no ?read)
+    response = _mark_notification_as_read(request)
+    if response:
+        return response
+
+    profile = _safe_get_user_profile(request)
+    if profile.role == "parent":
+        range_param = _event_list_range(request)
+        all_events = _parent_calendar_events(profile.family, range_param)
+        page_obj = Paginator(all_events, EVENTS_PER_PAGE).get_page(request.GET.get('page'))
 
         context = {
-            'events': all_events,
+            'events': page_obj,
+            'page_obj': page_obj,
+            'range_filter': range_param,
             'is_parent': True,
         }
 
@@ -1347,9 +1481,23 @@ def event_list(request):
 
 
 
-#This section below is the AUTHENTICATION section 
+#This section below is the AUTHENTICATION section
+
+
+def _apply_no_cache_headers(response):
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response
+
+
+def csrf_failure(request, reason=""):
+    """Send users back to login with a fresh token instead of a raw 403 page."""
+    return redirect(f"{reverse('login')}?csrf=1")
+
 
 @never_cache
+@ensure_csrf_cookie
 def login_view(request):
     # If already logged in, don't show login form (prevents back-button issues after login)
     if request.user.is_authenticated:
@@ -1383,27 +1531,30 @@ def login_view(request):
             return redirect('dashboard')
 
         else:
-            return render(request, "core/login.html", context={
+            return _apply_no_cache_headers(render(request, "core/login.html", context={
                 "error": "Invalid credentials, try again."
-            })
+            }))
 
     # Privacy: show friendly message after successful account deletion
     deleted = request.GET.get('deleted') == '1'
+    csrf_error = request.GET.get('csrf') == '1'
     context = {}
     if deleted:
         context['success'] = "Your account and all associated data have been permanently deleted. We're sorry to see you go."
+    if csrf_error:
+        context['csrf_error'] = (
+            "Your session expired or the page was cached. Please log in again."
+        )
 
-    response = render(request, "core/login.html", context)
-    # Extra strong no-cache to defeat browser back-button cache of stale CSRF token
-    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    response['Pragma'] = 'no-cache'
-    response['Expires'] = '0'
-    return response
+    return _apply_no_cache_headers(render(request, "core/login.html", context))
 
+
+@never_cache
 @login_required
 def logout_view(request):
     logout(request)
-    return redirect('login')
+    response = redirect('login')
+    return _apply_no_cache_headers(response)
 
 
 def signup_view(request):
@@ -1443,7 +1594,7 @@ def account_settings(request):
         new_email = (request.POST.get('email', request.user.email) or '').strip()
         if new_email and User.objects.filter(email__iexact=new_email).exclude(id=request.user.id).exists():
             messages.error(request, "An account with this email address already exists.")
-            return redirect('account_settings')
+            return redirect(reverse('account_settings') + '?edit=1')
         request.user.email = new_email
         request.user.save()
 
@@ -1464,12 +1615,19 @@ def account_settings(request):
         messages.success(request, "✅ Profile updated successfully!")
         return redirect('account_settings')
 
-    # GET request
+    current_timezone = profile.timezone if profile else 'America/Chicago'
+    timezone_label = next(
+        (label for key, label in COMMON_TIMEZONES if key == current_timezone),
+        current_timezone,
+    )
+
     return render(request, "core/account_settings.html", {
         'user': request.user,
         'profile': profile,
-        'current_timezone': profile.timezone if profile else 'America/Chicago',
+        'current_timezone': current_timezone,
+        'timezone_label': timezone_label,
         'timezones': COMMON_TIMEZONES,
+        'editing': request.GET.get('edit') == '1',
     })
 
 
@@ -1720,9 +1878,15 @@ def my_family(request):
         status="pending"
     ).select_related('sender', 'receiver').order_by('-created_at')
 
+    kids = family.kids.all().order_by('first_name', 'last_name')
+    parents = family.parents.all().order_by('first_name', 'last_name')
+
     context = {
         "family": family,
         "pending_invites": pending_invites,
+        "kids": kids,
+        "parents": parents,
+        "is_owner_view": False,
     }
     return render(request, "core/family_details.html", context)
 
@@ -1738,12 +1902,31 @@ def parent_teams(request):
     memberships = TeamMembership.objects.filter(
         user=request.user,
         role='parent'
-    ).select_related('team', 'team__organization')
+    ).select_related('team', 'team__organization').order_by('team__name')
 
-    teams = [m.team for m in memberships]
+    teams = []
+    family = profile.family
+    for membership in memberships:
+        team = membership.team
+        if family:
+            team.registered_kids_count = PlayerRegistration.objects.filter(
+                team_membership__team=team,
+                kid__family=family,
+            ).count()
+        else:
+            team.registered_kids_count = 0
+        teams.append(team)
+
+    pending_join_count = Invite.objects.filter(
+        sender=request.user,
+        status='pending',
+        invite_type='team_join_request',
+    ).count()
 
     context = {
         "teams": teams,
+        "teams_count": len(teams),
+        "pending_join_count": pending_join_count,
     }
     return render(request, "core/parent_teams.html", context)
 
@@ -2673,6 +2856,9 @@ def family_detail(request, family_id):
         "pending_invites": pending_invites,
         "is_owner_view": profile.role == "owner",
     }
+    if profile.role == "parent":
+        context["kids"] = family.kids.all().order_by('first_name', 'last_name')
+        context["parents"] = family.parents.all().order_by('first_name', 'last_name')
 
     # For owner view from roster/players: specialize to ONLY kids registered in THIS org's teams
     # and parent cards that include their TeamMembership in the org.
@@ -3140,38 +3326,76 @@ def delete_team(request, team_id):
     return render(request, "core/delete_team.html", {"team": team})
 
 
-@login_required
-def find_teams(request):
-    query = request.GET.get('q', '').strip()
-    
-    if query:
-        teams = Team.objects.filter(name__icontains=query).order_by('name')
-    else:
-        teams = Team.objects.all().order_by('name')
-
-    # Annotate each team with membership + whether the parent can still add more kids
+def _annotate_find_team_cards(parent_user, teams):
+    """Attach membership / request state used by the find-teams discovery cards."""
     for team in teams:
         team.user_is_member = TeamMembership.objects.filter(
-            team=team, 
-            user=request.user
+            team=team,
+            user=parent_user,
         ).exists()
-        
         team.user_has_pending_request = Invite.objects.filter(
-            team=team, 
-            sender=request.user, 
-            status="pending"
+            team=team,
+            sender=parent_user,
+            status='pending',
+            invite_type='team_join_request',
         ).exists()
+        team.can_add_more_kids = get_unregistered_kids_for_team(parent_user, team).exists()
+        team.is_owned_by_user = team.organization.owner_id == parent_user.id
 
-        # True if the parent has at least one kid not yet on this team
-        team.can_add_more_kids = get_unregistered_kids_for_team(request.user, team).exists()
 
-        # Important: mark if this is one of the current user's own teams
-        team.is_owned_by_user = team.organization.owner_id == request.user.id
+@login_required
+def find_teams(request):
+    profile = _safe_get_user_profile(request)
+    if profile.role != 'parent':
+        messages.error(request, 'This page is for parents only.')
+        return redirect('owner_dashboard')
 
-    return render(request, "core/find_teams.html", {
-        "teams": teams,
-        "query": query
-    })
+    search_q = (request.GET.get('q') or '').strip()
+    teams_qs = Team.objects.none()
+    total_results = 0
+    page_obj = None
+
+    if len(search_q) >= FIND_TEAMS_MIN_QUERY_LEN:
+        search_term = search_q.casefold()
+        teams_qs = Team.objects.annotate(
+            _name_lower=Lower('name'),
+            _org_lower=Lower('organization__name'),
+        ).filter(
+            Q(_name_lower__contains=search_term) | Q(_org_lower__contains=search_term)
+        ).exclude(
+            organization__owner=request.user,
+        ).select_related('organization').order_by('name')
+        total_results = teams_qs.count()
+        paginator = Paginator(teams_qs, FIND_TEAMS_PER_PAGE)
+        page_obj = paginator.get_page(request.GET.get('page'))
+        _annotate_find_team_cards(request.user, page_obj.object_list)
+
+    pending_requests = Invite.objects.filter(
+        sender=request.user,
+        status='pending',
+        invite_type='team_join_request',
+    ).select_related('team', 'team__organization').order_by('-created_at')
+
+    connected_teams_count = Team.objects.filter(
+        memberships__user=request.user,
+        memberships__role='parent',
+    ).distinct().count()
+
+    context = {
+        'search_q': search_q,
+        'page_obj': page_obj,
+        'teams': page_obj.object_list if page_obj else [],
+        'total_results': total_results,
+        'pending_requests': pending_requests,
+        'connected_teams_count': connected_teams_count,
+        'min_query_len': FIND_TEAMS_MIN_QUERY_LEN,
+    }
+    template = (
+        'core/find_teams_results.html'
+        if request.headers.get('HX-Request')
+        else 'core/find_teams.html'
+    )
+    return render(request, template, context)
 
 
 @login_required

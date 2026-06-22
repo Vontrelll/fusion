@@ -2,54 +2,109 @@
 {% block title %}My Teams - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-[1000px] mx-auto px-4 py-6">
+<div class="min-w-0 overflow-x-hidden pb-4">
 
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h1 class="text-3xl font-bold tracking-tight">My Teams</h1>
-            <p class="text-sm text-zinc-500">Teams you're registered with</p>
-        </div>
-        {% if teams %}
-        <a href="{% url 'find_teams' %}" 
-           class="px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-2xl flex items-center gap-2">
-            🔍 Find Teams
-        </a>
-        {% endif %}
-    </div>
+    <section class="teams-toolbar-band relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-3 pb-3 sm:pt-4 sm:pb-4 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-3">
+            <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase text-center">My Teams</div>
 
-    {% if teams %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {% for team in teams %}
-        <div class="bg-white rounded-3xl shadow-sm border border-zinc-100 p-8 hover:shadow-md transition-all">
-            <div class="flex items-start gap-2">
-                <span class="inline-block w-3 h-3 mt-1.5 rounded-full flex-shrink-0" style="background-color: {{ team.color|default:'#64748b' }}"></span>
-                <div>
-                    <h3 class="text-2xl font-semibold text-zinc-900">{{ team.name }}</h3>
-                    <p class="text-zinc-500 mt-1">{{ team.get_sport_type_display }}</p>
-                    <p class="text-sm text-zinc-400 mt-1">{{ team.organization.name }}</p>
+            <a href="{% url 'find_teams' %}"
+               class="team-create-btn flex items-center gap-2.5 sm:gap-3 px-3 py-3.5 sm:px-4 sm:py-4 rounded-2xl group min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-magnifying-glass text-violet-600"></i>
+                </div>
+                <div class="flex-1 min-w-0 text-left">
+                    <div class="text-sm font-semibold text-gray-900 group-hover:text-violet-700 transition truncate">Find Teams</div>
+                    <div class="text-[11px] text-gray-500 truncate hidden sm:block">Search and request to join</div>
+                </div>
+                <i class="fa-solid fa-chevron-right text-[10px] text-violet-300 group-hover:text-violet-600 flex-shrink-0 transition"></i>
+            </a>
+
+            <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
+                {% if teams_count %}
+                <span class="text-xs text-gray-500 tabular-nums">{{ teams_count }} connected team{{ teams_count|pluralize }}</span>
+                {% else %}
+                <span class="text-xs text-gray-500">No teams connected yet</span>
+                {% endif %}
+                <div class="flex items-center gap-3">
+                    {% if pending_join_count %}
+                    <a href="{% url 'find_teams' %}" class="text-xs font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full ring-1 ring-amber-200/70">{{ pending_join_count }} pending</a>
+                    {% endif %}
+                    <a href="{% url 'dashboard' %}" class="font-medium text-blue-600 hover:text-blue-700 flex items-center flex-shrink-0">
+                        <i class="fa-solid fa-arrow-left mr-1.5 text-xs"></i> Home
+                    </a>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <div class="mt-10">
-                <a href="{% url 'team_detail' team.id %}" 
-                   class="block w-full text-center py-4 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-2xl font-medium transition">
-                    View Team Details
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-3">
+        {% if teams %}
+        <div class="flex flex-col gap-2">
+            {% for team in teams %}
+            <div class="team-card panel-card-dof rounded-2xl overflow-hidden">
+                <div class="h-1 w-full" style="background-color: {{ team.color|default:'#64748b' }}"></div>
+                <a href="{% url 'team_detail' team.id %}"
+                   class="flex items-center gap-3 px-4 py-3.5 sm:px-5 group min-w-0">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-sm font-bold"
+                         style="background-color: {{ team.color|default:'#64748b' }}">
+                        {{ team.name|slice:":1"|upper }}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <h3 class="font-semibold text-gray-900 group-hover:text-blue-600 transition truncate" title="{{ team.name }}">{{ team.name }}</h3>
+                            {% if team.registered_kids_count %}
+                            <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full whitespace-nowrap flex-shrink-0">{{ team.registered_kids_count }} kid{{ team.registered_kids_count|pluralize }}</span>
+                            {% endif %}
+                        </div>
+                        <p class="text-sm text-gray-500 mt-0.5 truncate">{{ team.get_sport_type_display }}</p>
+                        <p class="text-xs text-gray-400 truncate">{{ team.organization.name }}</p>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 group-hover:text-blue-400 flex-shrink-0 transition"></i>
                 </a>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
+        {% else %}
+        <div class="panel-card-dof rounded-2xl p-8 sm:p-10 text-center">
+            <div class="w-14 h-14 rounded-2xl bg-violet-100 flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-people-group text-2xl text-violet-400"></i>
+            </div>
+            <p class="font-semibold text-gray-800">No teams connected yet</p>
+            <p class="text-sm text-gray-500 mt-1">Search for your child's team or wait for a coach invite.</p>
+            <a href="{% url 'find_teams' %}"
+               class="mt-6 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition">
+                <i class="fa-solid fa-magnifying-glass text-xs"></i> Find Teams
+            </a>
+        </div>
+        {% endif %}
     </div>
-    {% else %}
-    <div class="bg-white rounded-3xl shadow-sm border border-dashed border-zinc-200 p-20 text-center">
-        <div class="text-7xl mb-6">🏟️</div>
-        <h3 class="text-3xl font-semibold text-zinc-800">You're not on any teams yet</h3>
-        <p class="text-zinc-500 mt-4">Ask your team owner to invite you, or search for teams to join.</p>
-        <a href="{% url 'find_teams' %}" 
-           class="mt-6 inline-block px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-medium text-sm flex items-center gap-2 w-fit mx-auto">
-            <span>🔍</span> Find Teams to Join
-        </a>
-    </div>
-    {% endif %}
-
 </div>
+
+<style>
+    .team-create-btn {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.05);
+        transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    }
+    .team-create-btn:hover {
+        transform: translateY(-1px);
+        border-color: rgba(167, 139, 250, 0.35);
+        box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+    .panel-card-dof {
+        position: relative;
+        isolation: isolate;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 250, 252, 0.94) 100%);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 3px 10px rgba(15, 23, 42, 0.05), 0 10px 22px -10px rgba(15, 23, 42, 0.09);
+        transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    }
+    .team-card:hover {
+        border-color: rgba(148, 163, 184, 0.35);
+        box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 6px 16px rgba(15, 23, 42, 0.07), 0 14px 28px -10px rgba(15, 23, 42, 0.11);
+        transform: translateY(-1px);
+    }
+</style>
 {% endblock %}

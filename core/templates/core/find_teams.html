@@ -1,60 +1,107 @@
-{% extends 'core/base.html' %}
+{% extends "core/base.html" %}
+
 {% block title %}Find Teams - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-6 py-8">
-    <h1 class="text-3xl font-bold text-center mb-8">Find Teams</h1>
+<div class="max-w-3xl mx-auto px-4 py-6 space-y-8">
 
-    <!-- Search Bar -->
-    <form method="GET" class="mb-10">
-        <div class="relative max-w-2xl mx-auto">
-            <input type="text"
-                   name="q"
-                   value="{{ query|default:'' }}"
-                   placeholder="Search by team name..."
-                   class="w-full px-6 py-4 border border-gray-300 rounded-3xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button type="submit"
-                    class="absolute right-4 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-2xl font-medium">
-                Search
-            </button>
-        </div>
-    </form>
+    <!-- Page header -->
+    <div class="text-center">
+        <p class="text-xs font-semibold uppercase tracking-[2px] text-gray-500 mb-2">Discover</p>
+        <h1 class="text-2xl font-bold text-gray-900">Find Teams</h1>
+        <p class="text-sm text-gray-500 mt-2 max-w-md mx-auto">Search for teams your kids can join. Request access and the team owner will review it.</p>
+    </div>
 
-    <!-- Results - Instagram/Facebook discovery style -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {% for team in teams %}
-        <div class="bg-white rounded-2xl border border-zinc-200 p-5 flex flex-col">
-            <div class="flex items-start gap-4 flex-1">
-                <div class="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0">
-                    🏟️
+    <!-- Search toolbar -->
+    <div class="relative left-1/2 -translate-x-1/2 w-screen bg-gray-50 border-y border-gray-100 py-4 px-4">
+        <div class="max-w-3xl mx-auto">
+            <div class="flex items-center gap-3" role="search">
+                <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                    <input
+                        id="find-teams-q"
+                        name="q"
+                        type="search"
+                        value="{{ search_q }}"
+                        placeholder="Search by team or organization name..."
+                        autocomplete="off"
+                        class="w-full pl-10 pr-10 py-3 rounded-2xl border border-gray-200 bg-white text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 transition-all"
+                        hx-get="{% url 'find_teams' %}"
+                        hx-trigger="input changed delay:300ms, search"
+                        hx-target="#find-teams-results"
+                        hx-push-url="true"
+                        hx-indicator="#find-teams-loading"
+                    >
+                    <button
+                        type="button"
+                        id="find-teams-clear"
+                        onclick="var i=document.getElementById('find-teams-q'); i.value=''; i.focus(); htmx.trigger(i,'input');"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors {% if not search_q %}hidden{% endif %}"
+                        aria-label="Clear search"
+                    >
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
                 </div>
-                <div class="min-w-0 flex-1">
-                    <h3 class="font-semibold text-lg leading-tight">{{ team.name }}</h3>
-                    <p class="text-sm text-zinc-500">{{ team.get_sport_type_display }}</p>
-                    <p class="text-xs text-zinc-400 mt-0.5">{{ team.organization.name }}</p>
-                </div>
+                <span id="find-teams-loading" class="htmx-indicator flex-shrink-0">
+                    <i class="fa-solid fa-spinner fa-spin text-gray-400 text-sm"></i>
+                </span>
             </div>
-
-            <div class="mt-4 pt-4 border-t flex items-center justify-between">
-                {% if team.is_owned_by_user %}
-                    <span class="text-xs font-medium bg-zinc-100 text-zinc-600 px-3 py-1 rounded-2xl">Your Team</span>
-                {% elif team.user_is_member and not team.can_add_more_kids %}
-                    <span class="text-xs font-medium bg-emerald-100 text-emerald-700 px-3 py-1 rounded-2xl">✓ Member</span>
-                {% elif team.user_has_pending_request %}
-                    <span class="text-xs font-medium bg-amber-100 text-amber-700 px-3 py-1 rounded-2xl">Request Pending</span>
-                {% else %}
-                    <a href="{% url 'select_kids_for_team_join_request' team.id %}"
-                       class="text-sm font-semibold bg-[#1877f2] hover:bg-[#166fe0] text-white px-4 py-2 rounded-2xl transition">
-                        {% if team.user_is_member %}Add Kid{% else %}Request to Join{% endif %}
-                    </a>
-                {% endif %}
+            <div class="flex items-center justify-between mt-2 px-1">
+                <p class="text-xs text-gray-400">Results appear as you type</p>
+                <span id="find-teams-results-count" class="text-xs text-gray-400">
+                    {% if search_q|length >= min_query_len %}
+                        {{ total_results }} result{{ total_results|pluralize }}
+                    {% endif %}
+                </span>
             </div>
         </div>
-        {% empty %}
-        <div class="col-span-full py-16 text-center bg-white rounded-2xl border border-zinc-200">
-            <p class="text-zinc-500">No teams found.</p>
+    </div>
+
+    <!-- Results (live-updated via HTMX) -->
+    <div id="find-teams-results">
+        {% include "core/_find_teams_results_inner.html" %}
+    </div>
+
+    <!-- Connected teams summary -->
+    {% if connected_teams_count > 0 %}
+    <div class="flex items-center justify-between px-1">
+        <p class="text-xs font-semibold uppercase tracking-[2px] text-gray-500">
+            Your Teams
+        </p>
+        <a href="{% url 'parent_teams' %}" class="text-xs font-semibold text-gray-600 hover:text-gray-900 transition-colors">
+            View all ({{ connected_teams_count }}) <i class="fa-solid fa-arrow-right ml-0.5 text-[10px]"></i>
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Pending requests -->
+    {% if pending_requests %}
+    <div class="space-y-3">
+        <p class="text-xs font-semibold uppercase tracking-[2px] text-gray-500 px-1">Pending Requests</p>
+        {% for invite in pending_requests %}
+        <div class="panel-card-dof p-4 flex items-center justify-between gap-4">
+            <div class="min-w-0">
+                <p class="text-sm font-semibold text-gray-900 truncate">{{ invite.team.name }}</p>
+                <p class="text-xs text-gray-500 truncate">{{ invite.team.organization.name }}</p>
+            </div>
+            <span class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                <i class="fa-solid fa-clock text-[10px]"></i> Awaiting review
+            </span>
         </div>
         {% endfor %}
     </div>
+    {% endif %}
+
 </div>
+
+<style>
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator { display: inline-flex; }
+</style>
+<script>
+    document.getElementById('find-teams-q').addEventListener('input', function () {
+        document.getElementById('find-teams-clear').classList.toggle('hidden', !this.value);
+    });
+</script>
 {% endblock %}

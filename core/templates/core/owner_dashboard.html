@@ -311,6 +311,60 @@
 
         <!-- SIDE PANEL: Quick Links & Fusion Impact -->
         <div class="space-y-6">
+            <!-- Announcements (coming soon) -->
+            <div class="panel-card-dof p-5 overflow-hidden">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="text-sm uppercase tracking-widest text-gray-500">Announcements</div>
+                    <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Coming Soon</span>
+                </div>
+
+                <div class="relative rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 p-4">
+                    <div class="absolute inset-0 bg-gradient-to-br from-violet-50/40 via-transparent to-blue-50/30 pointer-events-none rounded-2xl"></div>
+
+                    <div class="relative space-y-3 opacity-60 pointer-events-none select-none" aria-hidden="true">
+                        <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+                            <div class="flex items-center gap-2.5 mb-2">
+                                <div class="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+                                    <i class="fa-solid fa-bullhorn text-violet-600 text-xs"></i>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xs font-semibold text-gray-900 truncate">Org-wide PSA</div>
+                                    <div class="text-[10px] text-gray-400">You · All teams · 2h ago</div>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-600 leading-relaxed">Field closure Saturday — all outdoor practices move indoors. Check your team schedule.</p>
+                            <div class="mt-2 flex items-center gap-3 text-[10px] text-gray-400">
+                                <span><i class="fa-solid fa-paper-plane mr-1"></i>Sent to {{ num_families|default:0 }} families</span>
+                                <span><i class="fa-regular fa-comment mr-1"></i>8 comments</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 ml-4">
+                            <div class="flex items-center gap-2.5 mb-2">
+                                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                    <i class="fa-solid fa-people-group text-blue-600 text-xs"></i>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-xs font-semibold text-gray-900 truncate">Team update</div>
+                                    <div class="text-[10px] text-gray-400">U12 Lightning only · Yesterday</div>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-600 leading-relaxed">Reminder: jersey sizes due by Friday. Reply in comments if you need a swap.</p>
+                        </div>
+                    </div>
+
+                    <div class="relative mt-4 text-center">
+                        <div class="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center mx-auto mb-2">
+                            <i class="fa-solid fa-bullhorn text-violet-600"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-gray-900">PSAs &amp; team posts are on the way</p>
+                        <p class="text-xs text-gray-500 mt-1.5 leading-relaxed max-w-[16rem] mx-auto">
+                            Publish org-wide announcements or target specific teams. Parents read and comment — you stay in control of who sees what.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Fusion Value Card -->
             <div class="fusion-card p-6 bg-gradient-to-br from-slate-900 to-gray-900 text-white">
                 <div class="text-xs uppercase tracking-widest text-white/60 mb-2">THE FUSION</div>
@@ -326,29 +380,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Recent Activity -->
-    {% if recent_activity %}
-    <div class="mt-6">
-        <div class="flex items-center justify-between mb-3 px-1">
-            <div class="text-sm uppercase tracking-widest text-gray-500">Recent Activity</div>
-        </div>
-        <div class="activity-list flex flex-col gap-2">
-            {% for item in recent_activity %}
-            <a href="{{ item.link }}" class="panel-card-dof activity-item flex items-start gap-3.5 px-4 py-3.5 sm:px-5 sm:py-4 rounded-2xl group">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 {% if item.type == 'registration' %}bg-emerald-100 text-emerald-600{% else %}bg-blue-100 text-blue-600{% endif %}">
-                    {% if item.type == 'registration' %}<i class="fa-solid fa-user-plus"></i>{% else %}<i class="fa-solid fa-calendar-plus"></i>{% endif %}
-                </div>
-                <div class="flex-1 min-w-0 pt-0.5">
-                    <div class="text-sm text-gray-800 group-hover:text-gray-900 leading-snug">{{ item.text }}</div>
-                    <div class="text-xs text-gray-400 mt-1">{{ item.when|timesince }} ago</div>
-                </div>
-                <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 group-hover:text-gray-400 mt-2 flex-shrink-0 transition"></i>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
 
 <style>
     @keyframes fadeIn {

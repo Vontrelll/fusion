@@ -1,0 +1,9 @@
+<span id="find-teams-results-count" hx-swap-oob="true" class="text-xs text-gray-400">
+    {% if search_q|length >= min_query_len %}
+        {{ total_results }} result{{ total_results|pluralize }}
+    {% endif %}
+</span>
+
+<div id="find-teams-results">
+    {% include "core/_find_teams_results_inner.html" %}
+</div>

@@ -11,6 +11,11 @@
         </div>
         <h1 class="text-2xl font-semibold text-center mb-6 text-gray-900">Welcome back</h1>
         
+        {% if csrf_error %}
+        <div class="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl mb-6 text-sm">
+            {{ csrf_error }}
+        </div>
+        {% endif %}
         {% if error %}
         <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl mb-6 text-sm">
             {{ error }}
@@ -23,7 +28,7 @@
         </div>
         {% endif %}
 
-        <form method="POST" class="space-y-6" autocomplete="off" novalidate>
+        <form method="POST" action="{% url 'login' %}" class="space-y-6" autocomplete="off" novalidate>
             {% csrf_token %}
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
@@ -57,4 +62,12 @@
         </p>
     </div>
 </div>
+<script>
+    // Reload if user lands on a back-forward cached login page (stale CSRF token).
+    window.addEventListener('pageshow', function (e) {
+        if (e.persisted) {
+            window.location.reload();
+        }
+    });
+</script>
 {% endblock %}

@@ -32,17 +32,30 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if h.strip()]
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://fusionbeta.com',
-    'https://www.fusionbeta.com',
-]
-if DEBUG:
-    CSRF_TRUSTED_ORIGINS += [
-        'http://127.0.0.1:8000',
-        'http://localhost:8000',
-        'http://127.0.0.1',
-        'http://localhost',
+
+def _build_csrf_trusted_origins(hosts, debug=False):
+    """Mirror ALLOWED_HOSTS into CSRF_TRUSTED_ORIGINS so login POSTs aren't rejected."""
+    origins = [
+        'https://fusionbeta.com',
+        'https://www.fusionbeta.com',
     ]
+    for host in hosts:
+        if not host or host == '*':
+            continue
+        if debug:
+            origins.extend([
+                f'http://{host}',
+                f'https://{host}',
+                f'http://{host}:8000',
+                f'https://{host}:8000',
+            ])
+        else:
+            origins.append(f'https://{host}')
+    return list(dict.fromkeys(origins))
+
+
+CSRF_TRUSTED_ORIGINS = _build_csrf_trusted_origins(ALLOWED_HOSTS, DEBUG)
+CSRF_FAILURE_VIEW = 'core.views.csrf_failure'
 
 # ==================== PRODUCTION SECURITY (Fixed for Railway) ====================
 if not DEBUG:

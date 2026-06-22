@@ -98,7 +98,7 @@
                         <a href="{% url 'my_family' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'my_family' or current == 'family_detail' or current == 'create_first_family' or current == 'join_family' or current == 'setup_family' or current == 'add_family' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
                             <i class="fa-solid fa-users mr-1"></i> Family
                         </a>
-                        <a href="{% url 'parent_teams' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'parent_teams' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
+                        <a href="{% url 'parent_teams' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'parent_teams' or current == 'parent_to_team_request' or current == 'team_invite_response' or current == 'select_kids_for_team_join_request' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
                             <i class="fa-solid fa-people-group mr-1"></i> Teams
                         </a>
                         <a href="{% url 'event_list' %}" class="px-4 py-1.5 rounded-xl hover:bg-gray-100 text-sm font-medium {% if current == 'event_list' %}text-blue-600{% else %}text-gray-600 hover:text-gray-900{% endif %}">
@@ -184,16 +184,7 @@
             <div id="mobile-nav" class="px-4 py-3 space-y-1 text-sm"
                  {% if request.META.HTTP_HX_REQUEST %}hx-swap-oob="true"{% endif %}
                  hx-boost="true" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML">
-                {% with current=request.resolver_match.url_name %}
-                {% if current_role == 'parent' %}
-                    <a href="{% url 'dashboard' %}" class="block px-3 py-2 rounded {% if current == 'dashboard' or current == 'parent_onboarding' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Home</a>
-                    <a href="{% url 'my_family' %}" class="block px-3 py-2 rounded {% if current == 'my_family' or current == 'family_detail' or current == 'create_first_family' or current == 'join_family' or current == 'setup_family' or current == 'add_family' or current == 'kid_list' or current == 'add_kid' or current == 'edit_kid' or current == 'delete_kid' or current == 'invite_parent' or current == 'remove_parent' or current == 'family_invite_response' or current == 'accept_family_invite' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">My Family</a>
-                    <a href="{% url 'parent_teams' %}" class="block px-3 py-2 rounded {% if current == 'parent_teams' or current == 'parent_to_team_request' or current == 'team_invite_response' or current == 'select_kids_for_team_join_request' or current == 'find_teams' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">My Teams</a>
-                    <a href="{% url 'event_list' %}" class="block px-3 py-2 rounded {% if current == 'event_list' or current == 'add_event' or current == 'edit_event' or current == 'delete_event' or current == 'event_detail' or current == 'add_team_event' or current == 'edit_team_event' or current == 'delete_team_event' or current == 'team_event_detail' or current == 'resolve_team_event_conflict' or current == 'review_team_event_update' %}text-blue-600 font-medium{% else %}hover:bg-gray-100{% endif %}">Events</a>
-                {% endif %}
-                {% endwith %}
                 {% if request.user.is_authenticated %}
-                    <div class="border-t my-1"></div>
                     <a href="{% url 'account_settings' %}" class="block px-3 py-2 rounded hover:bg-gray-100" hx-boost="false">Account Settings</a>
                     <a href="{% url 'logout' %}" class="block px-3 py-2 rounded text-red-600 hover:bg-red-50" hx-boost="false">Logout</a>
                 {% else %}
@@ -260,7 +251,7 @@
                     <i class="fa-solid fa-calendar text-lg"></i>
                     <span class="text-[10px]">Events</span>
                 </a>
-                <a href="{% url 'parent_teams' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'parent_teams' or current == 'parent_to_team_request' or current == 'team_invite_response' or current == 'select_kids_for_team_join_request' or current == 'find_teams' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
+                <a href="{% url 'parent_teams' %}" class="flex flex-col items-center justify-center flex-1 py-1 {% if current == 'parent_teams' or current == 'parent_to_team_request' or current == 'team_invite_response' or current == 'select_kids_for_team_join_request' %}text-blue-600{% else %}text-gray-500 hover:text-blue-600{% endif %}">
                     <i class="fa-solid fa-people-group text-lg"></i>
                     <span class="text-[10px]">Teams</span>
                 </a>
