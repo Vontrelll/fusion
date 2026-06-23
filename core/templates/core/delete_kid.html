@@ -2,37 +2,44 @@
 {% block title %}Delete Kid - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-md mx-auto px-4 py-12">
-    <div class="bg-white rounded-3xl shadow-lg p-8 text-center">
-        <div class="mx-auto w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center text-4xl mb-6">
-            ⚠️
-        </div>
-        
-        <h1 class="text-3xl font-bold text-gray-900 mb-4">Delete Kid</h1>
-        
-        <p class="text-gray-600 mb-8">
-            Are you sure you want to delete <br>
-            <strong class="text-gray-900">{{ kid.first_name }} {{ kid.last_name }}</strong>?
-        </p>
-        
-        <p class="text-red-600 text-sm mb-8">
-            This action cannot be undone.<br>
-            The kid will be removed from all events and teams.
-        </p>
+<div class="min-w-0 overflow-x-hidden pb-4">
 
-        <form method="POST" class="space-y-4">
-            {% csrf_token %}
-            
-            <button type="submit"
-                    class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-4 rounded-2xl transition">
-                Yes, Delete Kid
-            </button>
-            
-            <a href="{% url 'family_list' %}"
-               class="block w-full text-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-4 rounded-2xl transition">
-                Cancel
+    <section class="relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-3 pb-3 sm:pt-4 sm:pb-4 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase">Delete Kid</div>
+            <a href="{% url 'family_list' %}" class="inline-block mt-3 text-xs font-medium text-blue-600 hover:text-blue-700">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Cancel
             </a>
-        </form>
+        </div>
+    </section>
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        <div class="panel-card-dof rounded-2xl p-5 sm:p-6 text-center">
+            <div class="w-12 h-12 mx-auto rounded-xl bg-red-100 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-triangle-exclamation text-red-600"></i>
+            </div>
+
+            <p class="text-sm text-gray-600 mb-2">
+                Are you sure you want to delete
+                <strong class="text-gray-900">{{ kid.first_name }} {{ kid.last_name }}</strong>?
+            </p>
+
+            <p class="text-xs text-red-600 mb-6">
+                This action cannot be undone. The kid will be removed from all events and teams.
+            </p>
+
+            <form method="POST" class="flex flex-col-reverse sm:flex-row gap-2">
+                {% csrf_token %}
+                <a href="{% url 'family_list' %}"
+                   class="flex-1 text-center px-4 py-3 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+                    Cancel
+                </a>
+                <button type="submit"
+                        class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl text-sm font-semibold transition-colors">
+                    Yes, Delete Kid
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}

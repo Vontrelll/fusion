@@ -2,108 +2,98 @@
 {% block title %}Add New Event - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 py-6">
-  <div class="max-w-xl mx-auto">
-    <!-- Page Header (consistent style) -->
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-900 flex items-center gap-3">
-        <span>📅</span> New Event
-      </h1>
-      <p class="text-gray-600 mt-1">Schedule something for one or more of your kids</p>
+<div class="min-w-0 overflow-x-hidden pb-4">
+
+    <section class="relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-3 pb-3 sm:pt-4 sm:pb-4 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase">New Event</div>
+            <p class="text-xs text-gray-500 mt-1">Schedule something for one or more of your kids</p>
+            <a href="{% url 'event_list' %}" class="inline-block mt-3 text-xs font-medium text-blue-600 hover:text-blue-700">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Back to Calendar
+            </a>
+        </div>
+    </section>
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        <div class="panel-card-dof rounded-2xl p-5 sm:p-6">
+            <form method="POST" class="space-y-5">
+                {% csrf_token %}
+
+                <div>
+                    <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Event Name</label>
+                    <input type="text" name="name" required placeholder="e.g. Soccer practice, Dentist appointment"
+                           class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Start Time</label>
+                        <input type="datetime-local" name="start_time" id="start_time" required
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">End Time</label>
+                        <input type="datetime-local" name="end_time" id="end_time" required
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300">
+                        <p class="text-[10px] text-gray-400 mt-1">Auto +1 hour after start</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Location</label>
+                    <input type="text" name="location" placeholder="Field, school, home..."
+                           class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Which kids is this for?</label>
+                    {% if kids %}
+                    <div class="rounded-xl border border-gray-200 p-2 max-h-64 overflow-auto space-y-1 bg-gray-50/50">
+                        {% for kid in kids %}
+                        <label class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white cursor-pointer transition">
+                            <input type="checkbox" name="kids" value="{{ kid.id }}"
+                                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <span class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-semibold text-white flex-shrink-0"
+                                  style="background-color: {{ kid.color|default:'#3b82f6' }}">
+                                {{ kid.display_initials }}
+                            </span>
+                            <span class="text-sm font-medium text-gray-900">{{ kid.first_name }} {{ kid.last_name }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p class="text-[10px] text-gray-400 mt-1.5">Select all that apply</p>
+                    {% else %}
+                    <div class="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+                        No kids in your family yet. <a href="{% url 'add_kid' %}" class="font-medium text-amber-800 hover:underline">Add a kid first</a>.
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Parents attending <span class="normal-case tracking-normal font-normal">(optional)</span></label>
+                    {% if family_parents %}
+                    <div class="rounded-xl border border-gray-200 p-2 max-h-40 overflow-auto space-y-1 bg-gray-50/50">
+                        {% for p in family_parents %}
+                        <label class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white cursor-pointer transition">
+                            <input type="checkbox" name="attending_parents" value="{{ p.id }}"
+                                   class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <span class="text-sm font-medium text-gray-800">{{ p.first_name }} {{ p.last_name }}</span>
+                            {% if p.id == request.user.id %}<span class="text-[10px] text-blue-600 font-semibold">(you)</span>{% endif %}
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-xs text-gray-500">No other parents in family.</p>
+                    {% endif %}
+                </div>
+
+                <button type="submit"
+                        class="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-calendar-plus text-xs"></i> Create Event
+                </button>
+            </form>
+        </div>
     </div>
-
-    <!-- Main Card -->
-    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-      <form method="POST" class="space-y-6">
-        {% csrf_token %}
-
-        <!-- Event Name -->
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Event Name</label>
-          <input type="text" name="name" required placeholder="e.g. Soccer practice, Dentist appointment"
-                 class="w-full px-4 py-3.5 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <!-- Start Time -->
-          <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Start Time</label>
-            <input type="datetime-local" name="start_time" id="start_time" required
-                   class="w-full px-4 py-3.5 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-          </div>
-
-          <!-- End Time -->
-          <div>
-            <label class="block text-sm font-semibold text-gray-700 mb-1.5">End Time</label>
-            <input type="datetime-local" name="end_time" id="end_time" required
-                   class="w-full px-4 py-3.5 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-            <p class="text-[10px] text-gray-500 mt-1">Auto +1 hour</p>
-          </div>
-        </div>
-
-        <!-- Location -->
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1.5">Location</label>
-          <input type="text" name="location" placeholder="Field, school, home..."
-                 class="w-full px-4 py-3.5 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-        </div>
-
-        <!-- Multi Kid Selection - color coded obviously -->
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-2">Which kids is this for?</label>
-          {% if kids %}
-            <div class="border border-gray-200 rounded-2xl p-2 max-h-64 overflow-auto space-y-1 bg-gray-50/50">
-              {% for kid in kids %}
-              <label class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white cursor-pointer transition group">
-                <input type="checkbox" name="kids" value="{{ kid.id }}"
-                       class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                <span class="inline-block w-4 h-4 rounded-full flex-shrink-0 ring-1 ring-inset ring-gray-300" 
-                      style="background-color: {{ kid.color|default:'#3b82f6' }}"></span>
-                <span class="font-semibold" style="color: {{ kid.color|default:'#1f2937' }}">{{ kid.first_name }} {{ kid.last_name }}</span>
-              </label>
-              {% endfor %}
-            </div>
-            <p class="text-xs text-gray-500 mt-1.5">Select all that apply. Color helps identify whose event.</p>
-          {% else %}
-            <div class="text-sm text-amber-600 bg-amber-50 border border-amber-100 rounded-2xl p-3">
-              No kids in your family yet. <a href="{% url 'add_kid' %}" class="underline font-medium">Add a kid first</a>.
-            </div>
-          {% endif %}
-        </div>
-
-        <!-- Parent selection for attending (now included on creation) -->
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-2">Which parents will attend? (optional)</label>
-          {% if family_parents %}
-            <div class="border border-gray-200 rounded-2xl p-2 max-h-40 overflow-auto space-y-1 bg-gray-50/50">
-              {% for p in family_parents %}
-              <label class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white cursor-pointer transition">
-                <input type="checkbox" name="attending_parents" value="{{ p.id }}"
-                       class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                <span class="font-medium text-gray-800">{{ p.first_name }} {{ p.last_name }}</span>
-                {% if p.id == request.user.id %}<span class="text-xs text-blue-600">(you)</span>{% endif %}
-              </label>
-              {% endfor %}
-            </div>
-          {% else %}
-            <div class="text-xs text-gray-500">No other parents in family.</div>
-          {% endif %}
-        </div>
-
-        <!-- Submit -->
-        <button type="submit"
-                class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3.5 rounded-2xl text-base shadow-sm transition flex items-center justify-center gap-2">
-          <span>+</span> Create Event
-        </button>
-      </form>
-    </div>
-
-    <div class="text-center mt-5">
-      <a href="{% url 'event_list' %}" class="text-sm text-gray-500 hover:text-gray-700 inline-flex items-center gap-1">
-        ← Back to schedule
-      </a>
-    </div>
-  </div>
 </div>
 
 <script>

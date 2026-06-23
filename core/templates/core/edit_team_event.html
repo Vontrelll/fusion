@@ -2,89 +2,91 @@
 {% block title %}Edit Team Event - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-lg mx-auto px-4 py-8">
-    <div class="mb-8">
-        <a href="{% url 'event_list' %}" class="text-blue-600 hover:underline">← Back to Events</a>
-        <h1 class="text-3xl font-bold mt-4">Edit Team Event</h1>
-        <p class="text-gray-600">Update the details for this team event</p>
-    </div>
+<div class="min-w-0 overflow-x-hidden pb-4">
 
-    <div class="bg-white rounded-2xl border border-zinc-200 p-6">
-        <form method="POST">
-            {% csrf_token %}
+    <section class="relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-3 pb-3 sm:pt-4 sm:pb-4 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase">Edit Event</div>
+            <p class="text-xs text-gray-500 mt-1 truncate px-4">{{ event.name }}</p>
+            <a href="{% url 'team_event_detail' event.id %}" class="inline-block mt-3 text-xs font-medium text-blue-600 hover:text-blue-700">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Back to Event
+            </a>
+        </div>
+    </section>
 
-            <!-- Event Name -->
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Event Name</label>
-                <input type="text" name="name" value="{{ event.name|default:'' }}" required
-                       class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        <div class="panel-card-dof rounded-2xl p-5 sm:p-6">
+            <form method="POST" class="space-y-5">
+                {% csrf_token %}
 
-            <!-- Team Selection -->
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Team</label>
-                <select name="team" required
-                        class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    {% for team in teams %}
-                    <option value="{{ team.id }}" 
-                            {% if team.id == event.team.id %}selected{% endif %}>
-                        {{ team.name }} ({{ team.get_sport_type_display|default:'' }})
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- Event Type -->
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Event Type</label>
-                <div class="flex gap-4 text-sm">
-                    <label class="flex items-center gap-2">
-                        <input type="radio" name="event_type" value="team" {% if event.event_type != 'training' %}checked{% endif %}>
-                        <span>Team Event</span>
-                    </label>
-                    <label class="flex items-center gap-2">
-                        <input type="radio" name="event_type" value="training" {% if event.event_type == 'training' %}checked{% endif %}>
-                        <span>Training Session</span>
-                    </label>
+                <div>
+                    <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Event Name</label>
+                    <input type="text" name="name" value="{{ event.name|default:'' }}" required
+                           class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300">
                 </div>
-            </div>
 
-            <!-- Start Time -->
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
-                <input type="datetime-local" name="start_time" id="start_time"
-                       value="{{ event.start_time|date:'Y-m-d\TH:i' }}" required
-                       class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
+                <div>
+                    <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Team</label>
+                    <select name="team" required
+                            class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300">
+                        {% for team in teams %}
+                        <option value="{{ team.id }}" {% if team.id == event.team.id %}selected{% endif %}>
+                            {{ team.name }} ({{ team.get_sport_type_display|default:'' }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-            <!-- End Time -->
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">End Time</label>
-                <input type="datetime-local" name="end_time" id="end_time"
-                       value="{{ event.end_time|date:'Y-m-d\TH:i' }}" required
-                       class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <p class="text-xs text-gray-500 mt-1">End time auto-adjusts 1 hour after start (same date)</p>
-            </div>
+                <div>
+                    <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Event Type</label>
+                    <div class="flex flex-wrap gap-4 text-sm">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="event_type" value="team" {% if event.event_type != 'training' %}checked{% endif %}
+                                   class="w-4 h-4 text-blue-600">
+                            <span class="font-medium text-gray-900">Team Event</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="event_type" value="training" {% if event.event_type == 'training' %}checked{% endif %}
+                                   class="w-4 h-4 text-amber-600">
+                            <span class="font-medium text-gray-900">Training Session</span>
+                        </label>
+                    </div>
+                </div>
 
-            <!-- Location -->
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                <input type="text" name="location" value="{{ event.location|default:'' }}" required
-                       class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Start Time</label>
+                        <input type="datetime-local" name="start_time" id="start_time"
+                               value="{{ event.start_time|date:'Y-m-d\TH:i' }}" required
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">End Time</label>
+                        <input type="datetime-local" name="end_time" id="end_time"
+                               value="{{ event.end_time|date:'Y-m-d\TH:i' }}" required
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300">
+                        <p class="text-[10px] text-gray-400 mt-1">Auto +1 hour after start</p>
+                    </div>
+                </div>
 
-            <!-- Description -->
-            <div class="mb-8">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
-                <textarea name="description" rows="4"
-                          class="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">{{ event.description|default:'' }}</textarea>
-            </div>
+                <div>
+                    <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Location</label>
+                    <input type="text" name="location" value="{{ event.location|default:'' }}" required
+                           class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300">
+                </div>
 
-            <button type="submit"
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl text-lg transition">
-                Update Team Event
-            </button>
-        </form>
+                <div>
+                    <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Description <span class="normal-case tracking-normal font-normal">(optional)</span></label>
+                    <textarea name="description" rows="4"
+                              class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300">{{ event.description|default:'' }}</textarea>
+                </div>
+
+                <button type="submit"
+                        class="w-full bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3.5 rounded-xl text-sm transition-colors">
+                    Update Event
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 

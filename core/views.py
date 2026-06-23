@@ -193,7 +193,6 @@ def dashboard(request):
             'kids': kids,
             'parent_teams': parent_teams,
             'teams_count': teams_count,
-            'family_name': user_family.family_name if user_family else '',
             'now': local_now,
             'story_events': story_events,
             'story_section_label': story_section_label,
@@ -1084,6 +1083,13 @@ def _user_owns_team_event(team_event, user):
     return team_event.created_by_id == user.id
 
 
+def _get_team_event_owner(team_event):
+    """Return the org owner for notifications (team-linked or training without team)."""
+    if team_event.team_id:
+        return team_event.team.organization.owner
+    return team_event.created_by
+
+
 def _training_invite_source_label(team_event, organization=None):
     if team_event.team_id:
         return team_event.team.name
@@ -1234,8 +1240,7 @@ def remove_team_event_attendance(request, event_id):
         
         if removed_names:
             messages.success(request, f"'{event.name}' has been removed from your calendar for: {', '.join(removed_names)}.")
-            # Notify owner of the un-registration
-            owner = event.team.organization.owner
+            owner = _get_team_event_owner(event)
             if owner and owner != request.user:
                 Notification.objects.create(
                     user=owner,
@@ -1293,13 +1298,33 @@ def delete_event(request, event_id=None, attendance_id=None, team_event_id=None)
             return redirect('event_list')
 
         if request.method == "POST":
-            event_name = attendance.team_event.name
+            team_event = attendance.team_event
+            kid = attendance.kid
+            kid_name = f"{kid.first_name} {kid.last_name}".strip()
+            event_name = team_event.name
             attendance.delete()
-            messages.success(request, f"You have been removed from '{event_name}'. This event will no longer appear in your calendar.")
+            messages.success(
+                request,
+                f"{kid_name} is no longer going to '{event_name}'. The event has been removed from your calendar."
+            )
+            owner = _get_team_event_owner(team_event)
+            if owner and owner != request.user:
+                Notification.objects.create(
+                    user=owner,
+                    title="Attendance Change",
+                    message=f"{kid_name} is no longer going to '{event_name}'.",
+                    notification_type='team_event_updated',
+                    extra_data={
+                        'team_event_id': team_event.id,
+                        'action': 'kid_backed_out',
+                        'kid_id': kid.id,
+                    }
+                )
             return redirect("event_list")
 
         return render(request, "core/delete_event.html", {
             "event": attendance.team_event,
+            "kid": attendance.kid,
             "is_team_attendance": True
         })
 
@@ -1414,7 +1439,8 @@ def _parent_calendar_events(user_family, range_param):
         ev.is_team_event = False
         ev.event_type = 'family'
         ev.is_happening_now = _parent_event_is_live(ev)
-        ev.attendance_count = ev.kids.count()
+        ev.attending_kids = list(ev.kids.all())
+        ev.attendance_count = len(ev.attending_kids)
     for ev in accepted_team_events:
         ev.is_team_event = True
         ev.is_happening_now = _parent_event_is_live(ev)
@@ -2932,6 +2958,10 @@ def event_detail(request, event_id):
 @login_required
 def team_event_detail(request, event_id):
     """Detail page for a team event."""
+    response = _mark_notification_as_read(request)
+    if response:
+        return response
+
     profile = _safe_get_user_profile(request)
     user_family = profile.family
 
@@ -3071,8 +3101,7 @@ def notifications(request):
             if team_event_id:
                 try:
                     te = TeamEvent.objects.select_related('team__organization').get(id=team_event_id)
-                    if te.team.organization.owner_id == user.id:
-                        # Owner of the team: go to details page, not the parent review page
+                    if _user_owns_team_event(te, user):
                         base_url = reverse('team_event_detail', args=[team_event_id])
                     else:
                         base_url = reverse('review_team_event_update', args=[team_event_id])

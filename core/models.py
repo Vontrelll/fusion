@@ -66,6 +66,11 @@ class Event(models.Model):
         if self.location:
             self.location = self.location.strip().title()
         super().save(*args, **kwargs)
+
+    def is_happening_now(self):
+        """True when the event has started and has not ended yet."""
+        now = timezone.now()
+        return self.start_time <= now <= self.end_time
     
     class Meta:
         ordering = ['start_time']

@@ -5,12 +5,9 @@
     <!-- Title -->
     <div class="pt-3 pb-2 text-center">
         <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase">Family Hub</div>
-        {% if family_name %}
-        <div class="mt-1 text-xs text-gray-400">{{ family_name }}</div>
-        {% endif %}
     </div>
 
-    <!-- Glanceable metrics -->
+    <!-- Glanceable metrics — full-width subtle depth panel -->
     <div class="metrics-panel-dof relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] py-4 sm:py-5">
         <div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-4 gap-1 sm:gap-3">
@@ -113,7 +110,11 @@
                             </div>
                             <div class="flex-shrink-0 space-y-1 min-w-0 pt-0.5">
                                 <div class="text-[17px] font-bold text-gray-900 tabular-nums leading-none tracking-tight">{{ event.start_time|time:"g:i A" }}</div>
-                                <div class="text-xs font-semibold truncate leading-tight" style="color: {% if event.is_team_event %}{{ event.team.color|default:'#334155' }}{% else %}#3b82f6{% endif %}">{% if event.is_team_event %}{{ event.team.name|default:"Team" }}{% else %}Family Event{% endif %}</div>
+                                {% if event.is_team_event %}
+                                <div class="text-xs font-semibold truncate leading-tight" style="color: {{ event.team.color|default:'#334155' }}">{{ event.team.name|default:"Team" }}</div>
+                                {% elif event.attending_kids %}
+                                <div class="text-xs font-medium truncate leading-tight text-gray-500">{% for kid in event.attending_kids %}{% if not forloop.first %}, {% endif %}{{ kid.first_name }}{% endfor %}</div>
+                                {% endif %}
                                 {% if event.location %}
                                 <div class="flex items-center gap-1 min-w-0 text-[11px] text-gray-500 leading-tight">
                                     <i class="fa-solid fa-location-dot text-[9px] text-gray-400 flex-shrink-0"></i>
@@ -290,7 +291,11 @@
                                 </div>
                             </div>
                             <div class="mt-1 text-sm text-gray-600 flex items-center gap-2 flex-wrap">
-                                <span class="font-medium" style="color: {% if event.is_team_event %}{{ event.team.color|default:'#334155' }}{% else %}#3b82f6{% endif %}">{% if event.is_team_event %}{{ event.team.name|default:"Team" }}{% else %}Family Event{% endif %}</span>
+                                {% if event.is_team_event %}
+                                <span class="font-medium" style="color: {{ event.team.color|default:'#334155' }}">{{ event.team.name|default:"Team" }}</span>
+                                {% elif event.location %}
+                                <span class="text-gray-500 truncate">{{ event.location }}</span>
+                                {% endif %}
                                 <span class="text-gray-300">•</span>
                                 <span>{{ event.start_time|time:"g:i A" }}</span>
                                 {% if event.location %}<span class="text-gray-300">•</span><span class="text-gray-500 truncate">{{ event.location }}</span>{% endif %}

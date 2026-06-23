@@ -2,41 +2,59 @@
 {% block title %}Delete Event - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-lg mx-auto px-4 py-8">
-    <div class="bg-white rounded-2xl border border-zinc-200 p-6">
-        <h1 class="text-2xl font-bold text-red-600 mb-2">Delete Event</h1>
-        
-        {% if is_personal_event %}
-            <p class="text-gray-600 mb-8">
-                Are you sure you want to delete <strong>"{{ event.name }}"</strong>?
+<div class="min-w-0 overflow-x-hidden pb-4">
+
+    <section class="relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-3 pb-3 sm:pt-4 sm:pb-4 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase">Delete Event</div>
+            <a href="{% url 'event_list' %}" class="inline-block mt-3 text-xs font-medium text-blue-600 hover:text-blue-700">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Back to Calendar
+            </a>
+        </div>
+    </section>
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        <div class="panel-card-dof rounded-2xl p-5 sm:p-6 text-center">
+            <div class="w-12 h-12 mx-auto rounded-xl bg-red-100 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-triangle-exclamation text-red-600"></i>
+            </div>
+
+            {% if is_personal_event %}
+            <p class="text-sm text-gray-600 mb-2">
+                Are you sure you want to delete <strong class="text-gray-900">"{{ event.name }}"</strong>?
             </p>
 
-        {% elif is_team_attendance %}
-            <p class="text-gray-600 mb-8">
-                Are you sure you want to remove yourself from <strong>"{{ event.name }}"</strong> 
-                for <strong>{{ event.team.name }}</strong>?
+            {% elif is_team_attendance %}
+            <p class="text-sm text-gray-600 mb-2">
+                Remove <strong class="text-gray-900">{{ kid.first_name }} {{ kid.last_name }}</strong> from
+                <strong class="text-gray-900">"{{ event.name }}"</strong>?
+            </p>
+            <p class="text-xs text-gray-500 mb-6">
+                {% if event.team %}{{ event.team.name }}{% else %}Training session{% endif %}
+                · The team organizer will be notified.
             </p>
 
-        {% elif is_team_event %}
-            <p class="text-gray-600 mb-8">
-                Are you sure you want to delete <strong>"{{ event.name }}"</strong>?<br><br>
-                <strong class="text-red-600">This will remove the event from all parents' calendars and they will be notified.</strong>
+            {% elif is_team_event %}
+            <p class="text-sm text-gray-600 mb-2">
+                Are you sure you want to delete <strong class="text-gray-900">"{{ event.name }}"</strong>?
             </p>
-        {% endif %}
+            <p class="text-xs text-red-600 mb-6">
+                This will remove the event from all parents' calendars and they will be notified.
+            </p>
+            {% endif %}
 
-        <form method="POST">
-            {% csrf_token %}
-            <div class="flex gap-4">
-                <button type="submit"
-                        class="flex-1 bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-semibold">
-                    Yes, Delete
-                </button>
+            <form method="POST" class="flex flex-col-reverse sm:flex-row gap-2">
+                {% csrf_token %}
                 <a href="{% url 'event_list' %}"
-                   class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-4 rounded-2xl font-semibold text-center">
+                   class="flex-1 text-center px-4 py-3 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
                     Cancel
                 </a>
-            </div>
-        </form>
+                <button type="submit"
+                        class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl text-sm font-semibold transition-colors">
+                    {% if is_team_attendance %}Yes, Can't Go{% else %}Yes, Delete{% endif %}
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}

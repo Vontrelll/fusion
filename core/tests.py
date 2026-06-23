@@ -1195,6 +1195,61 @@ class TeamEventUpdateReviewTests(TestCase):
             TeamEventAttendance.objects.filter(team_event=self.team_event, kid=self.kid).exists()
         )
 
+    def test_parent_can_back_out_single_kid_and_owner_is_notified(self):
+        att = TeamEventAttendance.objects.get(team_event=self.team_event, kid=self.kid)
+        self.client.login(username="update_parent", password="testpass123")
+
+        resp = self.client.get(reverse("delete_attendance", args=[att.id]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Update Kid")
+
+        resp = self.client.post(reverse("delete_attendance", args=[att.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(
+            TeamEventAttendance.objects.filter(team_event=self.team_event, kid=self.kid).exists()
+        )
+
+        notif = Notification.objects.filter(
+            user=self.owner,
+            notification_type='team_event_updated',
+            extra_data__team_event_id=self.team_event.id,
+        ).first()
+        self.assertIsNotNone(notif)
+        self.assertIn("Update Kid", notif.message)
+        self.assertIn("no longer going", notif.message)
+
+    def test_owner_notification_marked_read_when_opening_team_event(self):
+        notif = Notification.objects.create(
+            user=self.owner,
+            title="Attendance Change",
+            message="Update Kid is no longer going to 'Original Practice'.",
+            notification_type='team_event_updated',
+            extra_data={
+                'team_event_id': self.team_event.id,
+                'action': 'kid_backed_out',
+            },
+        )
+        self.assertFalse(notif.is_read)
+
+        self.client.login(username="update_coach", password="testpass123")
+        url = reverse("team_event_detail", args=[self.team_event.id]) + f"?read={notif.id}"
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(
+            resp.url,
+            reverse("team_event_detail", args=[self.team_event.id]),
+        )
+
+        notif.refresh_from_db()
+        self.assertTrue(notif.is_read)
+
+        resp = self.client.get(resp.url)
+        self.assertEqual(resp.status_code, 200)
+
+        resp = self.client.get(reverse("notifications"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, ">NEW<")
+
     def test_review_redirects_when_no_needs_review(self):
         self.client.login(username="update_parent", password="testpass123")
         resp = self.client.get(reverse("review_team_event_update", args=[self.team_event.id]))

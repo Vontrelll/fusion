@@ -2,76 +2,76 @@
 {% block title %}Invite Players to Training - {{ team_event.name }} | Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-8">
-    <div class="mb-6">
-        <a href="{% url 'team_event_detail' team_event.id %}" class="text-sm text-blue-600 hover:underline">← Back to event</a>
-        <div class="mt-2 flex items-center gap-3">
-            <span class="text-3xl">🏋️</span>
-            <div>
-                <h1 class="text-3xl font-bold tracking-tight text-gray-900">Invite players to this training</h1>
-                <p class="text-gray-600">{{ team_event.name }} • {% if team_event.team %}{{ team_event.team.name }}{% else %}Organization{% endif %}</p>
-            </div>
+<div class="min-w-0 overflow-x-hidden pb-4" x-data="{ searchTerm: '' }">
+
+    <section class="relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-3 pb-3 sm:pt-4 sm:pb-4 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase">Invite Players</div>
+            <h1 class="text-base font-bold text-gray-900 mt-2">{{ team_event.name }}</h1>
+            <p class="text-xs text-gray-500 mt-0.5">
+                {% if team_event.team %}{{ team_event.team.name }}{% else %}Organization-wide{% endif %}
+                · {{ team_event.start_time|date:"D, M j" }} {{ team_event.start_time|time:"g:i A" }} – {{ team_event.end_time|time:"g:i A" }}
+            </p>
+            {% if team_event.location %}
+            <p class="text-xs text-gray-400 mt-0.5">{{ team_event.location }}</p>
+            {% endif %}
+            <a href="{% url 'team_event_detail' team_event.id %}" class="inline-block mt-3 text-xs font-medium text-blue-600 hover:text-blue-700">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Back to Event
+            </a>
         </div>
-        <div class="mt-1 text-sm text-emerald-600 font-medium">
-            Parents will get the exact same clean request as team events. When they accept, it fuses directly into their family calendar.
+    </section>
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 space-y-4">
+        <div class="rounded-xl bg-amber-50/80 border border-amber-100 px-4 py-3 text-xs text-amber-800">
+            <i class="fa-solid fa-circle-info mr-1"></i>
+            Parents receive the same accept/decline request as team events. Accepted invites fuse into their family calendar.
         </div>
-    </div>
 
-    <div class="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 mb-6">
-        <div class="text-sm mb-4">
-            <span class="font-medium">When:</span> {{ team_event.start_time|date:"D, M j" }} {{ team_event.start_time|time:"g:i A" }} — {{ team_event.end_time|time:"g:i A" }}<br>
-            {% if team_event.location %}<span class="font-medium">Where:</span> {{ team_event.location }}{% endif %}
-        </div>
-    </div>
+        <form method="post">
+            {% csrf_token %}
 
-    <form method="post" x-data="{ searchTerm: '' }">
-        {% csrf_token %}
+            <div class="panel-card-dof rounded-2xl p-5 sm:p-6">
+                <label class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Search Players</label>
+                <div class="relative mb-4">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                    <input type="text" x-model="searchTerm" placeholder="Search by name or team..."
+                           class="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300">
+                </div>
 
-        <div class="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-            <div class="mb-4">
-                <input type="text" x-model="searchTerm" placeholder="Search players or teams..." 
-                       class="w-full px-4 py-3 border border-gray-200 rounded-2xl text-sm focus:outline-none focus:border-violet-500">
-            </div>
-
-            {% if registrations %}
-            <div class="space-y-2 max-h-[420px] overflow-auto pr-1">
-                {% for reg in registrations %}
-                <label x-show="searchTerm === '' || '{{ reg.kid.first_name|lower }} {{ reg.kid.last_name|lower }} {{ reg.team_membership.team.name|lower }}'.includes(searchTerm.toLowerCase())"
-                       class="flex items-center gap-3 p-3 border border-gray-200 rounded-2xl hover:bg-violet-50 cursor-pointer transition">
-                    <input type="checkbox" name="kids" value="{{ reg.kid.id }}"
-                           class="w-5 h-5 text-violet-600 rounded focus:ring-violet-500">
-                    <div class="flex-1 min-w-0 flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-2xl flex items-center justify-center text-xs font-semibold flex-shrink-0 text-white" 
+                {% if registrations %}
+                <div class="space-y-2 max-h-[420px] overflow-auto pr-1">
+                    {% for reg in registrations %}
+                    <label x-show="searchTerm === '' || '{{ reg.kid.first_name|lower }} {{ reg.kid.last_name|lower }} {{ reg.team_membership.team.name|lower }}'.includes(searchTerm.toLowerCase())"
+                           class="flex items-center gap-3 p-3 border border-gray-100 rounded-xl hover:bg-amber-50/50 cursor-pointer transition">
+                        <input type="checkbox" name="kids" value="{{ reg.kid.id }}"
+                               class="w-4 h-4 text-amber-600 rounded focus:ring-amber-500">
+                        <span class="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-semibold flex-shrink-0 text-white"
                               style="background-color: {{ reg.kid.color|default:'#3b82f6' }}">
                             {{ reg.kid.display_initials }}
                         </span>
                         <div class="min-w-0 flex-1">
-                            <div class="font-medium">{{ reg.kid.first_name }} {{ reg.kid.last_name }}</div>
+                            <div class="text-sm font-medium text-gray-900">{{ reg.kid.first_name }} {{ reg.kid.last_name }}</div>
                             <div class="text-xs text-gray-500">{{ reg.team_membership.team.name }}</div>
                         </div>
-                    </div>
-                </label>
-                {% endfor %}
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-500 py-8 text-center">No players registered yet in your organization.</p>
+                {% endif %}
             </div>
-            {% else %}
-                <p class="text-gray-500 py-8 text-center">No players registered yet in your organization.</p>
-            {% endif %}
-        </div>
 
-        <div class="mt-6 flex flex-col sm:flex-row gap-3">
-            <button type="submit"
-                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 rounded-2xl text-lg transition">
-                ✅ Send Training Invites
-            </button>
-            <a href="{% url 'team_event_detail' team_event.id %}" 
-               class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-4 rounded-2xl text-lg transition">
-                Cancel
-            </a>
-        </div>
-    </form>
-
-    <p class="text-xs text-center text-gray-400 mt-6">
-        Parents will get the same accept/decline request as team events and go through conflict checks.
-    </p>
+            <div class="flex flex-col-reverse sm:flex-row gap-2 mt-4">
+                <a href="{% url 'team_event_detail' team_event.id %}"
+                   class="flex-1 text-center px-4 py-3 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+                    Cancel
+                </a>
+                <button type="submit"
+                        class="flex-1 bg-gray-900 hover:bg-gray-800 text-white font-semibold py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-paper-plane text-xs"></i> Send Training Invites
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}

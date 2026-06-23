@@ -2,125 +2,85 @@
 {% block title %}My Kids - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 py-6 flex gap-6">
+<div class="min-w-0 overflow-x-hidden pb-4">
 
-  <!-- LEFT SIDEBAR -->
-  <div class="w-64 hidden lg:block">
-    <div class="sticky top-6 bg-white rounded-2xl shadow p-5">
-      <h3 class="font-semibold mb-4 flex items-center gap-2">
-        <span class="text-2xl">👨‍👩‍👧‍👦</span> Kids
-      </h3>
-      
-      <div class="space-y-1 text-sm">
-        <a href="{% url 'kid_list' %}" 
-           class="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-blue-50 text-blue-600 font-semibold">
-          All Kids
-        </a>
-        <a href="{% url 'add_kid' %}" class="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-gray-100 transition text-gray-600 whitespace-nowrap">
-          + Add Kid
-        </a>
-      </div>
+    <section class="relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-3 pb-3 sm:pt-4 sm:pb-4 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-3">
+            <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase text-center">My Kids</div>
 
-      <div class="border-t border-gray-200 my-6"></div>
-      
-      <a href="{% url 'add_kid' %}" 
-         class="block w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-3 rounded-xl font-semibold">
-        + Add New Kid
-      </a>
-    </div>
-  </div>
+            <a href="{% url 'add_kid' %}"
+               class="flex items-center gap-2.5 sm:gap-3 px-3 py-3.5 sm:px-4 sm:py-4 rounded-2xl border border-gray-200/80 bg-white/60 hover:bg-white group min-w-0 transition">
+                <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-child-reaching text-emerald-600"></i>
+                </div>
+                <div class="flex-1 min-w-0 text-left">
+                    <div class="text-sm font-semibold text-gray-900 group-hover:text-emerald-700 transition truncate">Add New Kid</div>
+                    <div class="text-[11px] text-gray-500 truncate hidden sm:block">Manage profiles for your children</div>
+                </div>
+                <i class="fa-solid fa-chevron-right text-[10px] text-emerald-300 group-hover:text-emerald-600 flex-shrink-0 transition"></i>
+            </a>
 
-  <!-- MAIN CONTENT -->
-  <div class="flex-1 max-w-2xl">
-
-    <div class="flex justify-between items-center mb-8">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900">My Kids</h1>
-        <p class="text-gray-600 mt-1">Manage your children and their profiles</p>
-      </div>
-      <a href="{% url 'add_kid' %}" 
-         class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-semibold flex items-center gap-2 shadow whitespace-nowrap">
-        <span class="text-2xl leading-none">+</span> New Kid
-      </a>
-    </div>
-
-    {% if kids %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-      {% for kid in kids %}
-      <div class="bg-white rounded-3xl shadow p-6 hover:shadow-md transition-all group">
-        
-        <!-- Avatar with kid color -->
-        <div class="w-20 h-20 mx-auto rounded-2xl flex items-center justify-center text-5xl shadow-inner ring-1 ring-inset ring-black/5" 
-             style="background-color: {{ kid.color|default:'#3b82f6' }}; color: white;">
-          {% if kid.gender == 'M' %}👦{% elif kid.gender == 'F' %}👧{% else %}🧒{% endif %}
+            <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
+                {% if kids %}
+                <span class="text-xs text-gray-500 tabular-nums">{{ kids|length }} kid{{ kids|length|pluralize }}</span>
+                {% else %}
+                <span class="text-xs text-gray-500">No kids added yet</span>
+                {% endif %}
+                <a href="{% url 'dashboard' %}" class="font-medium text-blue-600 hover:text-blue-700 flex items-center flex-shrink-0">
+                    <i class="fa-solid fa-arrow-left mr-1.5 text-xs"></i> Home
+                </a>
+            </div>
         </div>
+    </section>
 
-        <div class="text-center mt-5">
-          <h2 class="font-semibold text-2xl text-gray-900">
-            {{ kid.first_name }} {{ kid.last_name }}
-          </h2>
-          
-          <div class="mt-3 inline-flex items-center gap-2 bg-gray-100 text-gray-700 text-sm px-4 py-1.5 rounded-2xl">
-            <span>{{ kid.get_gender_display }}</span>
-            <span class="text-gray-400">•</span>
-            <span>Born {{ kid.date_of_birth }}</span>
-          </div>
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-3">
+        {% if kids %}
+        <div class="flex flex-col gap-2">
+            {% for kid in kids %}
+            <div class="panel-card-dof rounded-2xl overflow-hidden">
+                <div class="h-1 w-full" style="background-color: {{ kid.color|default:'#3b82f6' }}"></div>
+                <div class="px-4 py-3.5 sm:px-5">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                              style="background-color: {{ kid.color|default:'#3b82f6' }}">
+                            {{ kid.display_initials }}
+                        </span>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-gray-900 truncate">{{ kid.first_name }} {{ kid.last_name }}</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                {{ kid.get_gender_display }} · Born {{ kid.date_of_birth|date:"M j, Y" }}
+                            </p>
+                        </div>
+                        <div class="flex gap-2 flex-shrink-0">
+                            <a href="{% url 'edit_kid' kid.id %}"
+                               class="px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-200 hover:bg-blue-50 rounded-xl transition">
+                                Edit
+                            </a>
+                            <a href="{% url 'delete_kid' kid.id %}"
+                               class="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 hover:bg-red-50 rounded-xl transition">
+                                Delete
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-
-        <div class="mt-6 pt-6 border-t border-gray-100 text-center text-sm">
-          <span class="text-gray-500">Age:</span> 
-          <span class="font-medium text-gray-700">
-            {{ kid.date_of_birth|timesince }}
-          </span>
+        {% else %}
+        <div class="panel-card-dof rounded-2xl px-6 py-14 text-center">
+            <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-100 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-child-reaching text-xl text-emerald-600"></i>
+            </div>
+            <p class="text-base font-semibold text-gray-700">No kids added yet</p>
+            <p class="text-sm text-gray-500 mt-1 max-w-xs mx-auto">
+                Add your children to start tracking their events and schedules.
+            </p>
+            <a href="{% url 'add_kid' %}"
+               class="inline-flex items-center gap-2 mt-6 bg-gray-900 hover:bg-gray-800 text-white px-5 py-3 rounded-xl text-sm font-semibold transition-colors">
+                <i class="fa-solid fa-plus text-xs"></i> Add Your First Kid
+            </a>
         </div>
-
-        <!-- Actions -->
-        <div class="flex gap-3 mt-8">
-          <a href="{% url 'edit_kid' kid.id %}" 
-             class="flex-1 text-center bg-blue-50 hover:bg-blue-100 text-blue-700 py-3 rounded-2xl font-medium transition">
-            Edit Profile
-          </a>
-          <a href="{% url 'delete_kid' kid.id %}" 
-             class="flex-1 text-center bg-red-50 hover:bg-red-100 text-red-700 py-3 rounded-2xl font-medium transition">
-            Delete
-          </a>
-        </div>
-      </div>
-      {% endfor %}
+        {% endif %}
     </div>
-    {% else %}
-    <div class="bg-white rounded-3xl p-16 text-center shadow">
-      <div class="text-7xl mb-6">👨‍👩‍👧‍👦</div>
-      <p class="text-2xl font-medium text-gray-700">No kids added yet</p>
-      <p class="text-gray-500 mt-3 max-w-xs mx-auto">
-        Add your children to start tracking their events and schedules.
-      </p>
-      <a href="{% url 'add_kid' %}" 
-         class="inline-block mt-8 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-semibold">
-        + Add Your First Kid
-      </a>
-    </div>
-    {% endif %}
-
-  </div>
-
-  <!-- RIGHT SIDEBAR -->
-  <div class="w-80 hidden xl:block">
-    <div class="sticky top-6 space-y-6">
-      <div class="bg-white rounded-2xl shadow p-6">
-        <h3 class="font-semibold mb-4">Family Summary</h3>
-        <div class="text-5xl font-bold text-blue-600 text-center">
-          {{ kids|length }}
-        </div>
-        <p class="text-center text-gray-500 mt-1">Kids</p>
-      </div>
-
-      <div class="bg-white rounded-2xl shadow p-6 text-sm">
-        <h3 class="font-semibold mb-3">💡 Tip</h3>
-        <p class="text-gray-600">Adding kids here makes assigning events and future carpool features much easier.</p>
-      </div>
-    </div>
-  </div>
-
 </div>
 {% endblock %}

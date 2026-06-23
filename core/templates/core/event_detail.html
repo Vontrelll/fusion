@@ -2,102 +2,135 @@
 {% block title %}{{ event.name }} - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-8">
+<div class="max-w-2xl mx-auto px-4 py-6 sm:py-8">
 
-    <div class="bg-white rounded-3xl border border-zinc-200 p-8">
-        <!-- Header -->
-        <div class="flex items-start justify-between mb-6">
-            <div>
-                <div class="flex items-center gap-3">
-                    <span class="text-4xl">📅</span>
-                    <h1 class="text-3xl font-bold tracking-tight">{{ event.name }}</h1>
+    <a href="{% url 'event_list' %}" class="text-sm text-gray-500 hover:text-gray-700 inline-flex items-center gap-1 mb-4">
+        <i class="fa-solid fa-arrow-left text-xs"></i> All events
+    </a>
+
+    <div class="panel-card-dof event-detail-card rounded-3xl overflow-hidden">
+        <div class="h-1.5 w-full bg-blue-500"></div>
+        <div class="p-5 sm:p-7">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
+                <div class="min-w-0 flex-1">
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 leading-tight">{{ event.name }}</h1>
+                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                        <span class="px-2 py-0.5 text-[10px] font-semibold tracking-wide bg-blue-100 text-blue-800 rounded-full">FAMILY</span>
+                        {% if event.is_happening_now %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold bg-white ring-1 ring-emerald-300/60 text-gray-800 rounded-full">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Happening Now
+                        </span>
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="mt-2 text-sm text-emerald-600 font-medium">
-                    Family Event
+                <div class="flex flex-wrap gap-2 flex-shrink-0">
+                    <a href="{% url 'edit_event' event.id %}"
+                       class="px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-200 hover:bg-blue-50 rounded-xl transition">
+                        Edit
+                    </a>
+                    <a href="{% url 'delete_event' event.id %}"
+                       class="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 hover:bg-red-50 rounded-xl transition">
+                        Delete
+                    </a>
                 </div>
             </div>
 
-            <div class="flex gap-3">
-                <a href="{% url 'edit_event' event.id %}" 
-                   class="px-5 py-2.5 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-2xl transition">
-                    Edit
-                </a>
-                <a href="{% url 'delete_event' event.id %}" 
-                   class="px-5 py-2.5 text-sm font-medium text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-2xl transition">
-                    Delete
-                </a>
-            </div>
-        </div>
-
-        <!-- Time & Location -->
-        <div class="bg-zinc-50 rounded-2xl p-5 mb-6">
-            <div class="flex flex-col md:flex-row md:items-center gap-y-3 gap-x-8">
-                <div>
-                    <div class="text-xs text-zinc-500 font-medium tracking-wider">WHEN</div>
-                    <div class="font-semibold text-lg mt-0.5">
-                        {{ event.start_time|date:"l, F j" }}
-                    </div>
-                    <div class="text-zinc-700">
-                        {{ event.start_time|time:"g:i A" }} — {{ event.end_time|time:"g:i A" }}
-                    </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                <div class="rounded-2xl bg-gray-50/80 border border-gray-100 px-4 py-3.5">
+                    <div class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase mb-1">When</div>
+                    <div class="text-sm font-semibold text-gray-900">{{ event.start_time|date:"l, F j" }}</div>
+                    <div class="text-sm text-gray-600 mt-0.5">{{ event.start_time|time:"g:i A" }} – {{ event.end_time|time:"g:i A" }}</div>
                 </div>
-
                 {% if event.location %}
-                <div>
-                    <div class="text-xs text-zinc-500 font-medium tracking-wider">WHERE</div>
-                    <div class="font-medium text-lg mt-0.5">{{ event.location }}</div>
+                <div class="rounded-2xl bg-gray-50/80 border border-gray-100 px-4 py-3.5">
+                    <div class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase mb-1">Where</div>
+                    <div class="text-sm font-semibold text-gray-900">{{ event.location }}</div>
                 </div>
                 {% endif %}
             </div>
-        </div>
 
-        <!-- Kids Attending -->
-        {% if event.kids.all %}
-        <div class="mb-6">
-            <div class="text-xs text-zinc-500 font-medium tracking-wider mb-2">KIDS ATTENDING</div>
-            <div class="flex flex-wrap gap-2">
-                {% for kid in event.kids.all %}
-                <div class="bg-white border border-zinc-200 px-4 py-2 rounded-2xl text-sm font-medium flex items-center gap-2">
-                    {% if kid.gender == 'M' %}👦{% else %}👧{% endif %}
-                    {{ kid.first_name }} {{ kid.last_name }}
+            {% if event.kids.all %}
+            <div class="flex flex-wrap gap-2 mb-5">
+                <span class="text-xs px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full font-medium">{{ event.kids.all|length }} going</span>
+            </div>
+            {% endif %}
+
+            {% if event.description %}
+            <div class="mb-5">
+                <div class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase mb-1.5">Description</div>
+                <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ event.description }}</p>
+            </div>
+            {% endif %}
+
+            <div>
+                <div class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase mb-3">
+                    Kids Attending ({{ event.kids.all|length }})
                 </div>
-                {% endfor %}
+                {% if event.kids.all %}
+                <div class="space-y-2">
+                    {% for kid in event.kids.all %}
+                    <div class="flex items-center justify-between rounded-2xl border border-gray-100 bg-white/80 px-4 py-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+                                  style="background-color: {{ kid.color|default:'#64748b' }}">
+                                {{ kid.display_initials }}
+                            </span>
+                            <span class="font-medium text-sm text-gray-900 truncate">{{ kid.first_name }} {{ kid.last_name }}</span>
+                        </div>
+                        <span class="text-[10px] px-2.5 py-1 rounded-full font-semibold flex-shrink-0 bg-emerald-100 text-emerald-700">
+                            Going
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-500 py-4 text-center rounded-2xl bg-gray-50/60 border border-dashed border-gray-200">
+                    No kids assigned to this event yet.
+                </p>
+                {% endif %}
+            </div>
+
+            {% if event.attending_parents.all %}
+            <div class="mt-5">
+                <div class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase mb-3">
+                    Parents Going ({{ event.attending_parents.all|length }})
+                </div>
+                <div class="space-y-2">
+                    {% for parent in event.attending_parents.all %}
+                    <div class="flex items-center justify-between rounded-2xl border border-gray-100 bg-white/80 px-4 py-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-semibold text-amber-700 bg-amber-100 flex-shrink-0">
+                                <i class="fa-solid fa-user"></i>
+                            </span>
+                            <span class="font-medium text-sm text-gray-900 truncate">{{ parent.get_full_name|default:parent.username }}</span>
+                        </div>
+                        <span class="text-[10px] px-2.5 py-1 rounded-full font-semibold flex-shrink-0 bg-amber-100 text-amber-700">
+                            Going
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="text-xs text-gray-400 mt-6 pt-5 border-t border-gray-100">
+                Created by {{ event.created_by.get_full_name|default:event.created_by.username }} · {{ event.created_at|date:"M j, Y" }}
             </div>
         </div>
-        {% endif %}
-
-        <!-- Attending Parents -->
-        {% if event.attending_parents.all %}
-        <div class="mb-6">
-            <div class="text-xs text-zinc-500 font-medium tracking-wider mb-2">PARENTS GOING</div>
-            <div class="flex flex-wrap gap-2">
-                {% for parent in event.attending_parents.all %}
-                <div class="bg-amber-50 text-amber-700 px-4 py-1.5 rounded-2xl text-sm font-medium">
-                    {{ parent.get_full_name|default:parent.username }}
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Description -->
-        {% if event.description %}
-        <div class="mb-6">
-            <div class="text-xs text-zinc-500 font-medium tracking-wider mb-2">NOTES</div>
-            <div class="text-zinc-700 whitespace-pre-line">{{ event.description }}</div>
-        </div>
-        {% endif %}
-
-        <div class="text-xs text-zinc-400 mt-8">
-            Created by {{ event.created_by.get_full_name|default:event.created_by.username }} on {{ event.created_at|date:"M j, Y" }}
-        </div>
     </div>
-
-    <div class="mt-6 text-center">
-        <a href="{% url 'event_list' %}" class="text-sm text-zinc-500 hover:text-zinc-700">
-            ← Back to all events
-        </a>
-    </div>
-
 </div>
+
+<style>
+    .event-detail-card.panel-card-dof {
+        position: relative;
+        isolation: isolate;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        box-shadow:
+            0 1px 2px rgba(15, 23, 42, 0.04),
+            0 3px 10px rgba(15, 23, 42, 0.05),
+            0 10px 22px -10px rgba(15, 23, 42, 0.09);
+    }
+</style>
 {% endblock %}

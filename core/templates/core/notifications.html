@@ -2,70 +2,90 @@
 {% block title %}Notifications - Fusion{% endblock %}
 
 {% block content %}
-<div class="max-w-[1000px] mx-auto px-4 py-6">
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            <h1 class="text-3xl font-bold tracking-tight">Notifications</h1>
-            {% if unread_count > 0 %}
-            <p class="text-sm text-gray-500 mt-1">{{ unread_count }} unread</p>
-            {% endif %}
-        </div>
-        {% if unread_count > 0 %}
-        <form method="POST" action="{% url 'notifications' %}">
-            {% csrf_token %}
-            <button type="submit" class="text-sm font-medium text-blue-600 hover:text-blue-700 transition px-4 py-2 rounded-2xl hover:bg-blue-50">
-                Mark all as read
-            </button>
-        </form>
-        {% endif %}
-    </div>
+<div class="min-w-0 overflow-x-hidden pb-4">
 
-    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        {% if notifications %}
-            {% for notif in notifications %}
-            <a href="{{ notif.url }}" 
-               class="block px-5 py-4 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-none group
-                      {% if not notif.is_read %}bg-blue-50/40{% else %}opacity-75{% endif %}">
-                <div class="flex gap-4">
-                    <div class="flex-shrink-0 mt-0.5">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl 
-                                    {% if not notif.is_read %}bg-blue-100{% else %}bg-gray-200{% endif %}">
-                            {{ notif.icon|default:'🔔' }}
-                        </div>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-start justify-between gap-x-4">
-                            <div class="flex-1">
-                                <div class="flex items-center gap-2">
-                                    <p class="{% if not notif.is_read %}font-semibold text-gray-900{% else %}font-medium text-gray-500{% endif %} group-hover:text-blue-700 transition">
-                                        {{ notif.title }}
-                                    </p>
-                                    {% if not notif.is_read %}
-                                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-blue-600 text-white rounded-full">NEW</span>
-                                    {% endif %}
-                                </div>
-                                <p class="{% if not notif.is_read %}text-gray-600{% else %}text-gray-400{% endif %} text-sm mt-0.5 leading-snug line-clamp-2">
-                                    {{ notif.message }}
-                                </p>
+    <section class="relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-3 pb-3 sm:pt-4 sm:pb-4 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase text-center">Notifications</div>
+            {% if unread_count > 0 %}
+            <p class="text-xs text-gray-500 text-center mt-1">{{ unread_count }} unread</p>
+            {% endif %}
+            <div class="flex flex-wrap items-center justify-center gap-3 mt-3">
+                {% if unread_count > 0 %}
+                <form method="POST" action="{% url 'notifications' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-xs font-semibold text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-xl hover:bg-blue-50 transition">
+                        <i class="fa-solid fa-check-double mr-1"></i> Mark all read
+                    </button>
+                </form>
+                {% endif %}
+                <a href="{% if current_role == 'owner' %}{% url 'owner_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}"
+                   class="text-xs font-medium text-blue-600 hover:text-blue-700">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Home
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-3">
+        <div class="panel-card-dof rounded-2xl overflow-hidden">
+            {% if notifications %}
+                {% for notif in notifications %}
+                <a href="{{ notif.url }}"
+                   class="block px-4 py-3.5 sm:px-5 transition-colors border-b border-gray-100 last:border-none group
+                          {% if not notif.is_read %}bg-blue-50/30 hover:bg-blue-50/50{% else %}bg-gray-50/40 opacity-70 hover:bg-gray-50/60{% endif %}">
+                    <div class="flex gap-3 sm:gap-4">
+                        <div class="flex-shrink-0 mt-0.5">
+                            <div class="w-9 h-9 rounded-xl flex items-center justify-center text-sm
+                                        {% if not notif.is_read %}bg-blue-100 text-blue-600{% else %}bg-gray-100 text-gray-500{% endif %}">
+                                {% if notif.type == 'team_event_invitation' or notif.type == 'team_event_updated' or notif.type == 'team_event_canceled' or notif.type == 'team_event_reminder' %}
+                                <i class="fa-solid fa-calendar-days"></i>
+                                {% elif notif.type == 'roster_request' or notif.type == 'team_invite' %}
+                                <i class="fa-solid fa-users"></i>
+                                {% elif notif.type == 'family_invitation' or notif.type == 'family_join_request' or notif.type == 'parent_invite' or notif.type == 'family' %}
+                                <i class="fa-solid fa-house-chimney-user"></i>
+                                {% elif notif.type == 'personal_event_conflict' %}
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                {% elif notif.type == 'account' %}
+                                <i class="fa-solid fa-user-gear"></i>
+                                {% else %}
+                                <i class="fa-solid fa-bell"></i>
+                                {% endif %}
                             </div>
-                            <div class="flex flex-col items-end gap-y-1 flex-shrink-0 text-right">
-                                <span class="text-xs text-gray-500 whitespace-nowrap">
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between gap-x-3">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <p class="text-sm {% if not notif.is_read %}font-semibold text-gray-900{% else %}font-medium text-gray-500{% endif %} group-hover:text-blue-700 transition truncate">
+                                            {{ notif.title }}
+                                        </p>
+                                        {% if not notif.is_read %}
+                                        <span class="px-2 py-0.5 text-[10px] font-semibold bg-blue-600 text-white rounded-full flex-shrink-0">NEW</span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="{% if not notif.is_read %}text-gray-600{% else %}text-gray-400{% endif %} text-xs sm:text-sm mt-0.5 leading-snug line-clamp-2">
+                                        {{ notif.message }}
+                                    </p>
+                                </div>
+                                <span class="text-[10px] text-gray-400 whitespace-nowrap flex-shrink-0 tabular-nums">
                                     {{ notif.created_at|timesince }} ago
                                 </span>
                             </div>
                         </div>
                     </div>
+                </a>
+                {% endfor %}
+            {% else %}
+                <div class="px-6 py-14 sm:py-16 text-center">
+                    <div class="w-14 h-14 mx-auto rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-bell text-xl text-gray-400"></i>
+                    </div>
+                    <h3 class="text-base font-semibold text-gray-700">You're all caught up</h3>
+                    <p class="text-gray-500 mt-1 text-sm">No notifications yet.</p>
                 </div>
-            </a>
-            </a>
-            {% endfor %}
-        {% else %}
-            <div class="px-8 py-16 text-center">
-                <div class="text-5xl mb-4">🔔</div>
-                <h3 class="text-lg font-semibold text-gray-700">You're all caught up</h3>
-                <p class="text-gray-500 mt-1 text-sm">No notifications yet.</p>
-            </div>
-        {% endif %}
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}
