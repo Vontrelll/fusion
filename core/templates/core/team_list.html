@@ -4,11 +4,11 @@
 {% block content %}
 <div class="min-w-0 overflow-x-hidden pb-4">
 
-    <!-- Toolbar band -->
+{# ===================== MOBILE (< lg) — unchanged ===================== #}
+<div class="lg:hidden">
     <section class="teams-toolbar-band relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-3 pb-3 sm:pt-4 sm:pb-4 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
         <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-3">
             <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase text-center">My Teams</div>
-
             <a href="{% url 'create_team' %}"
                class="team-create-btn flex items-center gap-2.5 sm:gap-3 px-3 py-3.5 sm:px-4 sm:py-4 rounded-2xl group min-w-0">
                 <div class="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
@@ -20,7 +20,6 @@
                 </div>
                 <i class="fa-solid fa-chevron-right text-[10px] text-violet-300 group-hover:text-violet-600 flex-shrink-0 transition"></i>
             </a>
-
             {% if total_teams_count %}
             <form method="get" action="{% url 'team_list' %}" class="relative">
                 {% if from_invite %}<input type="hidden" name="from" value="invite_parent">{% endif %}
@@ -34,7 +33,6 @@
                 {% endif %}
             </form>
             {% endif %}
-
             <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
                 {% if total_teams_count %}
                 <span class="text-xs text-gray-500 tabular-nums">{{ total_teams_count }} team{{ total_teams_count|pluralize }}</span>
@@ -47,131 +45,272 @@
             </div>
         </div>
     </section>
-
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-3">
+        {% include "core/_team_list_mobile.html" %}
+    </div>
+</div>
+
+{# ===================== DESKTOP (lg+) ===================== #}
+<div class="hidden lg:block">
+    <section class="relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] bg-gradient-to-b from-gray-100/55 via-gray-50/45 to-gray-100/40 pt-5 pb-5 border-y border-gray-200/35 shadow-[inset_0_1px_6px_rgba(0,0,0,0.02)]">
+        <div class="max-w-[1400px] mx-auto px-8">
+            <div class="flex items-center justify-between gap-6">
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase">My Teams</div>
+                    <p class="text-xs text-gray-500 mt-1">
+                        {% if user_organization %}{{ user_organization.name }}{% else %}Your organization{% endif %}
+                        · Manage rosters, invites, and team schedules
+                    </p>
+                </div>
+                {% if total_teams_count %}
+                <form method="get" action="{% url 'team_list' %}" class="relative w-full max-w-sm flex-shrink">
+                    {% if from_invite %}<input type="hidden" name="from" value="invite_parent">{% endif %}
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                    <input type="search" name="q" value="{{ search_q }}" placeholder="Search teams by name or sport..."
+                           class="w-full pl-9 pr-10 py-2.5 rounded-xl bg-white/90 ring-1 ring-gray-200/80 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-gray-300 transition">
+                    {% if search_q %}
+                    <a href="{% url 'team_list' %}{% if from_invite %}?from=invite_parent{% endif %}" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs" title="Clear search">
+                        <i class="fa-solid fa-xmark"></i>
+                    </a>
+                    {% endif %}
+                </form>
+                {% endif %}
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <a href="{% url 'create_team' %}" class="team-create-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-900 group">
+                        <i class="fa-solid fa-plus text-violet-600"></i> New Team
+                    </a>
+                    <a href="{% url 'owner_dashboard' %}" class="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center">
+                        <i class="fa-solid fa-arrow-left mr-1.5 text-xs"></i> Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="max-w-[1400px] mx-auto px-8 mt-5 pb-8">
         {% if from_invite %}
-        <div class="mb-3 flex items-start gap-2.5 px-4 py-3 rounded-2xl bg-blue-50/80 ring-1 ring-blue-200/60 text-sm text-blue-800">
-            <i class="fa-solid fa-user-plus mt-0.5 text-blue-500 flex-shrink-0"></i>
-            <span class="font-medium">Choose a team to invite a parent to.</span>
+        <div class="mb-4 flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-blue-50/80 ring-1 ring-blue-200/60 text-sm text-blue-800">
+            <i class="fa-solid fa-user-plus text-blue-500 flex-shrink-0"></i>
+            <span class="font-medium">Choose a team below to invite a parent to.</span>
         </div>
         {% endif %}
 
-        {% if total_teams_count %}
-        <div id="teams-list" class="flex flex-col gap-2">
-            {% for team in page_obj %}
-            <div class="team-card panel-card-dof rounded-2xl overflow-hidden">
-                <div class="h-1 w-full" style="background-color: {{ team.color|default:'#64748b' }}"></div>
-                <a href="{% url 'team_detail' team.id %}"
-                   class="flex items-center gap-3 px-4 py-3 sm:px-5 group min-w-0">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-sm font-bold"
-                         style="background-color: {{ team.color|default:'#64748b' }}">
-                        {{ team.name|slice:":1"|upper }}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <h3 class="font-semibold text-gray-900 group-hover:text-blue-600 transition truncate" title="{{ team.name }}">{{ team.name }}</h3>
-                            <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full whitespace-nowrap flex-shrink-0">{{ team.roster_count|default:0 }} player{{ team.roster_count|pluralize }}</span>
+        <div class="grid grid-cols-12 gap-6 items-start">
+
+            {# Left rail #}
+            <aside class="col-span-3 space-y-4">
+                <div class="panel-card-dof rounded-2xl p-5">
+                    <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-4">Organization</div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-xl bg-violet-50/80 border border-violet-100 px-3 py-3 text-center">
+                            <div class="text-xl font-bold tabular-nums text-violet-700">{{ owner_team_stats.total_teams }}</div>
+                            <div class="text-[10px] text-violet-600 mt-0.5 uppercase tracking-wide">Teams</div>
                         </div>
-                        <p class="text-sm text-gray-500 mt-0.5 truncate">{{ team.get_sport_type_display }}</p>
+                        <div class="rounded-xl bg-emerald-50/80 border border-emerald-100 px-3 py-3 text-center">
+                            <div class="text-xl font-bold tabular-nums text-emerald-700">{{ owner_team_stats.total_players }}</div>
+                            <div class="text-[10px] text-emerald-600 mt-0.5 uppercase tracking-wide">Athletes</div>
+                        </div>
+                        <div class="rounded-xl bg-blue-50/80 border border-blue-100 px-3 py-3 text-center">
+                            <div class="text-xl font-bold tabular-nums text-blue-700">{{ owner_team_stats.total_registrations }}</div>
+                            <div class="text-[10px] text-blue-600 mt-0.5 uppercase tracking-wide">Roster Slots</div>
+                        </div>
+                        <div class="rounded-xl bg-amber-50/80 border border-amber-100 px-3 py-3 text-center">
+                            <div class="text-xl font-bold tabular-nums text-amber-700">{{ owner_team_stats.pending_roster }}</div>
+                            <div class="text-[10px] text-amber-600 mt-0.5 uppercase tracking-wide">Pending</div>
+                        </div>
                     </div>
-                    <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 group-hover:text-blue-400 flex-shrink-0 transition"></i>
-                </a>
-                <div class="px-4 pb-3 sm:px-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-gray-100/90 pt-2.5 text-xs font-medium">
-                    {% if from_invite %}
-                    <a href="{% url 'team_to_parent_invite_search' team.id %}"
-                       class="inline-flex items-center gap-1.5 text-emerald-600 hover:text-emerald-700">
-                        <i class="fa-solid fa-user-plus text-[10px]"></i> Invite Parent
-                    </a>
-                    {% else %}
-                    <a href="{% url 'team_to_parent_invite_search' team.id %}"
-                       class="inline-flex items-center gap-1.5 text-emerald-600 hover:text-emerald-700">
-                        <i class="fa-solid fa-user-plus text-[10px]"></i> Invite
-                    </a>
-                    <a href="{% url 'add_team_event' %}?team={{ team.id }}"
-                       class="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700">
-                        <i class="fa-solid fa-calendar-plus text-[10px]"></i> Event
-                    </a>
-                    <a href="{% url 'edit_team' team.id %}"
-                       class="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700">
-                        <i class="fa-solid fa-pen text-[10px]"></i> Edit
-                    </a>
-                    <a href="{% url 'delete_team' team.id %}"
-                       class="inline-flex items-center gap-1.5 text-red-500 hover:text-red-600 ml-auto"
-                       onclick="return confirm('Delete this team?');">
-                        <i class="fa-solid fa-trash text-[10px]"></i> Delete
+                    {% if owner_team_stats.pending_roster %}
+                    <a href="{% url 'org_players' %}" class="mt-4 block text-center text-xs font-semibold text-amber-700 hover:text-amber-800 py-2 rounded-xl bg-amber-50 hover:bg-amber-100/80 transition">
+                        Review roster requests →
                     </a>
                     {% endif %}
                 </div>
-            </div>
-            {% empty %}
-            <div class="panel-card-dof rounded-2xl p-6 text-center">
-                <p class="text-sm text-gray-600">No teams match your search.</p>
-                <a href="{% url 'team_list' %}{% if from_invite %}?from=invite_parent{% endif %}" class="mt-2 inline-block text-xs font-medium text-blue-600 hover:text-blue-700">Clear search</a>
-            </div>
-            {% endfor %}
-        </div>
 
-        {% if page_obj.paginator.num_pages > 1 %}
-        <nav class="mt-4 flex items-center justify-center gap-4 text-sm" aria-label="Team list pagination">
-            {% if page_obj.has_previous %}
-            <a href="{% url 'team_list' %}?{% if from_invite %}from=invite_parent&amp;{% endif %}{% if search_q %}q={{ search_q|urlencode }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
-               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 font-medium transition">
-                <i class="fa-solid fa-chevron-left text-[10px]"></i> Previous
-            </a>
-            {% endif %}
-            <span class="text-gray-500 tabular-nums text-xs sm:text-sm">
-                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-            </span>
-            {% if page_obj.has_next %}
-            <a href="{% url 'team_list' %}?{% if from_invite %}from=invite_parent&amp;{% endif %}{% if search_q %}q={{ search_q|urlencode }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
-               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 font-medium transition">
-                Next <i class="fa-solid fa-chevron-right text-[10px]"></i>
-            </a>
-            {% endif %}
-        </nav>
-        {% endif %}
+                {% if owner_sport_breakdown %}
+                <div class="panel-card-dof rounded-2xl p-5">
+                    <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">By Sport</div>
+                    <div class="space-y-2">
+                        {% for item in owner_sport_breakdown %}
+                        <div class="flex items-center justify-between text-sm px-3 py-2 rounded-xl bg-gray-50/70 border border-gray-100">
+                            <span class="font-medium text-gray-800">{{ item.sport }}</span>
+                            <span class="text-xs font-semibold tabular-nums text-gray-500 bg-white px-2 py-0.5 rounded-full ring-1 ring-gray-200">{{ item.count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
 
-        {% else %}
-        <div class="panel-card-dof rounded-2xl p-8 sm:p-10 text-center">
-            <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                <i class="fa-solid fa-people-group text-2xl text-gray-300"></i>
-            </div>
-            <p class="font-semibold text-gray-800">No teams yet</p>
-            <p class="text-sm text-gray-500 mt-1 max-w-sm mx-auto">Create your first team to organize players, events, and schedules.</p>
-            <a href="{% url 'create_team' %}"
-               class="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition">
-                <i class="fa-solid fa-plus text-xs"></i> New Team
-            </a>
+                <div class="panel-card-dof rounded-2xl p-5">
+                    <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Quick Links</div>
+                    <div class="space-y-1.5">
+                        <a href="{% url 'create_team' %}" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition">
+                            <i class="fa-solid fa-plus text-violet-500 text-xs w-4 text-center"></i> Create Team
+                        </a>
+                        <a href="{% url 'org_players' %}" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition">
+                            <i class="fa-solid fa-users text-emerald-500 text-xs w-4 text-center"></i> All Players
+                        </a>
+                        <a href="{% url 'event_list' %}" class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition">
+                            <i class="fa-solid fa-calendar-days text-blue-500 text-xs w-4 text-center"></i> Event Calendar
+                        </a>
+                    </div>
+                </div>
+            </aside>
+
+            {# Center — team grid #}
+            <main class="col-span-6 min-w-0">
+                {% if total_teams_count %}
+                    {% if page_obj %}
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="text-sm font-bold text-gray-900">
+                            {% if search_q %}Search results{% else %}All Teams{% endif %}
+                        </div>
+                        <span class="text-xs text-gray-400 tabular-nums">{{ page_obj.paginator.count }} team{{ page_obj.paginator.count|pluralize }}</span>
+                    </div>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                        {% for team in page_obj %}
+                        <div class="team-card panel-card-dof rounded-2xl overflow-hidden">
+                            <div class="h-1.5 w-full" style="background-color: {{ team.color|default:'#64748b' }}"></div>
+                            <a href="{% url 'team_detail' team.id %}" class="flex items-center gap-4 px-5 py-4 group min-w-0">
+                                <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-base font-bold"
+                                     style="background-color: {{ team.color|default:'#64748b' }}">
+                                    {{ team.name|slice:":1"|upper }}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="font-semibold text-gray-900 group-hover:text-blue-600 transition truncate" title="{{ team.name }}">{{ team.name }}</h3>
+                                    <p class="text-sm text-gray-500 mt-0.5">{{ team.get_sport_type_display }}</p>
+                                    <span class="inline-flex mt-1.5 px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full">{{ team.roster_count|default:0 }} player{{ team.roster_count|pluralize }}</span>
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 group-hover:text-blue-400 flex-shrink-0 transition"></i>
+                            </a>
+                            <div class="px-5 pb-4 flex flex-wrap items-center gap-2 border-t border-gray-100/90 pt-3 text-xs font-semibold">
+                                {% if from_invite %}
+                                <a href="{% url 'team_to_parent_invite_search' team.id %}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition">
+                                    <i class="fa-solid fa-user-plus text-[10px]"></i> Invite Parent
+                                </a>
+                                {% else %}
+                                <a href="{% url 'team_to_parent_invite_search' team.id %}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition">
+                                    <i class="fa-solid fa-user-plus text-[10px]"></i> Invite
+                                </a>
+                                <a href="{% url 'add_team_event' %}?team={{ team.id }}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition">
+                                    <i class="fa-solid fa-calendar-plus text-[10px]"></i> Event
+                                </a>
+                                <a href="{% url 'edit_team' team.id %}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 transition">
+                                    <i class="fa-solid fa-pen text-[10px]"></i> Edit
+                                </a>
+                                <a href="{% url 'delete_team' team.id %}"
+                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-600 hover:bg-red-50 transition ml-auto"
+                                   onclick="return confirm('Delete this team?');">
+                                    <i class="fa-solid fa-trash text-[10px]"></i> Delete
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-span-full panel-card-dof rounded-2xl p-8 text-center">
+                            <p class="text-sm text-gray-600">No teams match your search.</p>
+                            <a href="{% url 'team_list' %}{% if from_invite %}?from=invite_parent{% endif %}" class="mt-2 inline-block text-xs font-medium text-blue-600 hover:text-blue-700">Clear search</a>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if page_obj.paginator.num_pages > 1 %}
+                    <nav class="mt-6 flex items-center justify-between text-sm" aria-label="Team list pagination">
+                        <div class="text-xs text-gray-500 tabular-nums">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</div>
+                        <div class="flex items-center gap-2">
+                            {% if page_obj.has_previous %}
+                            <a href="{% url 'team_list' %}?{% if from_invite %}from=invite_parent&amp;{% endif %}{% if search_q %}q={{ search_q|urlencode }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+                               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 font-medium transition">
+                                <i class="fa-solid fa-chevron-left text-[10px]"></i> Previous
+                            </a>
+                            {% endif %}
+                            {% if page_obj.has_next %}
+                            <a href="{% url 'team_list' %}?{% if from_invite %}from=invite_parent&amp;{% endif %}{% if search_q %}q={{ search_q|urlencode }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+                               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 font-medium transition">
+                                Next <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </nav>
+                    {% endif %}
+                    {% endif %}
+                {% else %}
+                <div class="panel-card-dof rounded-2xl p-12 text-center">
+                    <div class="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                        <i class="fa-solid fa-people-group text-2xl text-gray-300"></i>
+                    </div>
+                    <p class="font-semibold text-gray-800">No teams yet</p>
+                    <p class="text-sm text-gray-500 mt-1 max-w-md mx-auto">Create your first team to organize players, events, and schedules.</p>
+                    <a href="{% url 'create_team' %}"
+                       class="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold transition">
+                        <i class="fa-solid fa-plus text-xs"></i> New Team
+                    </a>
+                </div>
+                {% endif %}
+            </main>
+
+            {# Right rail #}
+            <aside class="col-span-3 space-y-4">
+                <div class="panel-card-dof rounded-2xl p-5">
+                    <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-4">Largest Rosters</div>
+                    {% if owner_top_teams %}
+                    <div class="space-y-2">
+                        {% for team in owner_top_teams %}
+                        <a href="{% url 'team_detail' team.id %}" class="flex items-center gap-3 rounded-xl border border-gray-100 px-3 py-2.5 hover:bg-gray-50/80 transition group min-w-0">
+                            <div class="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                                 style="background-color: {{ team.color|default:'#64748b' }}">
+                                {{ team.name|slice:":1"|upper }}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600">{{ team.name }}</div>
+                                <div class="text-[11px] text-gray-500">{{ team.get_sport_type_display }}</div>
+                            </div>
+                            <span class="text-xs font-semibold tabular-nums text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex-shrink-0">{{ team.roster_count }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-gray-500 py-4 text-center rounded-xl bg-gray-50/60 border border-dashed border-gray-200">Teams will appear here once created.</p>
+                    {% endif %}
+                </div>
+
+                <div class="panel-card-dof rounded-2xl p-5">
+                    <div class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3">Team Actions</div>
+                    <p class="text-xs text-gray-500 leading-relaxed mb-4">Invite parents to build rosters, then schedule team events from each team's card or the event calendar.</p>
+                    <a href="{% url 'create_team' %}"
+                       class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition">
+                        <i class="fa-solid fa-plus text-xs"></i> Create Team
+                    </a>
+                </div>
+            </aside>
+
         </div>
-        {% endif %}
     </div>
+</div>
+
 </div>
 
 <style>
     .team-create-btn {
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
         border: 1px solid rgba(148, 163, 184, 0.22);
-        box-shadow:
-            0 1px 2px rgba(15, 23, 42, 0.04),
-            0 4px 12px rgba(15, 23, 42, 0.05);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.05);
         transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
     }
     .team-create-btn:hover {
         transform: translateY(-1px);
         border-color: rgba(139, 92, 246, 0.3);
-        box-shadow:
-            0 2px 4px rgba(15, 23, 42, 0.05),
-            0 8px 20px rgba(15, 23, 42, 0.08);
+        box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 8px 20px rgba(15, 23, 42, 0.08);
     }
     .panel-card-dof {
         position: relative;
         isolation: isolate;
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 250, 252, 0.94) 100%);
         border: 1px solid rgba(148, 163, 184, 0.22);
-        box-shadow:
-            0 1px 2px rgba(15, 23, 42, 0.04),
-            0 3px 10px rgba(15, 23, 42, 0.05),
-            0 10px 22px -10px rgba(15, 23, 42, 0.09);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 3px 10px rgba(15, 23, 42, 0.05), 0 10px 22px -10px rgba(15, 23, 42, 0.09);
         transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
     }
     .panel-card-dof::before {
@@ -192,16 +331,10 @@
         pointer-events: none;
         z-index: 0;
     }
-    .panel-card-dof > * {
-        position: relative;
-        z-index: 1;
-    }
+    .panel-card-dof > * { position: relative; z-index: 1; }
     .team-card:hover {
         border-color: rgba(148, 163, 184, 0.35);
-        box-shadow:
-            0 2px 4px rgba(15, 23, 42, 0.05),
-            0 6px 16px rgba(15, 23, 42, 0.07),
-            0 14px 28px -10px rgba(15, 23, 42, 0.11);
+        box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 6px 16px rgba(15, 23, 42, 0.07), 0 14px 28px -10px rgba(15, 23, 42, 0.11);
         transform: translateY(-1px);
     }
 </style>

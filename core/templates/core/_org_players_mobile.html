@@ -1,0 +1,95 @@
+{% if total_players %}
+<div class="flex flex-col gap-2">
+    {% for reg in page_obj %}
+    <div class="panel-card-dof player-row rounded-2xl overflow-hidden">
+        <div class="h-1 w-full" style="background-color: {{ reg.team_membership.team.color|default:'#64748b' }}"></div>
+        <div class="px-4 py-3 sm:px-5 flex items-start gap-3 min-w-0">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
+                 style="background-color: {{ reg.kid.color|default:'#10b981' }}">
+                {{ reg.kid.display_initials }}
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="font-semibold text-gray-900 truncate">
+                    {{ reg.kid.first_name }} {{ reg.kid.last_name }}
+                </div>
+                <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span class="px-2 py-0.5 text-[10px] font-semibold rounded-full whitespace-nowrap"
+                          style="background-color: {{ reg.team_membership.team.color|default:'#64748b' }}20; color: {{ reg.team_membership.team.color|default:'#334155' }};">
+                        {{ reg.team_membership.team.name }}
+                    </span>
+                    {% if reg.jersey_number %}
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-gray-100 text-gray-600 rounded-full font-mono">#{{ reg.jersey_number }}</span>
+                    {% endif %}
+                </div>
+                <div class="mt-1.5 text-xs text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
+                    {% if reg.kid.family %}
+                    <span class="truncate">{{ reg.kid.family.family_name }}</span>
+                    <span class="text-gray-300">•</span>
+                    <a href="{% url 'family_detail' reg.kid.family.id %}?parent={{ reg.kid.parent.id }}"
+                       class="font-medium text-blue-600 hover:text-blue-700 truncate">
+                        {{ reg.kid.parent.first_name|default:reg.kid.parent.username }} {{ reg.kid.parent.last_name }}
+                    </a>
+                    {% else %}
+                    <span class="text-gray-400">No family linked</span>
+                    {% endif %}
+                </div>
+                <div class="mt-1 text-[11px] text-gray-400 flex flex-nowrap items-center gap-x-2 min-w-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    <span class="inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0">
+                        <i class="fa-solid fa-cake-candles text-[9px]"></i>
+                        {{ reg.kid.date_of_birth|date:"M j, Y" }}
+                    </span>
+                    <span class="text-gray-300 flex-shrink-0">•</span>
+                    <span class="inline-flex items-center gap-1 whitespace-nowrap flex-shrink-0">
+                        <i class="fa-solid fa-calendar-check text-[9px]"></i>
+                        Joined {{ reg.created_at|date:"M j, Y" }}
+                    </span>
+                </div>
+            </div>
+            <a href="{% url 'owner_remove_kid_from_team' reg.team_membership.team.id reg.kid.id %}"
+               onclick="return confirm('Remove {{ reg.kid.first_name }} from {{ reg.team_membership.team.name }}?');"
+               class="text-xs font-medium text-red-500 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition whitespace-nowrap flex-shrink-0 mt-0.5">
+                Remove
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="panel-card-dof rounded-2xl p-6 text-center">
+        <p class="text-sm text-gray-600">No athletes match your search.</p>
+        <a href="{% url 'org_players' %}" class="mt-2 inline-block text-xs font-medium text-blue-600 hover:text-blue-700">Clear search</a>
+    </div>
+    {% endfor %}
+</div>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="mt-4 flex items-center justify-center gap-4 text-sm" aria-label="Players list pagination">
+    {% if page_obj.has_previous %}
+    <a href="{% url 'org_players' %}?{% if search_q %}q={{ search_q|urlencode }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 font-medium transition">
+        <i class="fa-solid fa-chevron-left text-[10px]"></i> Previous
+    </a>
+    {% endif %}
+    <span class="text-gray-500 tabular-nums text-xs sm:text-sm">
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+    <a href="{% url 'org_players' %}?{% if search_q %}q={{ search_q|urlencode }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 font-medium transition">
+        Next <i class="fa-solid fa-chevron-right text-[10px]"></i>
+    </a>
+    {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<div class="panel-card-dof rounded-2xl p-8 sm:p-10 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+        <i class="fa-solid fa-users text-2xl text-gray-300"></i>
+    </div>
+    <p class="font-semibold text-gray-800">No athletes registered yet</p>
+    <p class="text-sm text-gray-500 mt-1 max-w-sm mx-auto">Invite parents to your teams to start building rosters.</p>
+    <a href="{% url 'team_list' %}?from=invite_parent"
+       class="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition">
+        <i class="fa-solid fa-user-plus text-xs"></i> Invite Parent
+    </a>
+</div>
+{% endif %}

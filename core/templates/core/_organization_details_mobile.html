@@ -1,0 +1,33 @@
+<div class="panel-card-dof rounded-2xl p-5 sm:p-6">
+    <div class="flex items-center gap-3 mb-5 pb-5 border-b border-gray-100">
+        <div class="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid fa-sitemap text-slate-600 text-lg"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+            <h1 class="text-xl font-bold text-gray-900 truncate" title="{{ organization.name }}">{{ organization.name }}</h1>
+            <p class="text-xs text-gray-500 mt-0.5">Established {{ organization.created_at|date:"F j, Y" }}</p>
+        </div>
+    </div>
+
+    <div class="space-y-4">
+        <div>
+            <div class="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1.5">Organization Name</div>
+            <p class="text-sm text-gray-900 font-medium">{{ organization.name }}</p>
+        </div>
+
+        <div>
+            <div class="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-1.5">Description</div>
+            {% if organization.description %}
+            <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ organization.description }}</p>
+            {% else %}
+            <p class="text-sm text-gray-400 italic">No description provided</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if organization.updated_at %}
+<p class="text-center text-xs text-gray-400">
+    Last updated {{ organization.updated_at|date:"M j, Y" }}
+</p>
+{% endif %}

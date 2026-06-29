@@ -1,0 +1,310 @@
+{% if events %}
+{% if range_filter == 'past' %}
+<div class="mb-3 flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-50/90 ring-1 ring-slate-200/70 text-xs sm:text-sm text-slate-600">
+    <i class="fa-solid fa-clock-rotate-left text-slate-400 text-[10px] sm:text-xs"></i>
+    <span>Past events — already completed.</span>
+</div>
+{% endif %}
+<div class="event-timeline flex flex-col gap-2">
+    {% for event in events %}
+    {% if is_parent and not event.is_team_event %}
+    {% with event_accent="#3b82f6" %}
+    <a href="{% url 'event_detail' event.id %}"
+       class="event-timeline-card group block rounded-2xl overflow-hidden transition-all{% if range_filter == 'past' %} event-card-past bg-slate-50/90 ring-1 ring-slate-200/65{% else %} bg-white ring-1 ring-gray-200/70 shadow-sm hover:shadow-md hover:ring-gray-300/80{% if event.is_happening_now %} event-timeline-card-live{% endif %}{% endif %}">
+        {% if range_filter != 'past' %}
+        <div class="h-1 w-full" style="background-color: {{ event_accent }}"></div>
+        {% endif %}
+        <div class="px-4 py-3 sm:px-5 flex items-start gap-3">
+            {% if range_filter == 'past' %}
+            <div class="event-past-type-icon flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center mt-0.5 bg-white ring-1 ring-slate-200/80 text-sm"
+                 style="color: {{ event_accent }}; box-shadow: inset 0 0 0 1.5px {{ event_accent }}40;">
+                <i class="fa-solid fa-house-chimney-user"></i>
+            </div>
+            {% else %}
+            <div class="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center mt-0.5 text-white text-sm" style="background-color: {{ event_accent }}">
+                <i class="fa-solid fa-house-chimney-user"></i>
+            </div>
+            {% endif %}
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <h3 class="font-semibold truncate max-w-full transition{% if range_filter == 'past' %} text-gray-600 group-hover:text-gray-800{% else %} text-gray-900 group-hover:text-blue-600{% endif %}" title="{{ event.name }}">{{ event.name }}</h3>
+                    {% if range_filter == 'past' %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold text-slate-600 bg-white ring-1 ring-slate-200/80 rounded-full leading-none flex-shrink-0">
+                        <i class="fa-solid fa-check text-[8px] text-slate-400"></i> Ended
+                    </span>
+                    {% elif event.is_happening_now %}
+                    <span class="event-live-badge inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200/70 rounded-full leading-none flex-shrink-0">
+                        <span class="event-live-dot relative flex h-1.5 w-1.5 flex-shrink-0" aria-hidden="true">
+                            <span class="event-live-dot-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                            <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                        </span>
+                        Live
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                    {% if range_filter == 'past' %}
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold bg-white ring-1 ring-slate-200/70 text-slate-600 rounded-full">
+                        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: {{ event_accent }}"></span> Family
+                    </span>
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-white ring-1 ring-slate-200/70 text-slate-500 rounded-full">{{ event.attendance_count|default:0 }} attended</span>
+                    {% else %}
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-700 rounded-full">Family</span>
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full">{{ event.attendance_count|default:0 }} going</span>
+                    {% endif %}
+                </div>
+                <div class="mt-2 text-sm text-gray-600 space-y-1">
+                    <div class="flex items-center gap-2 min-w-0">
+                        {% if event.attending_kids %}
+                        <span class="font-medium truncate text-gray-600">{% for kid in event.attending_kids %}{% if not forloop.first %}, {% endif %}{{ kid.first_name }}{% endfor %}</span>
+                        {% elif event.location %}
+                        <span class="font-medium truncate text-gray-500">{{ event.location }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-gray-500">
+                        <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-calendar-day text-[10px] text-gray-400"></i>
+                            {{ event.start_time|date:"D, M j" }}
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-clock text-[10px] text-gray-400"></i>
+                            {{ event.start_time|time:"g:i A" }} – {{ event.end_time|time:"g:i A" }}
+                        </span>
+                        {% if event.location %}
+                        <span class="inline-flex items-center gap-1.5 min-w-0 overflow-hidden">
+                            <i class="fa-solid fa-location-dot text-[10px] text-gray-400 flex-shrink-0"></i>
+                            <span class="truncate">{{ event.location }}</span>
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 group-hover:text-slate-500 mt-2 flex-shrink-0 transition"></i>
+        </div>
+    </a>
+    {% endwith %}
+    {% elif event.event_type == 'training' %}
+    {% with event_accent="#d97706" %}
+    <a href="{% url 'team_event_detail' event.id %}"
+       class="event-timeline-card group block rounded-2xl overflow-hidden transition-all{% if range_filter == 'past' %} event-card-past bg-slate-50/90 ring-1 ring-slate-200/65{% else %} bg-white ring-1 ring-gray-200/70 shadow-sm hover:shadow-md hover:ring-gray-300/80{% if event.is_happening_now %} event-timeline-card-live{% elif event.event_type == 'training' %} event-timeline-card-training{% endif %}{% endif %}">
+        {% if range_filter != 'past' %}
+        <div class="h-1 w-full bg-amber-400"></div>
+        {% endif %}
+        <div class="px-4 py-3 sm:px-5 flex items-start gap-3">
+            {% if range_filter == 'past' %}
+            <div class="event-past-type-icon flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center mt-0.5 bg-white ring-1 ring-slate-200/80 text-sm"
+                 style="color: {{ event_accent }}; box-shadow: inset 0 0 0 1.5px {{ event_accent }}40;">
+                <i class="fa-solid fa-bullseye"></i>
+            </div>
+            {% else %}
+            <div class="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center mt-0.5 bg-amber-50 text-amber-600 text-sm">
+                <i class="fa-solid fa-bullseye"></i>
+            </div>
+            {% endif %}
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <h3 class="font-semibold truncate max-w-full transition{% if range_filter == 'past' %} text-gray-600 group-hover:text-gray-800{% else %} text-gray-900 group-hover:text-blue-600{% endif %}" title="{{ event.name }}">{{ event.name }}</h3>
+                    {% if range_filter == 'past' %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold text-slate-600 bg-white ring-1 ring-slate-200/80 rounded-full leading-none flex-shrink-0">
+                        <i class="fa-solid fa-check text-[8px] text-slate-400"></i> Ended
+                    </span>
+                    {% elif event.is_happening_now %}
+                    <span class="event-live-badge inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200/70 rounded-full leading-none flex-shrink-0">
+                        <span class="event-live-dot relative flex h-1.5 w-1.5 flex-shrink-0" aria-hidden="true">
+                            <span class="event-live-dot-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                            <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                        </span>
+                        Live
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                    {% if range_filter == 'past' %}
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold bg-white ring-1 ring-slate-200/70 text-slate-600 rounded-full">
+                        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: {{ event_accent }}"></span> Training
+                    </span>
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-white ring-1 ring-slate-200/70 text-slate-500 rounded-full">{{ event.attendance_count|default:0 }} attended</span>
+                    {% else %}
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800 rounded-full">Training</span>
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full">{{ event.attendance_count|default:0 }} going</span>
+                    {% if not is_parent and event.pending_count %}
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded-full">{{ event.pending_count }} pending</span>
+                    {% endif %}
+                    {% endif %}
+                </div>
+                <div class="mt-2 text-sm text-gray-600 space-y-1">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="font-medium truncate" style="color: {{ event.team.color|default:'#64748b' }}">
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full inline-block opacity-70" style="background-color: {{ event.team.color|default:'#64748b' }}"></span>
+                                {{ event.team.name|default:"Organization" }}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-gray-500">
+                        <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-calendar-day text-[10px] text-gray-400"></i>
+                            {{ event.start_time|date:"D, M j" }}
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-clock text-[10px] text-gray-400"></i>
+                            {{ event.start_time|time:"g:i A" }} – {{ event.end_time|time:"g:i A" }}
+                        </span>
+                        {% if event.location %}
+                        <span class="inline-flex items-center gap-1.5 min-w-0 overflow-hidden">
+                            <i class="fa-solid fa-location-dot text-[10px] text-gray-400 flex-shrink-0"></i>
+                            <span class="truncate">{{ event.location }}</span>
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 group-hover:text-slate-500 mt-2 flex-shrink-0 transition"></i>
+        </div>
+    </a>
+    {% endwith %}
+    {% else %}
+    {% with event_accent=event.team.color|default:"#64748b" %}
+    <a href="{% if is_parent %}{% url 'team_event_detail' event.id %}{% else %}{% url 'team_event_detail' event.id %}{% endif %}"
+       class="event-timeline-card group block rounded-2xl overflow-hidden transition-all{% if range_filter == 'past' %} event-card-past bg-slate-50/90 ring-1 ring-slate-200/65{% else %} bg-white ring-1 ring-gray-200/70 shadow-sm hover:shadow-md hover:ring-gray-300/80{% if event.is_happening_now %} event-timeline-card-live{% endif %}{% endif %}">
+        {% if range_filter != 'past' %}
+        <div class="h-1 w-full{% if event.is_happening_now %} bg-gradient-to-r from-sky-300 to-blue-400{% endif %}"
+             {% if not event.is_happening_now %}style="background-color: {% if is_parent and not event.is_team_event %}#3b82f6{% else %}{{ event_accent }}{% endif %}"{% endif %}></div>
+        {% endif %}
+        <div class="px-4 py-3 sm:px-5 flex items-start gap-3">
+            {% if range_filter == 'past' %}
+            <div class="event-past-type-icon flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center mt-0.5 bg-white ring-1 ring-slate-200/80 text-sm"
+                 style="color: {{ event_accent }}; box-shadow: inset 0 0 0 1.5px {{ event_accent }}40;">
+                <i class="fa-solid fa-people-group"></i>
+            </div>
+            {% else %}
+            <div class="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center mt-0.5 text-white text-sm"
+                 style="background-color: {% if is_parent and not event.is_team_event %}#3b82f6{% else %}{{ event_accent }}{% endif %}">
+                <i class="fa-solid fa-people-group"></i>
+            </div>
+            {% endif %}
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <h3 class="font-semibold truncate max-w-full transition{% if range_filter == 'past' %} text-gray-600 group-hover:text-gray-800{% else %} text-gray-900 group-hover:text-blue-600{% endif %}" title="{{ event.name }}">{{ event.name }}</h3>
+                    {% if range_filter == 'past' %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold text-slate-600 bg-white ring-1 ring-slate-200/80 rounded-full leading-none flex-shrink-0">
+                        <i class="fa-solid fa-check text-[8px] text-slate-400"></i> Ended
+                    </span>
+                    {% elif event.is_happening_now %}
+                    <span class="event-live-badge inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200/70 rounded-full leading-none flex-shrink-0">
+                        <span class="event-live-dot relative flex h-1.5 w-1.5 flex-shrink-0" aria-hidden="true">
+                            <span class="event-live-dot-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+                            <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                        </span>
+                        Live
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                    {% if is_parent %}
+                    <span class="{% if range_filter == 'past' %}inline-flex items-center gap-1.5 bg-white ring-1 ring-slate-200/70 text-slate-600{% else %}bg-slate-100 text-slate-700{% endif %} px-2 py-0.5 text-[10px] font-semibold rounded-full">
+                        {% if range_filter == 'past' %}<span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: {{ event_accent }}"></span>{% endif %} Team
+                    </span>
+                    {% elif range_filter == 'past' %}
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold bg-white ring-1 ring-slate-200/70 text-slate-600 rounded-full">
+                        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color: {{ event_accent }}"></span> Team
+                    </span>
+                    {% else %}
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-800 rounded-full">Team</span>
+                    {% endif %}
+                    {% if range_filter == 'past' %}
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-white ring-1 ring-slate-200/70 text-slate-500 rounded-full">{{ event.attendance_count|default:0 }} attended</span>
+                    {% else %}
+                    <span class="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700 rounded-full">{{ event.attendance_count|default:0 }} going</span>
+                    {% endif %}
+                </div>
+                <div class="mt-2 text-sm text-gray-600 space-y-1">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="font-medium truncate" style="color: {{ event_accent }}">
+                            <span class="inline-flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full inline-block opacity-70" style="background-color: {{ event_accent }}"></span>
+                                {{ event.team.name|default:"Organization" }}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-gray-500">
+                        <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-calendar-day text-[10px] text-gray-400"></i>
+                            {{ event.start_time|date:"D, M j" }}
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <i class="fa-solid fa-clock text-[10px] text-gray-400"></i>
+                            {{ event.start_time|time:"g:i A" }} – {{ event.end_time|time:"g:i A" }}
+                        </span>
+                        {% if event.location %}
+                        <span class="inline-flex items-center gap-1.5 min-w-0 overflow-hidden">
+                            <i class="fa-solid fa-location-dot text-[10px] text-gray-400 flex-shrink-0"></i>
+                            <span class="truncate">{{ event.location }}</span>
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 group-hover:text-slate-500 mt-2 flex-shrink-0 transition"></i>
+        </div>
+    </a>
+    {% endwith %}
+    {% endif %}
+    {% endfor %}
+</div>
+
+{% if page_obj.has_other_pages %}
+<nav class="mt-5 flex items-center justify-center gap-4 text-sm" aria-label="Event list pagination">
+    {% if page_obj.has_previous %}
+    <a href="{% url 'event_list' %}?range={{ range_filter }}&amp;page={{ page_obj.previous_page_number }}"
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 font-medium transition">
+        <i class="fa-solid fa-chevron-left text-[10px]"></i> Previous
+    </a>
+    {% endif %}
+    <span class="text-gray-500 tabular-nums text-xs sm:text-sm">
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+    {% if page_obj.has_next %}
+    <a href="{% url 'event_list' %}?range={{ range_filter }}&amp;page={{ page_obj.next_page_number }}"
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 font-medium transition">
+        Next <i class="fa-solid fa-chevron-right text-[10px]"></i>
+    </a>
+    {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<div class="rounded-2xl bg-white ring-1 ring-gray-200/70 p-8 sm:p-10 text-center shadow-sm">
+    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+        <i class="fa-solid fa-calendar-days text-2xl text-gray-300"></i>
+    </div>
+    {% if range_filter == 'past' %}
+    <p class="font-semibold text-gray-800">No past events</p>
+    <p class="text-sm text-gray-500 mt-1">Past events will show up here once they wrap up.</p>
+    {% else %}
+    <p class="font-semibold text-gray-800">Nothing scheduled yet</p>
+    <p class="text-sm text-gray-500 mt-1">{% if is_parent %}Add a family event or accept a team invite to get started.{% else %}Create a team event or training session to get started.{% endif %}</p>
+    {% endif %}
+    <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-md mx-auto">
+        {% if is_parent %}
+        <a href="{% url 'add_event' %}"
+           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition">
+            <i class="fa-solid fa-calendar-plus text-xs"></i> New Event
+        </a>
+        <a href="{% url 'my_family' %}"
+           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition">
+            <i class="fa-solid fa-house-chimney-user text-xs"></i> My Family
+        </a>
+        {% else %}
+        <a href="{% url 'add_team_event' %}?type=team"
+           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition">
+            <i class="fa-solid fa-calendar-plus text-xs"></i> New Event
+        </a>
+        <a href="{% url 'add_team_event' %}?type=training"
+           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition">
+            <i class="fa-solid fa-bullseye text-xs"></i> New Training
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

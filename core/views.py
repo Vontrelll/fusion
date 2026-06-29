@@ -352,7 +352,12 @@ def organization_players(request):
         team_membership__team__organization=organization
     ).select_related(
         'kid', 'kid__family', 'kid__parent', 'team_membership__team'
-    ).order_by('kid__last_name', 'kid__first_name', 'kid__id')
+    ).order_by(
+        'team_membership__team__name',
+        'kid__last_name',
+        'kid__first_name',
+        'kid__id',
+    )
 
     total_players = registrations_qs.count()
 
@@ -370,11 +375,33 @@ def organization_players(request):
 
     page_obj = Paginator(registrations_qs, PLAYERS_PER_PAGE).get_page(request.GET.get('page'))
 
+    full_registrations_qs = PlayerRegistration.objects.filter(
+        team_membership__team__organization=organization
+    )
+    players_by_team = []
+    current_team_id = None
+    current_group = None
+    for reg in page_obj.object_list:
+        team = reg.team_membership.team
+        if team.id != current_team_id:
+            if current_group is not None:
+                players_by_team.append(current_group)
+            current_team_id = team.id
+            current_group = {
+                'team': team,
+                'players': [],
+            }
+        current_group['players'].append(reg)
+    if current_group is not None:
+        players_by_team.append(current_group)
+
     context = {
         'organization': organization,
         'page_obj': page_obj,
         'total_players': total_players,
         'search_q': search_q,
+        'players_by_team': players_by_team,
+        **_owner_players_list_desktop_context(organization, request.user, full_registrations_qs),
     }
     return render(request, "core/org_players.html", context)
 
@@ -1404,6 +1431,170 @@ def _apply_event_time_range(queryset, range_param):
     return queryset.filter(end_time__lt=now)
 
 
+def _owner_organization_desktop_context(organization, user):
+    """Lightweight summary for the owner organization page (desktop only)."""
+    teams_qs = Team.objects.filter(organization=organization).annotate(
+        roster_count=Count('memberships__players', distinct=True),
+    ).order_by('name')
+    registrations_qs = PlayerRegistration.objects.filter(
+        team_membership__team__organization=organization
+    )
+    return {
+        'org_summary': {
+            'teams': teams_qs.count(),
+            'athletes': registrations_qs.values('kid').distinct().count(),
+            'families': registrations_qs.filter(
+                kid__family__isnull=False
+            ).values('kid__family').distinct().count(),
+            'pending': Invite.objects.filter(
+                receiver=user,
+                status='pending',
+                invite_type='team_join_request',
+            ).count(),
+        },
+        'org_teams': list(teams_qs),
+    }
+
+
+def _owner_players_list_desktop_context(organization, user, registrations_qs):
+    """Extra stats and sidebar data for the owner players page (desktop layout)."""
+    pending_roster = Invite.objects.filter(
+        receiver=user,
+        status='pending',
+        invite_type='team_join_request',
+    ).count()
+
+    unique_athletes = registrations_qs.values('kid').distinct().count()
+    unique_families = registrations_qs.filter(
+        kid__family__isnull=False
+    ).values('kid__family').distinct().count()
+    total_registrations = registrations_qs.count()
+
+    team_counts = {}
+    for row in registrations_qs.values('team_membership__team__id', 'team_membership__team__name', 'team_membership__team__color').annotate(
+        count=Count('id')
+    ).order_by('-count'):
+        team_counts[row['team_membership__team__id']] = {
+            'id': row['team_membership__team__id'],
+            'name': row['team_membership__team__name'],
+            'color': row['team_membership__team__color'],
+            'count': row['count'],
+        }
+    team_breakdown = sorted(team_counts.values(), key=lambda t: (-t['count'], t['name']))[:8]
+
+    recent_joins = list(
+        registrations_qs.select_related(
+            'kid', 'team_membership__team'
+        ).order_by('-created_at')[:6]
+    )
+
+    return {
+        'owner_player_stats': {
+            'unique_athletes': unique_athletes,
+            'total_registrations': total_registrations,
+            'unique_families': unique_families,
+            'pending_roster': pending_roster,
+        },
+        'owner_team_breakdown': team_breakdown,
+        'owner_recent_joins': recent_joins,
+    }
+
+
+def _owner_team_list_desktop_context(user, total_teams_count):
+    """Extra stats and sidebar data for the owner teams page (desktop layout)."""
+    organization = Organization.objects.filter(owner=user).first()
+
+    all_teams = Team.objects.filter(organization__owner=user).annotate(
+        roster_count=Count('memberships__players', distinct=True),
+    )
+
+    total_players = 0
+    if organization:
+        total_players = PlayerRegistration.objects.filter(
+            team_membership__team__organization=organization
+        ).values('kid').distinct().count()
+
+    pending_roster = Invite.objects.filter(
+        receiver=user,
+        status='pending',
+        invite_type='team_join_request',
+    ).count()
+
+    sport_counts = {}
+    for team in all_teams:
+        label = team.get_sport_type_display()
+        sport_counts[label] = sport_counts.get(label, 0) + 1
+
+    sport_breakdown = sorted(
+        [{'sport': sport, 'count': count} for sport, count in sport_counts.items()],
+        key=lambda item: (-item['count'], item['sport']),
+    )
+
+    top_teams = list(all_teams.order_by('-roster_count', 'name')[:6])
+    total_registrations = sum(team.roster_count for team in all_teams)
+
+    return {
+        'user_organization': organization,
+        'owner_team_stats': {
+            'total_teams': total_teams_count,
+            'total_players': total_players,
+            'pending_roster': pending_roster,
+            'total_registrations': total_registrations,
+        },
+        'owner_sport_breakdown': sport_breakdown,
+        'owner_top_teams': top_teams,
+    }
+
+
+def _owner_event_list_desktop_context(events_qs, page_obj):
+    """Extra grouping and sidebar data for the owner events page (desktop layout)."""
+    now = timezone.now()
+    in_one_week = now + timedelta(days=7)
+    today = timezone.localdate()
+
+    live_events = list(
+        events_qs.filter(start_time__lte=now, end_time__gte=now).select_related('team')[:5]
+    )
+    week_preview = list(
+        events_qs.filter(start_time__gte=now, start_time__lte=in_one_week)
+        .select_related('team')
+        .order_by('start_time')[:6]
+    )
+
+    stats = {
+        'total': events_qs.count(),
+        'live': events_qs.filter(start_time__lte=now, end_time__gte=now).count(),
+        'training': events_qs.filter(event_type='training').count(),
+        'team': events_qs.filter(event_type='team').count(),
+        'this_week': events_qs.filter(start_time__gte=now, start_time__lte=in_one_week).count(),
+    }
+
+    events_by_date = []
+    current_date = None
+    current_group = None
+    for event in page_obj.object_list:
+        event_date = timezone.localtime(event.start_time).date()
+        if event_date != current_date:
+            if current_group is not None:
+                events_by_date.append(current_group)
+            current_date = event_date
+            current_group = {
+                'date': event_date,
+                'is_today': event_date == today,
+                'events': [],
+            }
+        current_group['events'].append(event)
+    if current_group is not None:
+        events_by_date.append(current_group)
+
+    return {
+        'events_by_date': events_by_date,
+        'owner_live_events': live_events,
+        'owner_week_preview': week_preview,
+        'owner_event_stats': stats,
+    }
+
+
 def _parent_calendar_events(user_family, range_param):
     """Merge family events + accepted team events for the parent calendar."""
     user_families = [user_family] if user_family else []
@@ -1501,6 +1692,7 @@ def event_list(request):
             'page_obj': page_obj,
             'range_filter': range_param,
             'is_parent': False,
+            **_owner_event_list_desktop_context(events_qs, page_obj),
         }
 
     return render(request, 'core/event_list.html', context)
@@ -3262,6 +3454,7 @@ def team_list(request):
         'total_teams_count': total_teams_count,
         'search_q': search_q,
         'from_invite': from_invite,
+        **_owner_team_list_desktop_context(request.user, total_teams_count),
     }
 
     return render(request, "core/team_list.html", context)
@@ -3984,6 +4177,7 @@ def organization_details(request, org_id):
 
     context = {
         'organization': organization,
+        **_owner_organization_desktop_context(organization, request.user),
     }
     return render(request, 'core/organization_details.html', context)
 
