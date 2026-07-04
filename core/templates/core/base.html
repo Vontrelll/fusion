@@ -6,8 +6,12 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Fusion{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@2.0.2/dist/htmx.min.js"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://unpkg.com/htmx.org@2.0.2/dist/htmx.min.js"
+            integrity="sha384-Y7hw+L/jvKeWIRRkqWYfPcvVxHzVzn5REgzbawhxAuQGwX1XWe70vji+VSeHOThJ"
+            crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"
+            integrity="sha384-X9kJyAubVxnP0hcA+AMMs21U445qsnqhnUF8EBlEpP3a42Kh/JwWjlv2ZcvGfphb"
+            crossorigin="anonymous" defer></script>
 
     <!-- HTMX + CSRF configuration -->
     <script>
@@ -20,7 +24,9 @@
             }
         });
     </script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
+          integrity="sha384-h/hnnw1Bi4nbpD6kE7nYfCXzovi622sY5WBxww8ARKwpdLj5kUWjRuyiXaD1U2JT"
+          crossorigin="anonymous">
     
     <script>
         tailwind.config = {
@@ -67,13 +73,13 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 min-h-screen {% block body_class %}{% endblock %}">
 
     <!-- Navigation Bar -->
     {% block navigation %}
-    <nav class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 shadow-md backdrop-blur bg-white/95 overflow-x-hidden">
-        <div class="max-w-6xl mx-auto px-6">
-            <div class="h-14 flex items-center justify-between">
+    <nav class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 shadow-md backdrop-blur bg-white/95 overflow-x-hidden md:overflow-visible">
+        <div class="max-w-6xl mx-auto px-6 md:overflow-visible">
+            <div class="h-14 flex items-center justify-between relative z-[110]">
                 
                 <!-- Left: Logo only "Fusion" -->
                 <a href="{% if current_role == 'owner' %}{% url 'owner_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" 
@@ -125,19 +131,60 @@
                             {% endif %}
                         </a>
 
-                        <!-- Minimal profile menu (silhouette only on desktop; mobile uses hamburger) -->
+                        <!-- Desktop account menu (parent + owner) -->
                         <div class="relative hidden md:block" id="profile-dropdown">
-                            <button onclick="toggleProfileDropdown(event)" 
-                                    class="flex items-center gap-1 p-2 rounded-xl hover:bg-gray-100 transition text-gray-600 hover:text-gray-900">
-                                <i class="fa-solid fa-user text-base"></i>
+                            <button type="button"
+                                    onclick="toggleProfileDropdown(event)"
+                                    aria-expanded="false"
+                                    aria-haspopup="true"
+                                    id="profile-menu-button"
+                                    class="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-xl hover:bg-gray-100 transition text-gray-700 hover:text-gray-900 border border-transparent hover:border-gray-200">
+                                <span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                                    <i class="fa-solid fa-user text-sm"></i>
+                                </span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
                             </button>
-                            
-                            <div id="profile-menu" 
-                                 class="hidden absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50"
-                                 onmouseenter="keepProfileDropdownOpen()" onmouseleave="scheduleHideProfileDropdown()">
-                                <a href="{% url 'account_settings' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Account Settings</a>
-                                <div class="border-t my-1"></div>
-                                <a href="{% url 'logout' %}" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Logout</a>
+
+                            <div id="profile-menu"
+                                 class="hidden absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.12)] py-2 z-[100]"
+                                 role="menu"
+                                 onmouseenter="keepProfileDropdownOpen()"
+                                 onmouseleave="scheduleHideProfileDropdown()">
+                                <div class="px-4 py-3 border-b border-gray-100">
+                                    <div class="text-sm font-semibold text-gray-900 truncate">
+                                        {{ user.first_name|default:user.username }} {{ user.last_name }}
+                                    </div>
+                                    <div class="text-xs text-gray-500 truncate mt-0.5">@{{ user.username }}</div>
+                                    {% if current_role == 'owner' %}
+                                    <span class="inline-block mt-2 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Owner</span>
+                                    {% else %}
+                                    <span class="inline-block mt-2 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Parent</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="py-1">
+                                    <a href="{% url 'account_settings' %}" hx-boost="false" role="menuitem"
+                                       class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                                        <i class="fa-solid fa-gear w-4 text-center text-gray-400"></i>
+                                        <span>Account Settings</span>
+                                    </a>
+                                    <a href="{% url 'notifications' %}" hx-boost="false" role="menuitem"
+                                       class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition">
+                                        <i class="fa-solid fa-bell w-4 text-center text-gray-400"></i>
+                                        <span>Notifications</span>
+                                        {% if unread_notifications_count > 0 %}
+                                        <span class="ml-auto text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">{{ unread_notifications_count }}</span>
+                                        {% endif %}
+                                    </a>
+                                </div>
+
+                                <div class="border-t border-gray-100 mt-1 pt-1 px-2 pb-1">
+                                    <a href="{% url 'logout' %}" hx-boost="false" role="menuitem"
+                                       class="flex items-center justify-center gap-2 w-full px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition">
+                                        <i class="fa-solid fa-right-from-bracket"></i>
+                                        <span>Log Out</span>
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     {% else %}
@@ -215,12 +262,13 @@
     {% endif %}
 
     <!-- Main Content - unified wide container (pt for fixed floating nav) -->
-    <div id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 {% if request.user.is_authenticated and current_role == 'owner' %}pt-28{% else %}pt-16{% endif %} pb-4 sm:pb-6">
+    <div id="main-content" class="{% block main_wrapper_class %}max-w-7xl mx-auto px-4 sm:px-6 {% if request.user.is_authenticated and current_role == 'owner' %}pt-28{% else %}pt-16{% endif %} pb-4 sm:pb-6{% endblock %}">
         {% block content %}
         {% endblock %}
     </div>
 
     <!-- Footer with legal links (Step 3 privacy compliance) -->
+    {% block footer %}
     <footer class="border-t border-gray-200 bg-white mt-12{% if request.user.is_authenticated and current_role != 'owner' %} pb-16 md:pb-0{% endif %}">
         <div class="max-w-6xl mx-auto px-6 py-5 text-xs text-gray-500 flex flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div class="whitespace-nowrap">
@@ -234,6 +282,7 @@
             </div>
         </div>
     </footer>
+    {% endblock %}
 
     <!-- Mobile Bottom Navigation (parents only; owners use sub-nav under header) -->
     {% if request.user.is_authenticated and current_role != 'owner' %}
@@ -277,15 +326,20 @@
 
         function toggleProfileDropdown(event) {
             event.preventDefault();
+            event.stopPropagation();
             const menu = document.getElementById('profile-menu');
+            const button = document.getElementById('profile-menu-button');
             if (!menu) return;
 
-            if (menu.classList.contains('hidden')) {
-                menu.classList.remove('hidden');
-                menu.classList.add('block');
-            } else {
+            const isOpen = !menu.classList.contains('hidden');
+            if (isOpen) {
                 menu.classList.add('hidden');
                 menu.classList.remove('block');
+                if (button) button.setAttribute('aria-expanded', 'false');
+            } else {
+                menu.classList.remove('hidden');
+                menu.classList.add('block');
+                if (button) button.setAttribute('aria-expanded', 'true');
             }
         }
 
@@ -300,11 +354,13 @@
             if (profileDropdownTimeout) clearTimeout(profileDropdownTimeout);
             profileDropdownTimeout = setTimeout(() => {
                 const menu = document.getElementById('profile-menu');
+                const button = document.getElementById('profile-menu-button');
                 if (menu) {
                     menu.classList.add('hidden');
                     menu.classList.remove('block');
                 }
-            }, 300); // small delay so user can move mouse to menu
+                if (button) button.setAttribute('aria-expanded', 'false');
+            }, 200);
         }
 
         // Close dropdown when clicking outside
@@ -314,6 +370,8 @@
             if (dropdown && menu && !dropdown.contains(e.target)) {
                 menu.classList.add('hidden');
                 menu.classList.remove('block');
+                const button = document.getElementById('profile-menu-button');
+                if (button) button.setAttribute('aria-expanded', 'false');
             }
         });
 

@@ -23,14 +23,21 @@ if SENTRY_DSN and not DEBUG:
     )
 
 # ==================== SECURITY ====================
+_DEV_SECRET_KEY = 'dev-only-insecure-secret-key-for-local-testing'
 SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
     if DEBUG:
-        SECRET_KEY = 'dev-only-insecure-secret-key-for-local-testing'
+        SECRET_KEY = _DEV_SECRET_KEY
     else:
         raise ValueError("SECRET_KEY is missing from .env file!")
 
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if h.strip()]
+
+if not DEBUG:
+    if SECRET_KEY == _DEV_SECRET_KEY:
+        raise ValueError("Production requires a unique SECRET_KEY — do not use the dev fallback.")
+    if '*' in ALLOWED_HOSTS:
+        raise ValueError("ALLOWED_HOSTS must not contain '*' in production.")
 
 
 def _build_csrf_trusted_origins(hosts, debug=False):
@@ -78,6 +85,25 @@ else:
     CSRF_COOKIE_SECURE = False
     SECURE_SSL_REDIRECT = False
 
+# Session hardening (all environments)
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14  # 14 days
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Content-Security-Policy: allow trusted CDNs used in base.html (Tailwind CDN needs unsafe-eval).
+SECURITY_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' https://cdn.tailwindcss.com https://unpkg.com https://cdnjs.cloudflare.com 'unsafe-inline' 'unsafe-eval'; "
+    "style-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline'; "
+    "font-src 'self' https://cdnjs.cloudflare.com data:; "
+    "img-src 'self' data:; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'"
+)
+
 # ==================== DATABASE ====================
 if all([os.getenv('DB_NAME'), os.getenv('DB_USER'), os.getenv('DB_PASSWORD'), os.getenv('DB_HOST')]):
     DATABASES = {
@@ -115,6 +141,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'core.middleware.SecurityHeadersMiddleware',
     'axes.middleware.AxesMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -159,6 +186,14 @@ AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = 1  # hours
 AXES_LOCKOUT_PARAMETERS = [['username', 'ip_address']]
 AXES_RESET_ON_SUCCESS = True
+
+# Rate limiting + security event cache (used by core.ratelimit)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'fusion-security-cache',
+    }
+}
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'America/Chicago'
@@ -207,6 +242,16 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': True,
+        },
+        'fusion.security': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'axes': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
         },
     },
 }

@@ -19,7 +19,8 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.models import User  # for family transfer logic in deletion (safe read)
 from core.forms import CustomUserCreationForm, OrganizationForm, TeamEventForm, TIMEZONE_CHOICES
-from . forms import TeamForm
+from .forms import TeamForm
+from .ratelimit import rate_limit
 from datetime import date, timedelta
 from django.db.models import Q, Count
 from django.db.models.functions import Lower
@@ -38,6 +39,7 @@ import pytz
 
 # Audit logger for privacy-sensitive actions (account deletion)
 deletion_logger = logging.getLogger('fusion.deletion')
+security_logger = logging.getLogger('fusion.security')
 
 
 # Create your views here.
@@ -813,10 +815,11 @@ def edit_event(request, event_id):
     return render(request, 'core/edit_event.html', context)
 
 
-
+@login_required
+@login_required
 def edit_team_event(request, event_id):
     profile = _safe_get_user_profile(request)
-    if profile.role != "owner":
+    if not profile or profile.role != "owner":
         messages.error(request, 'You do not have permission to edit this event.')
         return redirect('dashboard')
 
@@ -1749,16 +1752,24 @@ def login_view(request):
             return redirect('dashboard')
 
         else:
+            security_logger.warning(
+                "Failed login attempt for username=%s ip=%s",
+                username or '(empty)',
+                request.META.get('REMOTE_ADDR', 'unknown'),
+            )
             return _apply_no_cache_headers(render(request, "core/login.html", context={
                 "error": "Invalid credentials, try again."
             }))
 
     # Privacy: show friendly message after successful account deletion
     deleted = request.GET.get('deleted') == '1'
+    logged_out = request.GET.get('logged_out') == '1'
     csrf_error = request.GET.get('csrf') == '1'
     context = {}
     if deleted:
         context['success'] = "Your account and all associated data have been permanently deleted. We're sorry to see you go."
+    if logged_out:
+        context['success'] = "You have been logged out successfully."
     if csrf_error:
         context['csrf_error'] = (
             "Your session expired or the page was cached. Please log in again."
@@ -1771,10 +1782,11 @@ def login_view(request):
 @login_required
 def logout_view(request):
     logout(request)
-    response = redirect('login')
+    response = redirect(f"{reverse('login')}?logged_out=1")
     return _apply_no_cache_headers(response)
 
 
+@rate_limit('signup', limit=10, period=3600)
 def signup_view(request):
     if request.method == "POST":
         form = CustomUserCreationForm(request.POST)
@@ -1806,12 +1818,20 @@ def account_settings(request):
     profile = _safe_get_user_profile(request)
     
     if request.method == "POST":
+        current_password = request.POST.get('current_password', '')
+        if not request.user.check_password(current_password):
+            messages.error(request, "Incorrect password. Profile was not updated.")
+            return redirect(reverse('account_settings') + '?edit=1')
+
         # Update User model fields
         request.user.first_name = (request.POST.get('first_name', request.user.first_name) or '').strip().title()
         request.user.last_name = (request.POST.get('last_name', request.user.last_name) or '').strip().title()
         new_email = (request.POST.get('email', request.user.email) or '').strip()
         if new_email and User.objects.filter(email__iexact=new_email).exclude(id=request.user.id).exists():
-            messages.error(request, "An account with this email address already exists.")
+            messages.error(
+                request,
+                "Unable to use this email address. If you already have an account, try logging in.",
+            )
             return redirect(reverse('account_settings') + '?edit=1')
         request.user.email = new_email
         request.user.save()
@@ -2762,7 +2782,8 @@ def parent_to_team_request(request, team_id):
     # Fallback for non-parents
     return render(request, "core/parent_to_team_request.html", {"team": team})
 
-
+@login_required
+@login_required
 def team_invite_response(request, invite_id):
     # If ?read present, this returns redirect to clean URL (no ?read)
     response = _mark_notification_as_read(request)
@@ -2788,7 +2809,7 @@ def team_invite_response(request, invite_id):
 
     if not family:
         messages.error(request, "No family profile found.")
-        return redirect('home')
+        return redirect('create_first_family')
 
     total_kids = family.kids.count()
 
@@ -3566,6 +3587,7 @@ def _annotate_find_team_cards(parent_user, teams):
 
 
 @login_required
+@rate_limit('find_teams', limit=60, period=3600)
 def find_teams(request):
     profile = _safe_get_user_profile(request)
     if profile.role != 'parent':
@@ -4368,6 +4390,7 @@ def _collect_user_data_for_export(user):
 
 
 @login_required
+@rate_limit('export_data', limit=5, period=3600)
 def export_data(request):
     """
     Allow user to download a JSON export of all data associated with their account.

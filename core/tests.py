@@ -18,10 +18,12 @@ Covers:
 Run with: python manage.py test core
 """
 
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.core import mail
+from django.core.cache import cache
 from datetime import datetime, timedelta, date, time
 from django.db.models import Q
 
@@ -1345,6 +1347,7 @@ class AccountSettingsTests(TestCase):
             "email": "taken@example.com",
             "timezone": "America/Chicago",
             "phone": "",
+            "current_password": "testpass123",
         })
         self.assertEqual(resp.status_code, 302)
         self.user.refresh_from_db()
@@ -1360,6 +1363,7 @@ class AccountSettingsTests(TestCase):
             "email": "mine@example.com",
             "timezone": "America/Chicago",
             "phone": "",
+            "current_password": "testpass123",
         })
         self.assertEqual(resp.status_code, 302)
         self.user.refresh_from_db()
@@ -1648,3 +1652,183 @@ class KidDisplayInitialsTests(TestCase):
             parent=self.parent,
         )
         self.assertEqual(kid.display_initials(), "?")
+
+
+# =============================================================================
+# SECURITY HARDENING TESTS
+# =============================================================================
+
+class SecurityHardeningTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        cache.clear()
+
+    def test_edit_team_event_requires_login(self):
+        owner, _ = create_owner_user("sec_owner")
+        org = create_org("Sec Org", owner)
+        team = create_team("Sec Team", org)
+        te = create_team_event(
+            "Private Game", team, owner,
+            timezone.now() + timedelta(days=1),
+            timezone.now() + timedelta(days=1, hours=2),
+        )
+        resp = self.client.get(reverse("edit_team_event", args=[te.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/login", resp["Location"])
+
+    def test_team_invite_response_requires_login(self):
+        owner, _ = create_owner_user("inv_owner")
+        parent, _ = create_parent_user("inv_parent")
+        org = create_org("Inv Org", owner)
+        team = create_team("Inv Team", org)
+        invite = Invite.objects.create(
+            team=team,
+            sender=owner,
+            receiver=parent,
+            invite_type="team_sent_invite",
+            status="pending",
+        )
+        resp = self.client.get(reverse("team_invite_response", args=[invite.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/login", resp["Location"])
+
+    def test_csrf_required_on_login(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.get(reverse("login"))
+        resp = csrf_client.post(reverse("login"), {
+            "username": "nobody",
+            "password": "wrong",
+        })
+        # csrf_failure redirects to login with ?csrf=1 instead of a bare 403 page
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("csrf=1", resp["Location"])
+
+    @override_settings(AXES_FAILURE_LIMIT=3, AXES_COOLOFF_TIME=1)
+    def test_axes_locks_out_after_repeated_failed_logins(self):
+        User.objects.create_user(username="lockuser", password="correctpass")
+        for _ in range(3):
+            self.client.post(reverse("login"), {
+                "username": "lockuser",
+                "password": "wrongpassword",
+            })
+        resp = self.client.post(reverse("login"), {
+            "username": "lockuser",
+            "password": "wrongpassword",
+        })
+        self.assertIn(resp.status_code, (403, 429))
+
+    def test_account_settings_requires_current_password(self):
+        user, _ = create_parent_user("pw_user")
+        user.email = "before@example.com"
+        user.save()
+        self.client.login(username="pw_user", password="testpass123")
+        resp = self.client.post(reverse("account_settings"), {
+            "first_name": "Pw",
+            "last_name": "User",
+            "email": "after@example.com",
+            "timezone": "America/Chicago",
+            "phone": "",
+            "current_password": "wrongpassword",
+        })
+        self.assertEqual(resp.status_code, 302)
+        user.refresh_from_db()
+        self.assertEqual(user.email, "before@example.com")
+
+    def test_password_change_works(self):
+        user, _ = create_parent_user("changepw")
+        self.client.login(username="changepw", password="testpass123")
+        resp = self.client.post(reverse("change_password"), {
+            "old_password": "testpass123",
+            "new_password1": "newpass456!",
+            "new_password2": "newpass456!",
+        })
+        self.assertEqual(resp.status_code, 302)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password("newpass456!"))
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_password_reset_sends_email(self):
+        user, _ = create_parent_user("resetuser")
+        user.email = "resetuser@example.com"
+        user.save()
+        resp = self.client.post(reverse("password_reset"), {"email": "resetuser@example.com"})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_security_headers_present(self):
+        resp = self.client.get(reverse("login"))
+        self.assertIn("Content-Security-Policy", resp)
+        self.assertIn("Referrer-Policy", resp)
+
+    def test_parent_cannot_edit_other_parents_kid(self):
+        parent1, p1prof = create_parent_user("kid_owner_a")
+        parent2, _ = create_parent_user("kid_owner_b")
+        fam1 = create_family("Fam A", parent1)
+        p1prof.family = fam1
+        p1prof.save()
+        kid = create_kid("Stolen", "Kid", fam1, parent1)
+
+        self.client.login(username="kid_owner_b", password="testpass123")
+        resp = self.client.get(reverse("edit_kid", args=[kid.id]))
+        self.assertNotEqual(resp.status_code, 200)
+
+    def test_parent_cannot_view_other_family_event_detail(self):
+        parent1, p1prof = create_parent_user("ev_owner_a")
+        parent2, _ = create_parent_user("ev_owner_b")
+        fam1 = create_family("Ev Fam A", parent1)
+        p1prof.family = fam1
+        p1prof.save()
+        kid = create_kid("Ev", "Kid", fam1, parent1)
+        ev = create_personal_event(
+            "Secret Event", fam1, parent1, [kid],
+            timezone.now() + timedelta(days=1),
+            timezone.now() + timedelta(days=1, hours=1),
+        )
+
+        self.client.login(username="ev_owner_b", password="testpass123")
+        resp = self.client.get(reverse("event_detail", args=[ev.id]))
+        self.assertNotEqual(resp.status_code, 200)
+
+    def test_owner_cannot_edit_other_owners_team_event(self):
+        owner1, _ = create_owner_user("te_owner_a")
+        owner2, _ = create_owner_user("te_owner_b")
+        org1 = create_org("TE Org A", owner1)
+        org2 = create_org("TE Org B", owner2)
+        team1 = create_team("TE Team A", org1)
+        team2 = create_team("TE Team B", org2)
+        te2 = create_team_event(
+            "Other Event", team2, owner2,
+            timezone.now() + timedelta(days=2),
+            timezone.now() + timedelta(days=2, hours=1),
+        )
+
+        self.client.login(username="te_owner_a", password="testpass123")
+        resp = self.client.get(reverse("edit_team_event", args=[te2.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertNotIn("edit_team_event", resp.get("Location", ""))
+
+    def test_signup_rate_limit_returns_429(self):
+        for i in range(10):
+            self.client.post(reverse("signup"), {
+                "first_name": "Spam",
+                "last_name": f"User{i}",
+                "email": f"spam{i}@example.com",
+                "username": f"spamuser{i}",
+                "password1": "testpass123!",
+                "password2": "testpass123!",
+                "role": "parent",
+                "consent": "on",
+                "timezone": "America/Chicago",
+            })
+        resp = self.client.post(reverse("signup"), {
+            "first_name": "Spam",
+            "last_name": "Eleven",
+            "email": "spam11@example.com",
+            "username": "spamuser11",
+            "password1": "testpass123!",
+            "password2": "testpass123!",
+            "role": "parent",
+            "consent": "on",
+            "timezone": "America/Chicago",
+        })
+        self.assertEqual(resp.status_code, 429)

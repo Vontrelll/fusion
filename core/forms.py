@@ -104,7 +104,10 @@ class CustomUserCreationForm(UserCreationForm):
         if email:
             # Case-insensitive check for existing email
             if User.objects.filter(email__iexact=email).exists():
-                raise forms.ValidationError("An account with this email address already exists.")
+                raise forms.ValidationError(
+                    "Unable to create an account with this email. "
+                    "If you already have an account, try logging in or resetting your password."
+                )
         return email
 
     def save(self, commit=True):

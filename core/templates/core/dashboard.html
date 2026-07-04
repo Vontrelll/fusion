@@ -7,39 +7,82 @@
         <div class="text-sm font-semibold tracking-[2px] text-gray-500 uppercase">Family Hub</div>
     </div>
 
-    <!-- Glanceable metrics — full-width subtle depth panel -->
+    <!-- Glanceable metrics — full-width; mobile compact row, desktop stretched tiles (owner-style) -->
     <div class="metrics-panel-dof relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] py-4 sm:py-5">
-        <div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-4 gap-1 sm:gap-3">
-            <div class="flex flex-col items-center min-w-0 px-0.5">
-                <div class="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
-                    <i class="fa-solid fa-child-reaching text-lg leading-none"></i>
+        <!-- Mobile: unchanged compact 4-up icons -->
+        <div class="md:hidden max-w-xl mx-auto px-4 sm:px-6">
+            <div class="grid grid-cols-4 gap-1 sm:gap-3">
+                <div class="flex flex-col items-center min-w-0 px-0.5">
+                    <div class="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
+                        <i class="fa-solid fa-child-reaching text-lg leading-none"></i>
+                    </div>
+                    <div class="mt-2 h-[2.125rem] w-full flex items-center justify-center text-[10px] sm:text-[11px] text-gray-500 leading-[1.2] text-center">Your<br>Kids</div>
+                    <div class="mt-0.5 text-lg font-semibold tabular-nums text-gray-800 leading-none">{{ num_of_kids|default:0 }}</div>
                 </div>
-                <div class="mt-2 h-[2.125rem] w-full flex items-center justify-center text-[10px] sm:text-[11px] text-gray-500 leading-[1.2] text-center">Your<br>Kids</div>
-                <div class="mt-0.5 text-lg font-semibold tabular-nums text-gray-800 leading-none">{{ num_of_kids|default:0 }}</div>
-            </div>
-            <div class="flex flex-col items-center min-w-0 px-0.5">
-                <div class="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-                    <i class="fa-solid fa-sun text-lg leading-none"></i>
+                <div class="flex flex-col items-center min-w-0 px-0.5">
+                    <div class="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                        <i class="fa-solid fa-sun text-lg leading-none"></i>
+                    </div>
+                    <div class="mt-2 h-[2.125rem] w-full flex items-center justify-center text-[10px] sm:text-[11px] text-gray-500 leading-[1.2] text-center">Today's<br>Events</div>
+                    <div class="mt-0.5 text-lg font-semibold tabular-nums text-gray-800 leading-none">{{ num_of_events|default:0 }}</div>
                 </div>
-                <div class="mt-2 h-[2.125rem] w-full flex items-center justify-center text-[10px] sm:text-[11px] text-gray-500 leading-[1.2] text-center">Today's<br>Events</div>
-                <div class="mt-0.5 text-lg font-semibold tabular-nums text-gray-800 leading-none">{{ num_of_events|default:0 }}</div>
-            </div>
-            <div class="flex flex-col items-center min-w-0 px-0.5">
-                <div class="h-10 w-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
-                    <i class="fa-solid fa-calendar text-lg leading-none"></i>
+                <div class="flex flex-col items-center min-w-0 px-0.5">
+                    <div class="h-10 w-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
+                        <i class="fa-solid fa-calendar text-lg leading-none"></i>
+                    </div>
+                    <div class="mt-2 h-[2.125rem] w-full flex items-center justify-center text-[10px] sm:text-[11px] text-gray-500 leading-[1.2] text-center">This<br>Week</div>
+                    <div class="mt-0.5 text-lg font-semibold tabular-nums text-gray-800 leading-none">{{ upcoming_count|default:0 }}</div>
                 </div>
-                <div class="mt-2 h-[2.125rem] w-full flex items-center justify-center text-[10px] sm:text-[11px] text-gray-500 leading-[1.2] text-center">This<br>Week</div>
-                <div class="mt-0.5 text-lg font-semibold tabular-nums text-gray-800 leading-none">{{ upcoming_count|default:0 }}</div>
-            </div>
-            <div class="flex flex-col items-center min-w-0 px-0.5">
-                <div class="h-10 w-10 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600">
-                    <i class="fa-solid fa-people-group text-lg leading-none"></i>
+                <div class="flex flex-col items-center min-w-0 px-0.5">
+                    <div class="h-10 w-10 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600">
+                        <i class="fa-solid fa-people-group text-lg leading-none"></i>
+                    </div>
+                    <div class="mt-2 h-[2.125rem] w-full flex items-center justify-center text-[10px] sm:text-[11px] text-gray-500 leading-[1.2] text-center">Teams<br>Connected</div>
+                    <div class="mt-0.5 text-lg font-semibold tabular-nums text-gray-800 leading-none">{{ teams_count|default:0 }}</div>
                 </div>
-                <div class="mt-2 h-[2.125rem] w-full flex items-center justify-center text-[10px] sm:text-[11px] text-gray-500 leading-[1.2] text-center">Teams<br>Connected</div>
-                <div class="mt-0.5 text-lg font-semibold tabular-nums text-gray-800 leading-none">{{ teams_count|default:0 }}</div>
             </div>
         </div>
+
+        <!-- Desktop: full-width metric tiles -->
+        <div class="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                <div class="metric-tile-dof flex items-center gap-3 p-3 sm:p-4 rounded-2xl min-w-0">
+                    <div class="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
+                        <i class="fa-solid fa-child-reaching text-lg leading-none"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight truncate">Your Kids</div>
+                        <div class="text-lg sm:text-xl font-semibold tabular-nums text-gray-800 leading-none mt-0.5">{{ num_of_kids|default:0 }}</div>
+                    </div>
+                </div>
+                <div class="metric-tile-dof flex items-center gap-3 p-3 sm:p-4 rounded-2xl min-w-0">
+                    <div class="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                        <i class="fa-solid fa-sun text-lg leading-none"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight truncate">Today's Events</div>
+                        <div class="text-lg sm:text-xl font-semibold tabular-nums text-gray-800 leading-none mt-0.5">{{ num_of_events|default:0 }}</div>
+                    </div>
+                </div>
+                <div class="metric-tile-dof flex items-center gap-3 p-3 sm:p-4 rounded-2xl min-w-0">
+                    <div class="h-10 w-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 flex-shrink-0">
+                        <i class="fa-solid fa-calendar text-lg leading-none"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight truncate">This Week</div>
+                        <div class="text-lg sm:text-xl font-semibold tabular-nums text-gray-800 leading-none mt-0.5">{{ upcoming_count|default:0 }}</div>
+                    </div>
+                </div>
+                <div class="metric-tile-dof flex items-center gap-3 p-3 sm:p-4 rounded-2xl min-w-0">
+                    <div class="h-10 w-10 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 flex-shrink-0">
+                        <i class="fa-solid fa-people-group text-lg leading-none"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-[10px] sm:text-xs text-gray-500 leading-tight truncate">Teams Connected</div>
+                        <div class="text-lg sm:text-xl font-semibold tabular-nums text-gray-800 leading-none mt-0.5">{{ teams_count|default:0 }}</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -476,6 +519,16 @@
     .metrics-panel-dof > * {
         position: relative;
         z-index: 1;
+    }
+    .metric-tile-dof {
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .metric-tile-dof:hover {
+        border-color: rgba(148, 163, 184, 0.28);
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
     }
 
     .story-row {
