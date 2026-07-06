@@ -1,0 +1,11 @@
+{{ title }}
+
+{{ message }}
+
+Open in Fusion:
+{{ action_url }}
+
+You're receiving this because something happened on your Fusion account.
+Manage notifications when logged in at {{ action_url }}
+
+— The Fusion Team

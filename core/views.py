@@ -25,6 +25,7 @@ from core.forms import (
     TIMEZONE_CHOICES,
     normalize_user_email,
 )
+from core.notifications import notify_user, notify_user_get_or_create
 from .forms import TeamForm
 from .ratelimit import rate_limit
 from datetime import date, timedelta
@@ -590,7 +591,7 @@ def add_team_event(request):
                         count += 1
                         # Send notification only for newly created invitations (one per parent)
                         # Use get_or_create to strongly prevent any duplicate notifs for same (user, type, event)
-                        Notification.objects.get_or_create(
+                        notify_user_get_or_create(
                             user=membership.user,
                             notification_type='team_event_invitation',
                             extra_data__team_event_id=team_event.id,
@@ -708,7 +709,7 @@ def select_players_for_training(request, event_id):
                         }
                         if team_event.team_id:
                             extra_data['team_id'] = team_event.team_id
-                        Notification.objects.get_or_create(
+                        notify_user_get_or_create(
                             user=parent,
                             notification_type='team_event_invitation',
                             extra_data__team_event_id=team_event.id,
@@ -906,7 +907,7 @@ def edit_team_event(request, event_id):
         
             title = f"Updated: {team_event.name}"
             message = (f"The organizer updated '{team_event.name}'. Please review the new details and check if it still fits your schedule.")
-            Notification.objects.create(user=user, title=title, message=message, notification_type='team_event_updated', extra_data={'team_event_id': team_event.id,'attendance_id': attendance.id})
+            notify_user(user=user, title=title, message=message, notification_type='team_event_updated', extra_data={'team_event_id': team_event.id,'attendance_id': attendance.id})
             notified_users.add(user.id)
 
         return redirect('event_list')
@@ -1280,7 +1281,7 @@ def remove_team_event_attendance(request, event_id):
             messages.success(request, f"'{event.name}' has been removed from your calendar for: {', '.join(removed_names)}.")
             owner = _get_team_event_owner(event)
             if owner and owner != request.user:
-                Notification.objects.create(
+                notify_user(
                     user=owner,
                     title="Attendance Change",
                     message=f"{', '.join(removed_names)} removed from '{event.name}' by parent.",
@@ -1347,7 +1348,7 @@ def delete_event(request, event_id=None, attendance_id=None, team_event_id=None)
             )
             owner = _get_team_event_owner(team_event)
             if owner and owner != request.user:
-                Notification.objects.create(
+                notify_user(
                     user=owner,
                     title="Attendance Change",
                     message=f"{kid_name} is no longer going to '{event_name}'.",
@@ -1400,7 +1401,7 @@ def delete_event(request, event_id=None, attendance_id=None, team_event_id=None)
                 message = f"The event '{event_name}' for {team_name} ({org_name}) has been canceled by the organizer."
                 if kids_str:
                     message += f" This affects: {kids_str}."
-                Notification.objects.create(
+                notify_user(
                     user=parent,
                     title="Team Event Canceled",
                     message=message,
@@ -2206,7 +2207,7 @@ def remove_kid_from_team(request, team_id, kid_id):
             # Notify owner
             owner = team.organization.owner
             if owner and owner != request.user:
-                Notification.objects.create(
+                notify_user(
                     user=owner,
                     title="Roster Change",
                     message=f"{kid.first_name} {kid.last_name} was removed from {team.name} by the parent.",
@@ -2320,7 +2321,7 @@ def join_family(request):
                 ).exists():
                     title = f"Join Family Request - {request.user}"
                     message = f"{request.user.get_full_name() or request.user.username} would like to join your family"
-                    Notification.objects.create(
+                    notify_user(
                         user=target_user,
                         title=title,
                         message=message,
@@ -2404,7 +2405,7 @@ def accept_family_invite(request, invite_id):
             title = f"Family Invite Accepted - {invite.family.family_name}"
             message = f"{request.user.get_full_name() or request.user.username} accepted your invite to join {invite.family.family_name}."
 
-        Notification.objects.create(
+        notify_user(
             user=invite.sender,
             title=title,
             message=message,
@@ -2488,7 +2489,7 @@ def decline_invite(request, invite_id):
             title = f"Family Invite Declined - {invite.family.family_name}"
             message = f"{request.user.get_full_name() or request.user.username} declined your invite to join {invite.family.family_name}."
 
-        Notification.objects.create(
+        notify_user(
             user=invite.sender,
             title=title,
             message=message,
@@ -2557,7 +2558,7 @@ def invite_parent(request, family_id):
             ).exists():
                 title = f"Parent Invite - {family.created_by}"
                 message = f"{request.user.username} has invited you to join {family.family_name}."
-                Notification.objects.create(
+                notify_user(
                     user=target_user,
                     title=title,
                     message=message,
@@ -2635,7 +2636,7 @@ def team_invite_to_parent(request, team_id, username):
     ).exists():
         title = f"Roster Invite - {team.name}"
         message = f"{team.name} has invited you to join {team.name}."
-        Notification.objects.create(
+        notify_user(
             user=target_user,
             title=title,
             message=message,
@@ -2777,7 +2778,7 @@ def parent_to_team_request(request, team_id):
         ).exists():
             title = f"Roster Request - {team.name}"
             message = f"{request.user.get_full_name() or request.user.username} has requested to join {team.name}."
-            Notification.objects.create(
+            notify_user(
                 user=team.organization.owner,
                 title=title,
                 message=message,
@@ -3518,7 +3519,7 @@ def owner_remove_kid_from_team(request, team_id, kid_id):
             # Notify the parent (data leakage safe: only notify the actual kid.parent)
             parent_user = kid.parent
             if parent_user:
-                Notification.objects.create(
+                notify_user(
                     user=parent_user,
                     title="Removed from Roster",
                     message=f"Your kid {kid.first_name} {kid.last_name} was removed from {team.name} by the team owner.",
@@ -3923,7 +3924,7 @@ def team_event_kid_selection(request, team_event_invitation_id):
             # Notify the owner about new attendances
             owner = team_event.team.organization.owner
             if owner and owner != request.user:
-                Notification.objects.get_or_create(
+                notify_user_get_or_create(
                     user=owner,
                     notification_type='team_event_updated',
                     extra_data__team_event_id=team_event.id,
@@ -4124,7 +4125,7 @@ def replace_with_team_event(request, team_event_invitation_id, kid_id):
     owner = team_event.team.organization.owner
     if owner and owner != request.user:
         kid_full_name = f"{chosen_kid.first_name} {chosen_kid.last_name}".strip()
-        Notification.objects.get_or_create(
+        notify_user_get_or_create(
             user=owner,
             notification_type='team_event_updated',
             extra_data__team_event_id=team_event.id,

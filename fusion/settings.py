@@ -288,6 +288,7 @@ else:
     )
 
 DEFAULT_FROM_EMAIL = (os.getenv('DEFAULT_FROM_EMAIL') or 'onboarding@resend.dev').strip()
+SITE_BASE_URL = (os.getenv('SITE_BASE_URL') or 'https://fusionbeta.com').strip().rstrip('/')
 
 if RESEND_API_KEY:
     ANYMAIL = {

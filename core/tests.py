@@ -1418,6 +1418,74 @@ class AccountSettingsTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
 
 
+class NotificationEmailTests(TestCase):
+    def setUp(self):
+        self.user, _ = create_parent_user("notify_parent")
+        self.user.email = "notify@example.com"
+        self.user.save()
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        SITE_BASE_URL='https://fusionbeta.com',
+    )
+    def test_notify_user_sends_email_with_action_link(self):
+        from core.notifications import notify_user
+
+        notify_user(
+            self.user,
+            title="Team Invite",
+            message="You have been invited to join U10 Hawks.",
+            notification_type='team_invite',
+            extra_data={'invite_id': 42},
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, "Fusion: Team Invite")
+        self.assertIn("notify@example.com", mail.outbox[0].to)
+        self.assertIn("fusionbeta.com", mail.outbox[0].body)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_notify_user_skips_email_when_user_has_no_email(self):
+        from core.notifications import notify_user
+
+        self.user.email = ""
+        self.user.save()
+        notify_user(
+            self.user,
+            title="No Email",
+            message="In-app only.",
+            notification_type='general',
+        )
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(self.user.notifications.count(), 1)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_notify_user_get_or_create_emails_only_once(self):
+        from core.notifications import notify_user_get_or_create
+
+        defaults = {
+            'title': 'Invitation: Practice',
+            'message': 'Please RSVP.',
+            'extra_data': {'team_event_id': 99, 'invitation_id': 1},
+        }
+        notify_user_get_or_create(
+            self.user,
+            notification_type='team_event_invitation',
+            extra_data__team_event_id=99,
+            defaults=defaults,
+        )
+        notify_user_get_or_create(
+            self.user,
+            notification_type='team_event_invitation',
+            extra_data__team_event_id=99,
+            defaults=defaults,
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(
+            self.user.notifications.filter(notification_type='team_event_invitation').count(),
+            1,
+        )
+
+
 class SignupEmailTests(TestCase):
     def test_signup_requires_email(self):
         resp = self.client.post(reverse("signup"), {
