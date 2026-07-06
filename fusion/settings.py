@@ -38,6 +38,13 @@ if PASSWORD_RESET_DOMAIN and PASSWORD_RESET_DOMAIN not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(PASSWORD_RESET_DOMAIN)
 
 if not DEBUG:
+    for _host in (
+        'fusionbeta.com',
+        'www.fusionbeta.com',
+        'resetpassword.fusionbeta.com',
+    ):
+        if _host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_host)
     if SECRET_KEY == _DEV_SECRET_KEY:
         raise ValueError("Production requires a unique SECRET_KEY — do not use the dev fallback.")
     if '*' in ALLOWED_HOSTS:
