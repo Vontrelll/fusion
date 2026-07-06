@@ -2,8 +2,8 @@ asgiref==3.11.1
 certifi==2026.4.22
 cffi==2.0.0
 charset-normalizer==3.4.7
-cryptography==48.0.0
-Django==6.0.4
+cryptography==48.0.1
+Django==6.0.6
 django-axes==8.3.1
 psycopg2-binary==2.9.12
 python-dotenv==1.2.2
@@ -12,5 +12,5 @@ requests==2.34.2
 sqlparse==0.5.5
 gunicorn==23.0.0
 whitenoise==6.7.0
-sentry-sdk==2.0.1
+sentry-sdk==2.8.0
 django-anymail[resend]==15.0

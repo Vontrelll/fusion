@@ -31,7 +31,11 @@ if not SECRET_KEY:
     else:
         raise ValueError("SECRET_KEY is missing from .env file!")
 
+PASSWORD_RESET_DOMAIN = os.getenv('PASSWORD_RESET_DOMAIN', '').strip()
+
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if h.strip()]
+if PASSWORD_RESET_DOMAIN and PASSWORD_RESET_DOMAIN not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(PASSWORD_RESET_DOMAIN)
 
 if not DEBUG:
     if SECRET_KEY == _DEV_SECRET_KEY:
@@ -277,7 +281,6 @@ else:
     )
 
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
-PASSWORD_RESET_DOMAIN = os.getenv('PASSWORD_RESET_DOMAIN', '').strip()
 
 if RESEND_API_KEY:
     ANYMAIL = {

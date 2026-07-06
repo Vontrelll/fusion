@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth import views as auth_views
 from django.utils.decorators import method_decorator
+from django.views.generic.edit import FormView
 
 from .ratelimit import rate_limit
 
@@ -24,7 +25,7 @@ class RateLimitedPasswordResetView(auth_views.PasswordResetView):
                 'domain_override': domain,
             }
             form.save(**opts)
-            return super(auth_views.PasswordResetView, self).form_valid(form)
+            return FormView.form_valid(self, form)
         return super().form_valid(form)
 
 
