@@ -13,3 +13,4 @@ sqlparse==0.5.5
 gunicorn==23.0.0
 whitenoise==6.7.0
 sentry-sdk==2.0.1
+django-anymail[resend]==15.0

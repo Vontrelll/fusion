@@ -45,6 +45,7 @@ def _build_csrf_trusted_origins(hosts, debug=False):
     origins = [
         'https://fusionbeta.com',
         'https://www.fusionbeta.com',
+        'https://resetpassword.fusionbeta.com',
     ]
     for host in hosts:
         if not host or host == '*':
@@ -135,6 +136,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'axes',
+    'anymail',
     'core',
 ]
 
@@ -258,14 +260,29 @@ LOGGING = {
 
 # ==================== EMAIL ====================
 # Configured via environment variables for security (works in Railway + local dev).
-# - In development (no EMAIL_* vars or DEBUG=True): uses console backend (emails printed to terminal, great for testing resets).
-# - In production: set EMAIL_BACKEND=smtp + HOST/USER/PASS etc. via Railway Variables.
+# - With RESEND_API_KEY set: uses Resend via django-anymail (recommended for production).
+# - In development (no RESEND_API_KEY and DEBUG=True): console backend (emails printed to terminal).
+# - Legacy SMTP: set EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend + HOST/USER/PASS.
 # Users enter their *email* on the password reset page (already set up that way in templates).
-EMAIL_BACKEND = os.getenv(
-    'EMAIL_BACKEND',
-    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend'
-)
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@fusionbeta.com')
+RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+
+if os.getenv('EMAIL_BACKEND'):
+    EMAIL_BACKEND = os.getenv('EMAIL_BACKEND')
+elif RESEND_API_KEY:
+    EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
+else:
+    EMAIL_BACKEND = (
+        'django.core.mail.backends.console.EmailBackend' if DEBUG
+        else 'django.core.mail.backends.smtp.EmailBackend'
+    )
+
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
+PASSWORD_RESET_DOMAIN = os.getenv('PASSWORD_RESET_DOMAIN', '').strip()
+
+if RESEND_API_KEY:
+    ANYMAIL = {
+        'RESEND_API_KEY': RESEND_API_KEY,
+    }
 
 if EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend':
     EMAIL_HOST = os.getenv('EMAIL_HOST')
