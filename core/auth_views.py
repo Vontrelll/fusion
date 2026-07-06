@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.contrib.auth import views as auth_views
 from django.utils.decorators import method_decorator
@@ -5,12 +7,22 @@ from django.views.generic.edit import FormView
 
 from .ratelimit import rate_limit
 
+logger = logging.getLogger(__name__)
+
 
 @method_decorator(rate_limit('password_reset', limit=5, period=3600), name='dispatch')
 class RateLimitedPasswordResetView(auth_views.PasswordResetView):
     """Password reset with per-IP rate limiting to reduce abuse."""
 
     def form_valid(self, form):
+        email = form.cleaned_data.get('email', '')
+        matching_users = sum(1 for _ in form.get_users(email))
+        logger.info(
+            'password_reset backend=%s matching_users=%d',
+            settings.EMAIL_BACKEND,
+            matching_users,
+        )
+
         domain = getattr(settings, 'PASSWORD_RESET_DOMAIN', None)
         if domain:
             opts = {
