@@ -268,7 +268,7 @@ LOGGING = {
 # - In development (no RESEND_API_KEY and DEBUG=True): console backend (emails printed to terminal).
 # - Legacy SMTP: set EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend + HOST/USER/PASS.
 # Users enter their *email* on the password reset page (already set up that way in templates).
-RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+RESEND_API_KEY = (os.getenv('RESEND_API_KEY') or '').strip()
 
 if os.getenv('EMAIL_BACKEND'):
     EMAIL_BACKEND = os.getenv('EMAIL_BACKEND')
@@ -280,7 +280,7 @@ else:
         else 'django.core.mail.backends.smtp.EmailBackend'
     )
 
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'onboarding@resend.dev')
+DEFAULT_FROM_EMAIL = (os.getenv('DEFAULT_FROM_EMAIL') or 'onboarding@resend.dev').strip()
 
 if RESEND_API_KEY:
     ANYMAIL = {
