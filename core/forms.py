@@ -1,8 +1,16 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+
 from . models import Team, Organization, Profile
 from django.utils import timezone  # for consent timestamp
+
+
+def normalize_user_email(email):
+    """Strip whitespace and lowercase so password reset lookups stay reliable."""
+    return (email or '').strip().lower()
 
 
 # Shared timezone choices used for both signup (visible + auto-detected) and
@@ -100,14 +108,18 @@ class CustomUserCreationForm(UserCreationForm):
         fields = ['first_name', 'last_name', 'email', 'username', 'password1', 'password2']
 
     def clean_email(self):
-        email = self.cleaned_data.get('email')
-        if email:
-            # Case-insensitive check for existing email
-            if User.objects.filter(email__iexact=email).exists():
-                raise forms.ValidationError(
-                    "Unable to create an account with this email. "
-                    "If you already have an account, try logging in or resetting your password."
-                )
+        email = normalize_user_email(self.cleaned_data.get('email'))
+        if not email:
+            raise forms.ValidationError("Email address is required.")
+        try:
+            validate_email(email)
+        except ValidationError:
+            raise forms.ValidationError("Enter a valid email address.")
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                "Unable to create an account with this email. "
+                "If you already have an account, try logging in or resetting your password."
+            )
         return email
 
     def save(self, commit=True):

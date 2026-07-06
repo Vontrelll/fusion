@@ -18,13 +18,21 @@ from django.contrib import messages
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.models import User  # for family transfer logic in deletion (safe read)
-from core.forms import CustomUserCreationForm, OrganizationForm, TeamEventForm, TIMEZONE_CHOICES
+from core.forms import (
+    CustomUserCreationForm,
+    OrganizationForm,
+    TeamEventForm,
+    TIMEZONE_CHOICES,
+    normalize_user_email,
+)
 from .forms import TeamForm
 from .ratelimit import rate_limit
 from datetime import date, timedelta
 from django.db.models import Q, Count
 from django.db.models.functions import Lower
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
+from django.core.validators import validate_email
 from collections import defaultdict
 
 EVENTS_PER_PAGE = 10
@@ -1826,15 +1834,23 @@ def account_settings(request):
         # Update User model fields
         request.user.first_name = (request.POST.get('first_name', request.user.first_name) or '').strip().title()
         request.user.last_name = (request.POST.get('last_name', request.user.last_name) or '').strip().title()
-        new_email = (request.POST.get('email', request.user.email) or '').strip()
-        if new_email and User.objects.filter(email__iexact=new_email).exclude(id=request.user.id).exists():
+        new_email = normalize_user_email(request.POST.get('email', ''))
+        if not new_email:
+            messages.error(request, "Email address is required.")
+            return redirect(reverse('account_settings') + '?edit=1')
+        try:
+            validate_email(new_email)
+        except ValidationError:
+            messages.error(request, "Enter a valid email address.")
+            return redirect(reverse('account_settings') + '?edit=1')
+        if User.objects.filter(email__iexact=new_email).exclude(id=request.user.id).exists():
             messages.error(
                 request,
                 "Unable to use this email address. If you already have an account, try logging in.",
             )
             return redirect(reverse('account_settings') + '?edit=1')
         request.user.email = new_email
-        request.user.save()
+        request.user.save(update_fields=['first_name', 'last_name', 'email'])
 
         # Update Profile fields
         new_tz = request.POST.get('timezone')

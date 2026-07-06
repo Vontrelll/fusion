@@ -1369,6 +1369,86 @@ class AccountSettingsTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, "mine@example.com")
 
+    def test_account_settings_normalizes_email_whitespace(self):
+        self.client.login(username="settings_user", password="testpass123")
+        resp = self.client.post(reverse("account_settings"), {
+            "first_name": "Settings",
+            "last_name": "User",
+            "email": "  saved@example.com  ",
+            "timezone": "America/Chicago",
+            "phone": "",
+            "current_password": "testpass123",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "saved@example.com")
+
+    def test_account_settings_rejects_empty_email(self):
+        self.user.email = "keep@example.com"
+        self.user.save()
+        self.client.login(username="settings_user", password="testpass123")
+        resp = self.client.post(reverse("account_settings"), {
+            "first_name": "Settings",
+            "last_name": "User",
+            "email": "   ",
+            "timezone": "America/Chicago",
+            "phone": "",
+            "current_password": "testpass123",
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "keep@example.com")
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_saved_account_email_works_for_password_reset(self):
+        self.client.login(username="settings_user", password="testpass123")
+        self.client.post(reverse("account_settings"), {
+            "first_name": "Settings",
+            "last_name": "User",
+            "email": "  reset-ready@example.com ",
+            "timezone": "America/Chicago",
+            "phone": "",
+            "current_password": "testpass123",
+        })
+        self.client.logout()
+        from django.core import mail
+        mail.outbox.clear()
+        resp = self.client.post(reverse("password_reset"), {"email": "reset-ready@example.com"})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+
+
+class SignupEmailTests(TestCase):
+    def test_signup_requires_email(self):
+        resp = self.client.post(reverse("signup"), {
+            "first_name": "No",
+            "last_name": "Email",
+            "username": "noemailuser",
+            "password1": "testpass123!",
+            "password2": "testpass123!",
+            "role": "parent",
+            "consent": "on",
+            "timezone": "America/Chicago",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(User.objects.filter(username="noemailuser").exists())
+
+    def test_signup_saves_normalized_email(self):
+        resp = self.client.post(reverse("signup"), {
+            "first_name": "Email",
+            "last_name": "User",
+            "email": "  NewSignup@Example.com  ",
+            "username": "emailsignupuser",
+            "password1": "testpass123!",
+            "password2": "testpass123!",
+            "role": "parent",
+            "consent": "on",
+            "timezone": "America/Chicago",
+        })
+        self.assertEqual(resp.status_code, 302)
+        user = User.objects.get(username="emailsignupuser")
+        self.assertEqual(user.email, "newsignup@example.com")
+
 
 class OrganizationEditTests(TestCase):
     def setUp(self):
