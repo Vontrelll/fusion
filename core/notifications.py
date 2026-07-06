@@ -94,10 +94,11 @@ def send_notification_email(user, notification):
     html_body = render_to_string('core/notification_email.html', context)
 
     try:
+        from_email = settings.NOTIFICATION_FROM_EMAIL or settings.DEFAULT_FROM_EMAIL
         send_mail(
             subject=subject,
             message=text_body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
+            from_email=from_email,
             recipient_list=[email],
             html_message=html_body,
             fail_silently=False,

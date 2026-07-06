@@ -1728,13 +1728,29 @@ def csrf_failure(request, reason=""):
 
 @never_cache
 @ensure_csrf_cookie
+def _safe_login_redirect(request, user):
+    """After login, honor ?next= from notification/email links when safe."""
+    from django.conf import settings as django_settings
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts=django_settings.ALLOWED_HOSTS,
+        require_https=not django_settings.DEBUG,
+    ):
+        return redirect(next_url)
+
+    profile = _safe_get_user_profile(request)
+    if profile and profile.role == 'owner':
+        return redirect('owner_dashboard')
+    return redirect('dashboard')
+
+
 def login_view(request):
     # If already logged in, don't show login form (prevents back-button issues after login)
     if request.user.is_authenticated:
-        profile = _safe_get_user_profile(request)
-        if profile and profile.role == 'owner':
-            return redirect('owner_dashboard')
-        return redirect('dashboard')
+        return _safe_login_redirect(request, request.user)
 
     if request.method == "POST":
         username = (request.POST.get("username") or "").strip()
@@ -1754,11 +1770,7 @@ def login_view(request):
             # Rotate the CSRF token after login to invalidate any old tokens from cached forms
             from django.middleware.csrf import rotate_token
             rotate_token(request)
-            # Use role-aware redirect
-            profile = _safe_get_user_profile(request)
-            if profile and profile.role == 'owner':
-                return redirect('owner_dashboard')
-            return redirect('dashboard')
+            return _safe_login_redirect(request, user)
 
         else:
             security_logger.warning(
@@ -1767,7 +1779,8 @@ def login_view(request):
                 request.META.get('REMOTE_ADDR', 'unknown'),
             )
             return _apply_no_cache_headers(render(request, "core/login.html", context={
-                "error": "Invalid credentials, try again."
+                "error": "Invalid credentials, try again.",
+                "next": request.POST.get('next') or request.GET.get('next', ''),
             }))
 
     # Privacy: show friendly message after successful account deletion
@@ -1784,6 +1797,7 @@ def login_view(request):
             "Your session expired or the page was cached. Please log in again."
         )
 
+    context['next'] = request.GET.get('next', '')
     return _apply_no_cache_headers(render(request, "core/login.html", context))
 
 

@@ -1458,6 +1458,22 @@ class NotificationEmailTests(TestCase):
         self.assertEqual(len(mail.outbox), 0)
         self.assertEqual(self.user.notifications.count(), 1)
 
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        DEFAULT_FROM_EMAIL='noreply@resetpassword.fusionbeta.com',
+        NOTIFICATION_FROM_EMAIL='notifications@resetpassword.fusionbeta.com',
+    )
+    def test_notification_email_uses_separate_from_address(self):
+        from core.notifications import notify_user
+
+        notify_user(
+            self.user,
+            title="Separate Sender",
+            message="Testing from address.",
+            notification_type='general',
+        )
+        self.assertEqual(mail.outbox[0].from_email, 'notifications@resetpassword.fusionbeta.com')
+
     @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
     def test_notify_user_get_or_create_emails_only_once(self):
         from core.notifications import notify_user_get_or_create
@@ -1810,6 +1826,16 @@ class SecurityHardeningTests(TestCase):
     def setUp(self):
         self.client = Client()
         cache.clear()
+
+    def test_login_honors_next_redirect_from_email_link(self):
+        user, _ = create_parent_user("next_login_user")
+        next_url = "/notifications/?read=99"
+        resp = self.client.post(reverse("login"), {
+            "username": "next_login_user",
+            "password": "testpass123",
+            "next": next_url,
+        })
+        self.assertRedirects(resp, next_url, fetch_redirect_response=False)
 
     def test_edit_team_event_requires_login(self):
         owner, _ = create_owner_user("sec_owner")
